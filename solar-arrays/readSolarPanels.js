@@ -10,14 +10,38 @@
 const puppeteer = require('puppeteer')
 require('dotenv').config()
 
+const TIMEOUT_BUFFER = 2000 
+const PAGE_LOAD_TIMEOUT = 30000
+const CLICK_OPTIONS = {clickCount: 10, delay: 100}
+
+
+// Define constant enum
+const RETURN_ENUM = {
+    "SUCCESS": 0,
+    "LoginCache": 1,
+    "AlreadyUsed": 2,
+    "KeyboardTypeFail": 3,
+    "DeviceItemsNotFound": 4,
+    "InsufficientTableItems": 5,
+
+}
+Object.freeze(RETURN_ENUM)
+
+
+let browser = null
+
+
 
 async function readSolarPanels() {
 
     console.log('Accessing solar panel web-page...')
 
     // Initialize web browser
-    const browser = await puppeteer.launch({headless: false})
+    browser = await puppeteer.launch({headless: true})
     const page = await browser.newPage()
+
+    page.setDefaultTimeout(PAGE_LOAD_TIMEOUT)
+
     await page.goto(process.env.SOLAR_ARRAY)
 
     console.log('Accessing main iframe...')
@@ -30,124 +54,73 @@ async function readSolarPanels() {
     console.log('Accessing login iframe...')
 
     const LOGIN_IFRAME_SELECTOR = `[name="home"]`
-    mainIframeDOM.waitForSelector(LOGIN_IFRAME_SELECTOR)
+    await mainIframeDOM.waitForSelector(LOGIN_IFRAME_SELECTOR)
     const loginIframe = await mainIframeDOM.$(LOGIN_IFRAME_SELECTOR)
     const loginIframeDOM = await loginIframe.contentFrame()
 
+    // Enter password
+    const PASSWORD_SELECTOR = `[name="Password"]`
+    await loginIframeDOM.waitForSelector(PASSWORD_SELECTOR)
+    await loginIframeDOM.type(PASSWORD_SELECTOR, process.env.SOLAR_ARRAY_PWD)
 
-    console.log('Logging in...')
+    // Hit login button
+    const LOGIN_BUTTON_SELECTOR = `[name="ButtonLogin"]`
+    await loginIframeDOM.waitForSelector(LOGIN_BUTTON_SELECTOR)
+    const loginButton = await loginIframeDOM.$(LOGIN_BUTTON_SELECTOR)
+    const buttonValue =  await (await loginButton.getProperty('value')).jsonValue()
 
-    const LOGIN_SELECTOR = `[name="Password"]`
-    await loginIframeDOM.waitForSelector(LOGIN_SELECTOR)
-    await loginIframeDOM.type(LOGIN_SELECTOR, process.env.SOLAR_ARRAY_PWD)
-    await page.keyboard.down('Tab')
-    await page.keyboard.down('Enter')
+    // we still click the button even if the value is wrong
+    await loginButton.click(CLICK_OPTIONS)
+    //await loginIframeDOM.waitForTimeout(TIMEOUT_BUFFER)
 
-    // Now check if login worked (may be in use by another user)
-    const Message = await loginIframeDOM.content()
-    if (Message.includes('already in use')){
-        await browser.close()
-        return {code: 1, msg: 'Someone is already using the Solar Array Web Interface'}
-    } 
-    /*
-    else if (Message.includes('Login')){
-        await browser.close()
-        return {code: 2, msg: 'Failed to login due to inconsistent page.keyboard behavior'}
+
+    if (buttonValue.toLowerCase() === 'logout'){
+        return RETURN_ENUM['LoginCache']
     }
-    */
-    
-    // Now let's read all the solar panels!
-    console.log('Accessing device info iframe...')
 
-    const DEVICE_IFRAME_SELECTOR = `[name=plant_devices_devfs]`
-    await mainIframeDOM.waitForSelector(DEVICE_IFRAME_SELECTOR)
-        .catch(err => {
-            return {code: 3, msg: 'Weird glitch where login fails due to Chromium keyboard.type() function being unreliable'}
-        })
-    const deviceIframe = await mainIframeDOM.$(DEVICE_IFRAME_SELECTOR)
-    const deviceIframeDOM = await deviceIframe.contentFrame()
+    await page.waitForTimeout(PAGE_LOAD_TIMEOUT)
 
-    console.log('Accessing device list iframe...')
-    
-    const DEVICE_MENU_IFRAME_SELECTOR = `[name="treeframe"]`
-    await deviceIframeDOM.waitForSelector(DEVICE_MENU_IFRAME_SELECTOR)
-    const deviceMenuIframe = await deviceIframeDOM.$(DEVICE_MENU_IFRAME_SELECTOR)
-    const deviceMenuIframeDOM = await deviceMenuIframe.contentFrame()
+    console.log('logged in!')
 
-    console.log('Querying for device list...')
+    // Now that we have logged in, Sunny Web Box will let us GET 
+    // the HTML table which has the data!
 
-    const DEVICE_LIST_SELECTOR = `td[width="100%"] a[target='devfrm']`
-    await deviceMenuIframeDOM.waitForSelector(DEVICE_LIST_SELECTOR)
-    const deviceList = await deviceMenuIframeDOM.$$(DEVICE_LIST_SELECTOR)
-    
-    // check if we could find the elements
-    if (deviceList.length <= 1){
-        await browser.close()
-        return {code: 3, msg: 'Could not find the device items, have they changed the Sunny Web Box layout?'}
+    const DEVICES = {
+        'WR5KU020:2007328816':`${process.env.SOLAR_ARRAY}plant_current.htm?DevKey=WR5KU020:2007328816`,
+        'WRHV3C84:191203847':`${process.env.SOLAR_ARRAY}plant_devices_devfrm.htm?DevKey=WRHV3C84:191203847`,
+        'WRHV3C84:191204384':`${process.env.SOLAR_ARRAY}plant_devices_devfrm.htm?DevKey=WRHV3C84:191204384`,
+        'WRHV3C84:191204518':`${process.env.SOLAR_ARRAY}plant_devices_devfrm.htm?DevKey=WRHV3C84:191204518`,
     }
-    
-    // Remove first 'home'-icon element (doesn't reference a device)
-    deviceList.shift()
-
-    console.log('Collecting solar panel readings...')
-
-    // For each device element let's read their content
     const READINGS = {}
+
+    console.log('Starting data collection...')
+    // index for progress
     let index = 1
-    for ( let device of deviceList ){
+    for (let [id, url] of Object.entries(DEVICES)){
+        console.log(`Reading ${id}'s meter data ${index}/${Object.keys(DEVICES).length} at ${url}`)
 
+        const newTab = await browser.newPage()
 
-        // First, get device name
-        const deviceName = await (await device.getProperty('textContent')).jsonValue()
-
-        // Let's move to this device's page (iframe)!
-        await device.click()
-
-        console.log(`Accessing ${deviceName}'s iframe... ${index}/${deviceList.length} `)
-
-        const DEVICE_INFO_SELECTOR = `[name="devfrm"]`
-        await deviceIframeDOM.waitForSelector(DEVICE_INFO_SELECTOR)
-        const deviceInfoIframe = await deviceIframeDOM.$(DEVICE_INFO_SELECTOR)
-        const deviceInfoIframeDOM = await deviceInfoIframe.contentFrame()
-
-
-        // Move to "Spot Parameters tab"
-        console.log('Moving to the "Spot Values" tab...')
-
-        const DEVICE_DATA_TABS_SELECTOR = `/html/body/form/div[1]/ul/li[2]/a/span`
-        
-
-        // TOOD: fix this xpath logic
-        await deviceInfoIframeDOM.waitForXPath(DEVICE_DATA_TABS_SELECTOR)
-        const deviceDataTabs = await deviceInfoIframeDOM.$x(DEVICE_DATA_TABS_SELECTOR)
-
-        const SpotValuesTabElem = deviceDataTabs[0]
-        await SpotValuesTabElem.click()
-
-        console.log('Reading datatable...')
+        await newTab.goto(url)
+        console.log('Page loaded!')
 
         const DATATABLE_SELECTOR = `table.standard-table tbody tr`
-        await deviceInfoIframeDOM.waitForTimeout(10000)
-        await deviceInfoIframeDOM.waitForSelector(DATATABLE_SELECTOR)
-        const TableElements = await deviceInfoIframeDOM.$$(DATATABLE_SELECTOR)
+        await newTab.waitForSelector(DATATABLE_SELECTOR)
+        console.log('Datatable loaded!')
 
-        // go through children & parse data
+        const TableElements = await newTab.$$(DATATABLE_SELECTOR)
         const meterReadings = []
+
+        console.log('Adding items...')
 
         for (let tableRow of TableElements){
             
-            const TABLE_ITEMS_SELECTOR = `td`
-            const tableItems = await tableRow.$$(TABLE_ITEMS_SELECTOR)
-    
-
+            const tableItems = await tableRow.$$(`td`)
             if (tableItems.length !== 4){
-                await browser.close()
-                return {code: 6, msg: `Error: Insufficient table items (got ${tableItems.length}, wanted 4) ... has Sunny Web Box changed its layout?`}
+                return RETURN_ENUM["InsufficientTableItems"]
             }
 
             const reading = {}
-            
-            // Name
             reading.name = await (await tableItems[1].getProperty('textContent')).jsonValue()
             reading.value = await (await tableItems[2].getProperty('textContent')).jsonValue()
             reading.unit = await (await tableItems[3].getProperty('textContent')).jsonValue()
@@ -155,29 +128,50 @@ async function readSolarPanels() {
             meterReadings.push(reading)
         }
 
-        // Add meterReadings to data object
-        READINGS[deviceName] = meterReadings
-
-        // Increment index for progress fraction
+        READINGS[id] = meterReadings
         index++
     }
 
     await browser.close()
+    
+    console.dir(READINGS)
 
-    return {code: 0, msg:'success'}
+
+    return RETURN_ENUM["SUCCESS"]
 }
+
 
 const result = readSolarPanels()
     .then(response => {
-        console.log(response)
-        if (response.code){
-            console.log(`${response.code}: ${response.msg}`)
-        } else {
-            throw new Error(`unexpected return... ${response}`)
+
+        // Handle RETURN_ENUM
+        switch (response){
+            case RETURN_ENUM['SUCCESS']:
+                console.log("Scraper exited successfully")
+                break
+            case RETURN_ENUM['LoginCache']:
+            case RETURN_ENUM['AlreadyUsed']:
+            case RETURN_ENUM['KeyboardTypeFail']:
+                console.log('Runtime error, will try to run program one more time.')
+                console.log(Object.keys(RETURN_ENUM).find(key => RETURN_ENUM[key] === response))
+                browser.close().catch(err => {})
+                const rerun = readSolarPanels()
+                    .then(resp => {})
+                    .catch(err => {})
+                break
+            case RETURN_ENUM['DeviceItemsNotFound']:
+            case RETURN_ENUM['InsufficientTableItems']:
+                console.log('Unexpected critical failure, has SunnyWebBox changed its layout?')
+            default:
+                // close browser
+                browser.close().catch(err => {})
         }
+
+
     })
     .catch(err => {
         console.log(`unforeseen errror
             ${err}
         `)
+        browser.close().catch(err => {})
     })
