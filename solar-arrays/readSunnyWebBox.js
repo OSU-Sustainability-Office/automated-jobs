@@ -1,5 +1,5 @@
 /**
-    Filename: readSolarPanel.js
+    Filename: readSunnyWebBox.js
     Description: automatically reads the solar panels data in the Sunny Web Box
                 The "Sunny Web Box" web portal uses some
                 weird iframe-based layout to dynamically
@@ -13,6 +13,7 @@ require('dotenv').config()
 const TIMEOUT_BUFFER = 2000 
 const PAGE_LOAD_TIMEOUT = 30000
 const CLICK_OPTIONS = {clickCount: 10, delay: 100}
+const MAX_TRIES = 5
 
 
 // Define constant enum
@@ -23,16 +24,16 @@ const RETURN_ENUM = {
     "KeyboardTypeFail": 3,
     "DeviceItemsNotFound": 4,
     "InsufficientTableItems": 5,
-
+    "HardFail": 6,
 }
 Object.freeze(RETURN_ENUM)
 
 
 let browser = null
+let READINGS = {}
 
 
-
-async function readSolarPanels() {
+async function scrapeWebBox() {
 
     console.log('Accessing solar panel web-page...')
 
@@ -91,7 +92,7 @@ async function readSolarPanels() {
         'WRHV3C84:191204384':`${process.env.SOLAR_ARRAY}plant_devices_devfrm.htm?DevKey=WRHV3C84:191204384`,
         'WRHV3C84:191204518':`${process.env.SOLAR_ARRAY}plant_devices_devfrm.htm?DevKey=WRHV3C84:191204518`,
     }
-    const READINGS = {}
+    READINGS = {}
 
     console.log('Starting data collection...')
     // index for progress
@@ -134,17 +135,39 @@ async function readSolarPanels() {
 
     await browser.close()
     
-    console.dir(READINGS)
-
 
     return RETURN_ENUM["SUCCESS"]
 }
 
 
-const result = readSolarPanels()
-    .then(response => {
+module.exports = async function readSunnyWebBox(){
 
-        // Handle RETURN_ENUM
+    // clear out readings
+    READINGS = {}
+
+    // keep track of how many times we try to
+    // read the data (to prevent infinite loop)
+    tries = 0
+
+    while (Object.keys(READINGS).length === 0){
+
+        if (tries > MAX_TRIES){
+            return {'fail': true}
+        }
+
+        tries++
+
+        let response = await scrapeWebBox()
+            .catch(err => {
+                console.log(`unforeseen errror
+                    ${err}
+                 `)
+                response = RETURN_ENUM['HardFail']
+            })
+        
+        // close browser
+        browser.close().catch(err => {})
+
         switch (response){
             case RETURN_ENUM['SUCCESS']:
                 console.log("Scraper exited successfully")
@@ -153,25 +176,16 @@ const result = readSolarPanels()
             case RETURN_ENUM['AlreadyUsed']:
             case RETURN_ENUM['KeyboardTypeFail']:
                 console.log('Runtime error, will try to run program one more time.')
-                console.log(Object.keys(RETURN_ENUM).find(key => RETURN_ENUM[key] === response))
-                browser.close().catch(err => {})
-                const rerun = readSolarPanels()
-                    .then(resp => {})
-                    .catch(err => {})
+                READINGS = {}
                 break
             case RETURN_ENUM['DeviceItemsNotFound']:
             case RETURN_ENUM['InsufficientTableItems']:
                 console.log('Unexpected critical failure, has SunnyWebBox changed its layout?')
-            default:
-                // close browser
-                browser.close().catch(err => {})
+                READINGS = {'fail': true}
+                break
         }
+    }
 
+    return READINGS
+}
 
-    })
-    .catch(err => {
-        console.log(`unforeseen errror
-            ${err}
-        `)
-        browser.close().catch(err => {})
-    })

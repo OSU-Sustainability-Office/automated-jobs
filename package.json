@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "solar": "node solar-arrays/readSolarPanels.js"
+    "getData": "node collectData.js"
   },
   "repository": {
     "type": "git",
