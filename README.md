@@ -7,3 +7,5 @@ This repository contains various node scripts intended to be executed through th
  - Scrapes solar panel data from Sunny Web Box interface
  - Upload solar panel data from Sunny Web Box interface (TODO)
 
+## Important References for development
+ - [Docker guide for Node](https://docs.docker.com/language/nodejs/)
