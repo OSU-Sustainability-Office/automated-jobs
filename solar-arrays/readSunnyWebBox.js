@@ -1,5 +1,5 @@
 /**
-    Filename: readSolarPanel.js
+    Filename: readSunnyWebBox.js
     Description: automatically reads the solar panels data in the Sunny Web Box
                 The "Sunny Web Box" web portal uses some
                 weird iframe-based layout to dynamically

@@ -5,4 +5,4 @@ WORKDIR /app
 COPY ["package.json", "package-lock.json*", "./"]
 RUN npm install --production
 COPY . .
-CMD [ "node", "./solar-arrays/readSolarPanels.js"]
+CMD [ "node", "./solar-arrays/*.js"]
