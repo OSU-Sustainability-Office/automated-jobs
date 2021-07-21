@@ -1,4 +1,11 @@
-# automated-jobs
-This repository contains various scheduled jobs which are too complex or expensive to run on Lambda.
+# automated-jobs:
 
-The goal is to eventually get these scripts to be automatically run on some container service.
+This repository contains various node scripts intended to be executed through the docker image specified in the `Dockerfile`.
+
+
+## Current Jobs:
+ - Scrapes solar panel data from Sunny Web Box interface
+ - Upload solar panel data from Sunny Web Box interface (TODO)
+
+## Important References for development
+ - [Docker guide for Node](https://docs.docker.com/language/nodejs/)
