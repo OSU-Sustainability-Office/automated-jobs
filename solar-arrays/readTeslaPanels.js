@@ -5,16 +5,32 @@
 const puppeteer = require('puppeteer')
 require('dotenv').config()
 
-const TIMEOUT_BUFFER = 10000 
+const TIMEOUT_BUFFER = 25000 
 const PAGE_LOAD_TIMEOUT = 30000
 const CLICK_OPTIONS = {clickCount: 10, delay: 100}
 
 let browser = null
 
+function csvToJsonArray(csv){
+  let lines = csv.split('\n')
+  let headers = lines[0].split(',').map(header => header.replace(/"|\r/g, ''))
+  let readingsText = lines.slice(1)
+  const json = []
+  for (let line of readingsText){
+    const readings = line.split(',')
+    const jsonReading = {}
+    for (let index = 0; index < headers.length; index++){
+      jsonReading[headers[index]] = readings[index]
+    }
+    json.push(jsonReading)
+  }
+  return json
+}
+
 async function readTeslaPanels() {
   console.log('Accessing Tesla Web Page...')
   
-  browser = await puppeteer.launch({headless: false})
+  browser = await puppeteer.launch({headless: true})
 
   const page = await browser.newPage()
   page.setDefaultTimeout(TIMEOUT_BUFFER)
@@ -35,6 +51,8 @@ async function readTeslaPanels() {
   const LOGIN_BUTTON = await page.$(LOGIN_BUTTON_SELECTOR)
   await LOGIN_BUTTON.click(CLICK_OPTIONS)
 
+  console.log("Waiting for cookies to load...")
+
   // Wait to for success response from solar city 
   await page.waitForResponse(
     (res) => 
@@ -46,12 +64,6 @@ async function readTeslaPanels() {
     waitUntil: 'domcontentloaded'
   })
 
-  // Get all the browser cookies & format them appropriately
-  const cookies = await page.cookies() //(await page.cookies()).map( ({name, value}) => `${name}=${value}` ).join(';') + ';'
-
-  // console.log(cookies)
-
-
   // Read CSV data from Solar City API
 
   const DEVICES = {
@@ -62,7 +74,9 @@ async function readTeslaPanels() {
     'Aquatic Animal Health Lab Solar Array': 'BB1ABBE8-1FB9-4C17-BB0A-A1DE9339DB1C'
   }
 
-  const DATE = (new Date(Date.now())).toISOString().split('T')[0]
+  // Create today's date
+  const dateObj = new Date()
+  const DATE = `${dateObj.getFullYear()}-${dateObj.getMonth()+1}-${dateObj.getDate()}`
   const START_TIME = `${DATE}T00:00:00`
   const END_TIME   = `${DATE}T23:59:59`
 
@@ -72,28 +86,15 @@ async function readTeslaPanels() {
     console.log(`Reading ${name}'s meter data...`)
     const URL = `${process.env.TESLA_API}${meter_id}/summary?StartTime=${START_TIME}&EndTime=${END_TIME}&Period=QuarterHour`
 
-    console.log(URL)
-
-    const newTab = await browser.newPage()
-
-    await newTab.setCookie(...cookies)
-
-    const csvText = await newTab.evaluate( ({url, cookies}) => {
+    const csvText = await page.evaluate( (url) => {
       return fetch(url, {
         method: 'GET',
         credentials: 'include'
-        /*
-        headers: {
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Cookie': cookies,
-          'Referer': 'https://mysolarcity.com/',
-          'Connection': 'keep-alive'
-        }
-        */
       }).then(r => r.blob()).then(blob => blob.text())
-    }, {url: URL, cookies})
+    }, URL)
+  
+    READINGS[meter_id] = csvToJsonArray(csvText)
 
-    console.log(csvText)
   }
 
   await browser.close()

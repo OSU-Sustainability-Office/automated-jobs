@@ -28,7 +28,6 @@ async function Jobs(){
     // Read Tesla Panels
     console.log("Reading Tesla Solar City interface...")
     const TeslaPanelsReadings = await TeslaPanels()
-    console.log(TeslaPanelsReadings)
 
     // add any other future cron job below
 }
