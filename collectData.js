@@ -7,10 +7,11 @@
 require('dotenv').config()
 
 const SunnyWebBox = require('./solar-arrays/readSunnyWebBox')
-
+const TeslaPanels = require('./solar-arrays/readTeslaPanels')
 
 async function Jobs(){
     // Read Sunny Web Box
+    /*
     console.log("Reading Sunny Web Box...")
     const SunnyWebBoxReadings = await SunnyWebBox()
 
@@ -22,7 +23,12 @@ async function Jobs(){
     } else {
         // Handle failure
     }
+    */
 
+    // Read Tesla Panels
+    console.log("Reading Tesla Solar City interface...")
+    const TeslaPanelsReadings = await TeslaPanels()
+    console.log(TeslaPanelsReadings)
 
     // add any other future cron job below
 }

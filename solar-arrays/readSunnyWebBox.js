@@ -10,7 +10,7 @@
 const puppeteer = require('puppeteer')
 require('dotenv').config()
 
-const TIMEOUT_BUFFER = 2000 
+const TIMEOUT_BUFFER = 5000 
 const PAGE_LOAD_TIMEOUT = 30000
 const CLICK_OPTIONS = {clickCount: 10, delay: 100}
 const MAX_TRIES = 5
