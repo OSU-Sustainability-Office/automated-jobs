@@ -4,8 +4,7 @@
   "description": "Automated scripts for the sustainability office",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "getData": "node collectData.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",

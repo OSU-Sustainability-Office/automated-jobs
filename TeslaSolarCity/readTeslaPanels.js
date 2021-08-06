@@ -30,7 +30,11 @@ function csvToJsonArray(csv){
 async function readTeslaPanels() {
   console.log('Accessing Tesla Web Page...')
   
-  browser = await puppeteer.launch({headless: true})
+  browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox'],
+    executablePath: 'google-chrome-stable'
+  })
 
   const page = await browser.newPage()
   page.setDefaultTimeout(TIMEOUT_BUFFER)
