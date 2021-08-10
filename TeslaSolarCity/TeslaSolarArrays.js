@@ -8,6 +8,7 @@ require('dotenv').config()
 
 const TeslaPanels = require('./readTeslaPanels')
 const fs = require('fs')
+const axios = require('axios')
 
 async function Job(){
     // Read Tesla Panels
@@ -31,13 +32,29 @@ async function Job(){
         TeslaPanelsReadings[meter_id] = FormattedReadings
     })
 
-    console.log(TeslaPanelsReadings)
-    // TODO: Upload to API
+    await UploadEnergyDashboard(TeslaPanelsReadings)
 
 }
 
-async function UploadEnergyDashboard() {
-    
+async function UploadEnergyDashboard(MeterData) {
+    for (let meter_id of Object.keys(MeterData)){
+        console.log(`uploaded ${meter_id} data to API`)
+        if (MeterData[meter_id].length > 0){
+            await axios.post({
+                url: `${process.env.DASHBOARD_API}/upload`,
+                headers:{
+                    'SO-METERTYPE':'solar'
+                },
+                data: {
+                    id: meter_id,
+                    body: MeterData[meter_id],
+                    pwd: process.env.API_PWD
+                }
+            }).catch(err => {
+                console.log(err)
+            })
+        }
+    }
 }
 
 
