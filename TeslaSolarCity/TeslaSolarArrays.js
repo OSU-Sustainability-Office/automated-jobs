@@ -40,7 +40,8 @@ async function UploadEnergyDashboard(MeterData) {
     for (let meter_id of Object.keys(MeterData)){
         console.log(`uploaded ${meter_id} data to API`)
         if (MeterData[meter_id].length > 0){
-            await axios.post({
+            await axios({
+                method: 'post',
                 url: `${process.env.DASHBOARD_API}/upload`,
                 headers:{
                     'SO-METERTYPE':'solar'
