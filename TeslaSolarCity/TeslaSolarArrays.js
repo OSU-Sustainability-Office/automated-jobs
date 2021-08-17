@@ -43,13 +43,11 @@ async function UploadEnergyDashboard(MeterData) {
             await axios({
                 method: 'post',
                 url: `${process.env.DASHBOARD_API}/upload`,
-                headers:{
-                    'SO-METERTYPE':'solar'
-                },
                 data: {
-                    id: meter_id,
+                    id: 'M' + meter_id.replace(/-/g, 'M'),
                     body: MeterData[meter_id],
-                    pwd: process.env.API_PWD
+                    pwd: process.env.API_PWD,
+                    type: 'solar'
                 }
             }).catch(err => {
                 console.log(err)
