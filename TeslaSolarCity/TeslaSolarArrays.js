@@ -38,7 +38,6 @@ async function Job(){
 
 async function UploadEnergyDashboard(MeterData) {
     for (let meter_id of Object.keys(MeterData)){
-        console.log(`uploaded ${meter_id} data to API`)
         if (MeterData[meter_id].length > 0){
             await axios({
                 method: 'post',
@@ -46,9 +45,12 @@ async function UploadEnergyDashboard(MeterData) {
                 data: {
                     id: 'M' + meter_id.replace(/-/g, 'M'),
                     body: MeterData[meter_id],
-                    pwd: process.env.API_PWD,
+                    pwd: process.env.API_PWD
                     type: 'solar'
                 }
+            }).then(res => {
+                console.log(`uploaded ${meter_id} data to API`)
+                console.log(res)
             }).catch(err => {
                 console.log(err)
             })
