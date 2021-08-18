@@ -45,12 +45,13 @@ async function UploadEnergyDashboard(MeterData) {
                 data: {
                     id: 'M' + meter_id.replace(/-/g, 'M'),
                     body: MeterData[meter_id],
-                    pwd: process.env.API_PWD
+                    pwd: process.env.API_PWD,
                     type: 'solar'
                 }
             }).then(res => {
+                console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`)
                 console.log(`uploaded ${meter_id} data to API`)
-                console.log(res)
+                
             }).catch(err => {
                 console.log(err)
             })
