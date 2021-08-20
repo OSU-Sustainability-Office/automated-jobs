@@ -8,7 +8,7 @@ whatever AWS calls them).
 
 
 ## Current Job Status:
- - **TeslaSolarCity** (Not Deployed): Script working, just needs to be deployed on ECS.
+ - **TeslaSolarCity** Deployed: Uploaded to ECR & running daily on ECS.
  - **SunnyWebBox** (Not Deployed): Can't access web-box without VPN access.
 
 ## Important References for development
