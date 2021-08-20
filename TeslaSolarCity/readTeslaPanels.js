@@ -78,9 +78,10 @@ async function readTeslaPanels() {
     'Aquatic Animal Health Lab Solar Array': 'BB1ABBE8-1FB9-4C17-BB0A-A1DE9339DB1C'
   }
 
-  // Create today's date
+  // Create yesterday's date
   const dateObj = new Date()
-  const DATE = `${dateObj.getFullYear()}-${dateObj.getMonth()+1}-${dateObj.getDate()}`
+  const localeTime = dateObj.toLocaleString("en-US", {timeZone: 'America/Los_Angeles'}).match(/\d+/g)
+  const DATE = localeTime[2] + '-' + localeTime[0] + '-' + (Number(localeTime[1])-1)
   const START_TIME = `${DATE}T00:00:00`
   const END_TIME   = `${DATE}T23:59:59`
 

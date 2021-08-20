@@ -14,6 +14,7 @@ async function Job(){
     // Read Tesla Panels
     console.log("Reading Tesla Solar City interface...")
     const TeslaPanelsReadings = await TeslaPanels()
+    console.log('Formatting Data...')
     // Format Data
     Object.keys(TeslaPanelsReadings).map(meter_id => {
         const FormattedReadings = []
