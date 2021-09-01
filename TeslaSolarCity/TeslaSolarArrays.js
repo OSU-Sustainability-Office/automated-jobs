@@ -18,6 +18,9 @@ async function Job(){
     // Format Data
     Object.keys(TeslaPanelsReadings).map(meter_id => {
         const FormattedReadings = []
+        if (TeslaPanelsReadings[meter_id].length == 0) {
+            console.log(`could not retrieve data for ${meter_id}`)
+        }
         TeslaPanelsReadings[meter_id].map(readings => {
             const reading = {}
             reading['time'] = readings['Timestamp']

@@ -79,16 +79,16 @@ async function readTeslaPanels() {
   }
 
   // Create yesterday's date
-  const dateObj = new Date()
+  const dateObj = new Date( (new Date()).getTime() - (24*60*60*1000) )
   const localeTime = dateObj.toLocaleString("en-US", {timeZone: 'America/Los_Angeles'}).match(/\d+/g)
-  const DATE = localeTime[2] + '-' + localeTime[0] + '-' + (Number(localeTime[1])-1)
+  const DATE = localeTime[2] + '-' + localeTime[0] + '-' + (Number(localeTime[1]))
   const START_TIME = `${DATE}T00:00:00`
   const END_TIME   = `${DATE}T23:59:59`
 
   const READINGS = {}
 
   for (let [name, meter_id] of Object.entries(DEVICES)){
-    console.log(`Reading ${name}'s meter data...`)
+    console.log(`Reading ${name}'s meter data from ${START_TIME} to ${END_TIME}...`)
     const URL = `${process.env.TESLA_API}${meter_id}/summary?StartTime=${START_TIME}&EndTime=${END_TIME}&Period=QuarterHour`
 
     const csvText = await page.evaluate( (url) => {
