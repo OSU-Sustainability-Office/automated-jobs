@@ -20,6 +20,7 @@ const MAX_TRIES = 5;
 
   // Login to the Tesla service
   await page.goto(process.env.TESLA_LOGINPAGE)
+  console.log(await page.title());
   
   const USERNAME_SELECTOR = '#username'
   await page.waitForSelector(USERNAME_SELECTOR)
@@ -47,6 +48,7 @@ const MAX_TRIES = 5;
   await page.waitForNavigation({
     waitUntil: 'domcontentloaded'
   })
+  console.log(await page.title())
 
 
   await browser.close();
