@@ -54,6 +54,14 @@ const MAX_TRIES = 5;
 
   console.log(await page.title())
 
+  const element = await page.evaluate(el => el.innerText, (await page.$x("//*[@id='3080beca-6c32-4e74-9a8b-3e8490ce5d37']/td[2]"))[0])
+ // const element = await page.$x('//*[@id="content"]/div/h2');
+  //const value = await element.evaluate(el => el.textContent);
+  console.log(element)
+
+ // const element = await page.evaluate(() => document.querySelector('#DataTables_Table_0 > thead > tr > th:nth-child(1) > div').innerText);
+ // console.log(element)
+  
   // Close browser.
   await browser.close();
 })();
