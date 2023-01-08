@@ -53,14 +53,17 @@ const MAX_TRIES = 5;
   await page.waitForNavigation({ waitUntil: 'networkidle2' })
 
   console.log(await page.title())
-
+  const tabledata = []
   // https://stackoverflow.com/questions/59686300/how-to-get-text-from-xpath-in-puppeteer-node-js
-  const element = await page.evaluate(el => el.innerText, (await page.$x("//*[@id='3080beca-6c32-4e74-9a8b-3e8490ce5d37']/td[2]"))[0])
+  for (let i = 1; i <= 9; i++) {
+	// const num2 = 7;
+  const element = await page.evaluate(el => el.innerText, (await page.$x("//*[@id='3080beca-6c32-4e74-9a8b-3e8490ce5d37']/td[" + i.toString() + "]"))[0])
   
   // commented out text below is for reading heading
  // const element = await page.$x('//*[@id="content"]/div/h2');
   //const value = await element.evaluate(el => el.textContent);
   console.log(element)
+  }
 
 // commented out text is for doing tests with css selector. xpath is better
  // const element = await page.evaluate(() => document.querySelector('#DataTables_Table_0 > thead > tr > th:nth-child(1) > div').innerText);
