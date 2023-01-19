@@ -57,7 +57,7 @@ async function Job(){
         TeslaPanelsReadings[meter_id] = FinalReadings
     })
 
-     await UploadEnergyDashboard(TeslaPanelsReadings)
+    await UploadEnergyDashboard(TeslaPanelsReadings)
 }
 
 async function UploadEnergyDashboard(MeterData) {
