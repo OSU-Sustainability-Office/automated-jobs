@@ -151,7 +151,7 @@ const MAX_TRIES = 5;
     const specificYieldThisYear = await page.evaluate(
       (el) => el.innerText,
       (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[8]")
+        await page.$x("//*[@id='" + tableRows[i] + "']/td[9]")
       )[0]
     );
 
