@@ -57,24 +57,48 @@ const MAX_TRIES = 5;
   console.log("Logged in!");
   console.log(await page.title());
 
+  // non-unix time calc
+  const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+  const localeTime = dateObj
+    .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+    .match(/\d+/g);
+  const DATE =
+    localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
+  const END_TIME = `${DATE}T23:59:59`;
+
+  // unix time calc
+  const dateObj_Seconds = new Date();
+  const end_time_raw = new Date(
+    new Date(
+      dateObj_Seconds.getFullYear(),
+      dateObj_Seconds.getMonth(),
+      dateObj_Seconds.getDate()
+    ) - 1
+  );
+  const END_TIME_SECONDS = end_time_raw.valueOf().toString();
+
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
   class PVTable {
     constructor(
+      tableID,
+      time,
+      time_seconds,
       PVSystem,
       PVSystemPower,
       totalYieldYesterday,
-      totalYieldToday,
       totalYieldLastMonth,
       totalYieldThisMonth,
       totalYieldAllTime,
       specificYieldThisMonth,
       specificYieldThisYear
     ) {
+      this.tableID = tableID;
+      this.time = time;
+      this.time_seconds = time_seconds;
       this.PVSystem = PVSystem;
       this.PVSystemPower = PVSystemPower;
       this.totalYieldYesterday = totalYieldYesterday;
-      this.totalYieldToday = totalYieldToday;
       this.totalYieldLastMonth = totalYieldLastMonth;
       this.totalYieldThisMonth = totalYieldThisMonth;
       this.totalYieldAllTime = totalYieldAllTime;
@@ -92,6 +116,13 @@ const MAX_TRIES = 5;
 
   // https://stackoverflow.com/questions/59686300/how-to-get-text-from-xpath-in-puppeteer-node-js
   for (let i = 0; i <= tableRows.length - 1; i++) {
+    const tableID = tableRows[i];
+    //console.log(tableID);
+
+    const time = END_TIME;
+
+    const time_seconds = END_TIME_SECONDS;
+
     const PVSystem = await page.evaluate(
       (el) => el.innerText,
       (
@@ -110,13 +141,6 @@ const MAX_TRIES = 5;
       (el) => el.innerText,
       (
         await page.$x("//*[@id='" + tableRows[i] + "']/td[3]")
-      )[0]
-    );
-
-    const totalYieldToday = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[4]")
       )[0]
     );
 
@@ -156,10 +180,12 @@ const MAX_TRIES = 5;
     );
 
     const actualPVTable = new PVTable(
+      tableID,
+      time,
+      time_seconds,
       PVSystem,
       PVSystemPower,
       totalYieldYesterday,
-      totalYieldToday,
       totalYieldLastMonth,
       totalYieldThisMonth,
       totalYieldAllTime,
@@ -170,7 +196,9 @@ const MAX_TRIES = 5;
     PV_tableData.push(actualPVTable);
   }
 
-  console.log(PV_tableData);
+  for (i = 0; i < 3; i++) {
+    console.log(PV_tableData[i]);
+  }
 
   // Close browser.
   await browser.close();
