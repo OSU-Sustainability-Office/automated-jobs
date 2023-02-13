@@ -77,6 +77,13 @@ const MAX_TRIES = 5;
   );
   const END_TIME_SECONDS = end_time_raw.valueOf().toString();
 
+  // need total energy for this? https://github.com/OSU-Sustainability-Office/energy-dashboard/blob/0a4b746c6fd8143aac810869a45c42ce811128d9/backend/dependencies/nodejs/models/meter.js#L122
+
+  // I mean I don't think we need to have the id of the table be the same format as tesla: https://github.com/OSU-Sustainability-Office/energy-dashboard/blob/2c47d36361aa699c98038de87ee53746d6d476cd/backend/app/meter.js#L106
+
+  // acquisite pw in shared google drive (https://github.com/OSU-Sustainability-Office/automated-jobs/blob/90ff02e2ea68c285f8a5a65ce15f42bd36355a09/TeslaSolarCity/TeslaSolarArrays.js#L72)
+  // (https://github.com/OSU-Sustainability-Office/energy-dashboard/blob/2c47d36361aa699c98038de87ee53746d6d476cd/backend/app/meter.js#L99)
+
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
   class PVTable {
@@ -85,25 +92,13 @@ const MAX_TRIES = 5;
       time,
       time_seconds,
       PVSystem,
-      PVSystemPower,
       totalYieldYesterday,
-      totalYieldLastMonth,
-      totalYieldThisMonth,
-      totalYieldAllTime,
-      specificYieldThisMonth,
-      specificYieldThisYear
     ) {
       this.tableID = tableID;
       this.time = time;
       this.time_seconds = time_seconds;
       this.PVSystem = PVSystem;
-      this.PVSystemPower = PVSystemPower;
       this.totalYieldYesterday = totalYieldYesterday;
-      this.totalYieldLastMonth = totalYieldLastMonth;
-      this.totalYieldThisMonth = totalYieldThisMonth;
-      this.totalYieldAllTime = totalYieldAllTime;
-      this.specificYieldThisMonth = specificYieldThisMonth;
-      this.specificYieldThisYear = specificYieldThisYear;
     }
   }
 
@@ -114,9 +109,11 @@ const MAX_TRIES = 5;
     "a67b3f74-acd1-4119-ab92-24b9bc3c7c60",
   ];
 
+  const tableIDNames = ["SEC_OSU_Op_Lube", "SEC_OSU_Op", "SEC_Solar"]
+
   // https://stackoverflow.com/questions/59686300/how-to-get-text-from-xpath-in-puppeteer-node-js
   for (let i = 0; i <= tableRows.length - 1; i++) {
-    const tableID = tableRows[i];
+    const tableID = tableIDNames[i];
     //console.log(tableID);
 
     const time = END_TIME;
@@ -130,52 +127,10 @@ const MAX_TRIES = 5;
       )[0]
     );
 
-    const PVSystemPower = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[2]")
-      )[0]
-    );
-
     const totalYieldYesterday = await page.evaluate(
       (el) => el.innerText,
       (
         await page.$x("//*[@id='" + tableRows[i] + "']/td[3]")
-      )[0]
-    );
-
-    const totalYieldLastMonth = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[5]")
-      )[0]
-    );
-
-    const totalYieldThisMonth = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[6]")
-      )[0]
-    );
-
-    const totalYieldAllTime = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[7]")
-      )[0]
-    );
-
-    const specificYieldThisMonth = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[8]")
-      )[0]
-    );
-
-    const specificYieldThisYear = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[9]")
       )[0]
     );
 
@@ -184,13 +139,7 @@ const MAX_TRIES = 5;
       time,
       time_seconds,
       PVSystem,
-      PVSystemPower,
       totalYieldYesterday,
-      totalYieldLastMonth,
-      totalYieldThisMonth,
-      totalYieldAllTime,
-      specificYieldThisMonth,
-      specificYieldThisYear
     );
 
     PV_tableData.push(actualPVTable);
