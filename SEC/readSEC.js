@@ -77,13 +77,6 @@ const MAX_TRIES = 5;
   );
   const END_TIME_SECONDS = end_time_raw.valueOf().toString();
 
-  // need total energy for this? https://github.com/OSU-Sustainability-Office/energy-dashboard/blob/0a4b746c6fd8143aac810869a45c42ce811128d9/backend/dependencies/nodejs/models/meter.js#L122
-
-  // I mean I don't think we need to have the id of the table be the same format as tesla: https://github.com/OSU-Sustainability-Office/energy-dashboard/blob/2c47d36361aa699c98038de87ee53746d6d476cd/backend/app/meter.js#L106
-
-  // acquisite pw in shared google drive (https://github.com/OSU-Sustainability-Office/automated-jobs/blob/90ff02e2ea68c285f8a5a65ce15f42bd36355a09/TeslaSolarCity/TeslaSolarArrays.js#L72)
-  // (https://github.com/OSU-Sustainability-Office/energy-dashboard/blob/2c47d36361aa699c98038de87ee53746d6d476cd/backend/app/meter.js#L99)
-
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
   class PVTable {
