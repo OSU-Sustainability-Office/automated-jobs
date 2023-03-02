@@ -9,6 +9,7 @@ const TIMEOUT_BUFFER = 25000;
 const PAGE_LOAD_TIMEOUT = 30000;
 const CLICK_OPTIONS = { clickCount: 10, delay: 100 };
 const MAX_TRIES = 5;
+const axios = require('axios');
 
 (async () => {
   console.log("Accessing SEC Web Page...");
@@ -139,9 +140,30 @@ const MAX_TRIES = 5;
   */
   console.log(PV_tableData);
 
-  const tableValues = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
+  const table2DArray = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
 
-  console.log(tableValues);
+  console.log(table2DArray);
+
+  for (let i = 0; i < PV_tableData.length; i++) {
+    console.log(PV_tableData[i].tableID);
+    console.log(table2DArray[i])
+    await axios({
+      method: 'post',
+      url: `${process.env.DASHBOARD_API}/upload`,
+      data: {
+          id: PV_tableData[i].tableID,
+          body: table2DArray[i],
+          pwd: process.env.API_PWD,
+          type: 'solar'
+      }
+  }).then(res => {
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`)
+      console.log(`uploaded ${meter_id} data to API`)
+      
+  }).catch(err => {
+      console.log(err)
+  })
+  }
 
   // Close browser.
   await browser.close();
