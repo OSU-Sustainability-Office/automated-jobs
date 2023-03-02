@@ -80,13 +80,7 @@ const MAX_TRIES = 5;
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
   class PVTable {
-    constructor(
-      tableID,
-      time,
-      time_seconds,
-      PVSystem,
-      totalYieldYesterday,
-    ) {
+    constructor(tableID, time, time_seconds, PVSystem, totalYieldYesterday) {
       this.tableID = tableID;
       this.time = time;
       this.time_seconds = time_seconds;
@@ -102,7 +96,7 @@ const MAX_TRIES = 5;
     "a67b3f74-acd1-4119-ab92-24b9bc3c7c60",
   ];
 
-  const tableIDNames = ["SEC_OSU_Op_Lube", "SEC_OSU_Op", "SEC_Solar"]
+  const tableIDNames = ["SEC_OSU_Op_Lube", "SEC_OSU_Op", "SEC_Solar"];
 
   // https://stackoverflow.com/questions/59686300/how-to-get-text-from-xpath-in-puppeteer-node-js
   for (let i = 0; i <= tableRows.length - 1; i++) {
@@ -127,20 +121,27 @@ const MAX_TRIES = 5;
       )[0]
     );
 
-    const actualPVTable = new PVTable(
+    const actualPVTable = {
       tableID,
       time,
       time_seconds,
       PVSystem,
       totalYieldYesterday,
-    );
+    };
 
     PV_tableData.push(actualPVTable);
   }
 
+  /*
   for (i = 0; i < 3; i++) {
     console.log(PV_tableData[i]);
   }
+  */
+  console.log(PV_tableData);
+
+  const tableValues = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
+
+  console.log(tableValues);
 
   // Close browser.
   await browser.close();
