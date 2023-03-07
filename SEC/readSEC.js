@@ -144,21 +144,23 @@ const axios = require('axios');
 
   console.log(table2DArray);
 
+  const solarmeter = "Solar_Meters"
+
   for (let i = 0; i < PV_tableData.length; i++) {
     console.log(PV_tableData[i].tableID);
-    console.log(table2DArray[i])
+    console.log(table2DArray)
     await axios({
       method: 'post',
       url: `${process.env.DASHBOARD_API}/upload`,
       data: {
-          id: PV_tableData[i].tableID,
-          body: table2DArray[i],
+          id: solarmeter,
+          body: table2DArray,
           pwd: process.env.API_PWD,
           type: 'solar'
       }
   }).then(res => {
       console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`)
-      console.log(`uploaded ${meter_id} data to API`)
+      console.log(`uploaded ${solarmeter} data to API`)
       
   }).catch(err => {
       console.log(err)
