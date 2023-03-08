@@ -76,7 +76,7 @@ const axios = require('axios');
       dateObj_Seconds.getDate()
     ) - 1
   );
-  const END_TIME_SECONDS = end_time_raw.valueOf().toString();
+  const END_TIME_SECONDS = Math.floor(end_time_raw.valueOf() / 1000).toString();
 
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
