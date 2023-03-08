@@ -33,7 +33,7 @@ async function readTeslaPanels() {
   browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox'],
-    executablePath: 'google-chrome-stable'
+    // executablePath: 'google-chrome-stable'
   })
 
   const page = await browser.newPage()
