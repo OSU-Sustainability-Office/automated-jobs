@@ -138,7 +138,7 @@ const axios = require('axios');
     console.log(PV_tableData[i]);
   }
   */
-  console.log(PV_tableData);
+  //console.log(PV_tableData);
 
   const table2DArray = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
 
@@ -146,6 +146,13 @@ const axios = require('axios');
 
   const solarmeter = "Solar_Meters"
 
+  /*
+  for (let i = 0; i < PV_tableData.length; i++) {
+    console.log(PV_tableData[i].tableID)
+  }
+  */
+
+  
   for (let i = 0; i < PV_tableData.length; i++) {
     //console.log(PV_tableData[i].tableID);
     //console.log(table2DArray)
