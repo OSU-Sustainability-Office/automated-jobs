@@ -142,19 +142,20 @@ const axios = require('axios');
 
   const table2DArray = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
 
-  console.log(table2DArray);
+ // console.log(table2DArray);
 
   const solarmeter = "Solar_Meters"
 
   for (let i = 0; i < PV_tableData.length; i++) {
-    console.log(PV_tableData[i].tableID);
-    console.log(table2DArray)
+    //console.log(PV_tableData[i].tableID);
+    //console.log(table2DArray)
+    console.log(PV_tableData[i])
     await axios({
       method: 'post',
       url: `${process.env.DASHBOARD_API}/upload`,
       data: {
           id: solarmeter,
-          body: table2DArray,
+          body: PV_tableData[i],
           pwd: process.env.API_PWD,
           type: 'solar'
       }
