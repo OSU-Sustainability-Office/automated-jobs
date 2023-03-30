@@ -51,7 +51,7 @@ const axios = require('axios');
 
   await page.click(ACCEPT_COOKIES); // click accept cookies
   console.log("Waiting for cookies to load...");
-  await page.waitFor(1000); // arbitrary delay, otherwise login won't click. https://stackoverflow.com/a/48284848
+  await page.waitFor(25000); // arbitrary delay, otherwise login won't click. https://stackoverflow.com/a/48284848
   await page.click(LOGIN_BUTTON);
   await page.waitForNavigation({ waitUntil: "networkidle2" });
 
@@ -138,7 +138,7 @@ const axios = require('axios');
     console.log(PV_tableData[i]);
   }
   */
-  //console.log(PV_tableData);
+  // console.log(PV_tableData);
 
   const table2DArray = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
 
@@ -152,7 +152,6 @@ const axios = require('axios');
   }
   */
 
-  
   for (let i = 0; i < PV_tableData.length; i++) {
     //console.log(PV_tableData[i].tableID);
     //console.log(table2DArray)
@@ -174,7 +173,7 @@ const axios = require('axios');
       console.log(err)
   })
   }
-
+  
   // Close browser.
   await browser.close();
 })();
