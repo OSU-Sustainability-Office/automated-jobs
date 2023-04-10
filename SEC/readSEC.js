@@ -5,8 +5,7 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 25000;
-const PAGE_LOAD_TIMEOUT = 30000;
+const TIMEOUT_BUFFER = 120000;
 const CLICK_OPTIONS = { clickCount: 10, delay: 100 };
 const MAX_TRIES = 5;
 const axios = require('axios');
@@ -23,7 +22,7 @@ const axios = require('axios');
 
   // Create a page
   const page = await browser.newPage();
-  page.setDefaultTimeout(TIMEOUT_BUFFER);
+  await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
   // Go to your site
   await page.goto(process.env.SEC_LOGINPAGE, { waitUntil: "networkidle2" });
@@ -50,8 +49,9 @@ const axios = require('axios');
   const LOGIN_BUTTON = "#ctl00_ContentPlaceHolder1_Logincontrol1_LoginBtn";
 
   await page.click(ACCEPT_COOKIES); // click accept cookies
-  console.log("Waiting for cookies to load...");
-  await page.waitForTimeout(25000); // arbitrary delay, otherwise login won't click. https://stackoverflow.com/a/48284848
+  console.log("Waiting for Accept Cookies Button...");
+  await page.waitForSelector('#onetrust-banner-sdk > div', {hidden: true});
+  console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
   await page.waitForNavigation({ waitUntil: "networkidle2" });
 
@@ -107,6 +107,9 @@ const axios = require('axios');
     const time = END_TIME;
 
     const time_seconds = END_TIME_SECONDS;
+	
+	await page.waitForXPath("//*[@id='" + tableRows[i] + "']/td[1]/a");
+	console.log("x-paths loaded!");
 
     const PVSystem = await page.evaluate(
       (el) => el.innerText,
