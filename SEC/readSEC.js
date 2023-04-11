@@ -137,6 +137,18 @@ const axios = require("axios");
     PV_tableData.push(actualPVTable);
   }
 
+  const comboTotalYieldYesterday = (parseFloat(PV_tableData[0].totalYieldYesterday) + parseFloat(PV_tableData[1].totalYieldYesterday)).toFixed(2);
+  console.log(comboTotalYieldYesterday)
+
+  const comboPVTable = { 
+    tableID: "SEC_OSU_Op_Sum",
+    time: PV_tableData[0].time,
+    time_seconds: PV_tableData[0].time_seconds,
+    PVSystem: "OSU Operations + Lube",
+    totalYieldYesterday: comboTotalYieldYesterday
+  }
+  PV_tableData.push(comboPVTable);
+
   // Comment out line below before pushing to production, it is redundant with the Upload code in terms of logging responses.
   console.log(PV_tableData);
 
