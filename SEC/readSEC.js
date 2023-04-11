@@ -8,7 +8,7 @@ require("dotenv").config();
 const TIMEOUT_BUFFER = 120000;
 const CLICK_OPTIONS = { clickCount: 10, delay: 100 };
 const MAX_TRIES = 5;
-const axios = require('axios');
+const axios = require("axios");
 
 (async () => {
   console.log("Accessing SEC Web Page...");
@@ -50,7 +50,7 @@ const axios = require('axios');
 
   await page.click(ACCEPT_COOKIES); // click accept cookies
   console.log("Waiting for Accept Cookies Button...");
-  await page.waitForSelector('#onetrust-banner-sdk > div', {hidden: true});
+  await page.waitForSelector("#onetrust-banner-sdk > div", { hidden: true }); // wait for the await cookies div to disappear
   console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
   await page.waitForNavigation({ waitUntil: "networkidle2" });
@@ -107,9 +107,9 @@ const axios = require('axios');
     const time = END_TIME;
 
     const time_seconds = END_TIME_SECONDS;
-	
-	await page.waitForXPath("//*[@id='" + tableRows[i] + "']/td[1]/a");
-	console.log("x-paths loaded!");
+
+    await page.waitForXPath("//*[@id='" + tableRows[i] + "']/td[1]/a"); // wait and make sure xpaths loaded
+    console.log("x-paths loaded!");
 
     const PVSystem = await page.evaluate(
       (el) => el.innerText,
@@ -118,11 +118,12 @@ const axios = require('axios');
       )[0]
     );
 
+    const totalYieldYesterdayElement = await page.$x(
+      "//*[@id='" + tableRows[i] + "']/td[3]"
+    );
     const totalYieldYesterday = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[3]")
-      )[0]
+      (el) => el.innerText.replace(",", ""),
+      totalYieldYesterdayElement[0]
     );
 
     const actualPVTable = {
@@ -139,8 +140,7 @@ const axios = require('axios');
   // Comment out line below before pushing to production, it is redundant with the Upload code in terms of logging responses.
   console.log(PV_tableData);
 
-  const solarmeter = "Solar_Meters"
-
+  const solarmeter = "Solar_Meters";
 
   // Comment out code below for local development (unless making changes to upload stuff).
   // Uncomment code below before pushing to production.
@@ -167,7 +167,7 @@ const axios = require('axios');
   })
   }
   */
-  
+
   // Close browser.
   await browser.close();
 })();
