@@ -141,10 +141,10 @@ const axios = require("axios");
   console.log(comboTotalYieldYesterday)
 
   const comboPVTable = { 
-    tableID: "SEC_OSU_Op_Sum",
+    tableID: "OSU_Operations_Total",
     time: PV_tableData[0].time,
     time_seconds: PV_tableData[0].time_seconds,
-    PVSystem: "OSU Operations + Lube",
+    PVSystem: "OSU OP Total",
     totalYieldYesterday: comboTotalYieldYesterday
   }
   PV_tableData.push(comboPVTable);
@@ -156,7 +156,7 @@ const axios = require("axios");
 
   // Comment out code below for local development (unless making changes to upload stuff).
   // Uncomment code below before pushing to production.
-  /*
+
   for (let i = 0; i < PV_tableData.length; i++) {
     //console.log(PV_tableData[i].tableID);
     //console.log(table2DArray)
@@ -178,7 +178,6 @@ const axios = require("axios");
       console.log(err)
   })
   }
-  */
 
   // Close browser.
   await browser.close();
