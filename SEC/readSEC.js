@@ -51,6 +51,7 @@ const axios = require("axios");
   await page.click(ACCEPT_COOKIES); // click accept cookies
   console.log("Waiting for Accept Cookies Button...");
   await page.waitForSelector("#onetrust-banner-sdk > div", { hidden: true }); // wait for the await cookies div to disappear
+  await page.waitForTimeout(10000);
   console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
   await page.waitForNavigation({ waitUntil: "networkidle2" });
@@ -138,7 +139,6 @@ const axios = require("axios");
   }
 
   const comboTotalYieldYesterday = (parseFloat(PV_tableData[0].totalYieldYesterday) + parseFloat(PV_tableData[1].totalYieldYesterday)).toFixed(2);
-  console.log(comboTotalYieldYesterday)
 
   const comboPVTable = { 
     tableID: "OSU_Operations_Total",
@@ -149,24 +149,25 @@ const axios = require("axios");
   }
   PV_tableData.push(comboPVTable);
 
+  // remove the first two elements from the array
+  final_PV_tableData = PV_tableData.slice(2);
+
   // Comment out line below before pushing to production, it is redundant with the Upload code in terms of logging responses.
-  console.log(PV_tableData);
+  //console.log(final_PV_tableData);
 
   const solarmeter = "Solar_Meters";
 
-  // Comment out code below for local development (unless making changes to upload stuff).
-  // Uncomment code below before pushing to production.
+  // Comment out for loop below for local development (unless making changes to upload stuff).
+  // Uncomment for loop below before pushing to production.
 
-  for (let i = 0; i < PV_tableData.length; i++) {
-    //console.log(PV_tableData[i].tableID);
-    //console.log(table2DArray)
-    console.log(PV_tableData[i])
+  for (let i = 0; i < final_PV_tableData.length; i++) {
+    console.log(final_PV_tableData[i])
     await axios({
       method: 'post',
       url: `${process.env.DASHBOARD_API}/upload`,
       data: {
           id: solarmeter,
-          body: PV_tableData[i],
+          body: final_PV_tableData[i],
           pwd: process.env.API_PWD,
           type: 'solar'
       }
