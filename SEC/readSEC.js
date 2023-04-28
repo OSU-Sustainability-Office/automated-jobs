@@ -5,11 +5,10 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 25000;
-const PAGE_LOAD_TIMEOUT = 30000;
+const TIMEOUT_BUFFER = 120000;
 const CLICK_OPTIONS = { clickCount: 10, delay: 100 };
 const MAX_TRIES = 5;
-const axios = require('axios');
+const axios = require("axios");
 
 (async () => {
   console.log("Accessing SEC Web Page...");
@@ -23,7 +22,7 @@ const axios = require('axios');
 
   // Create a page
   const page = await browser.newPage();
-  page.setDefaultTimeout(TIMEOUT_BUFFER);
+  await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
   // Go to your site
   await page.goto(process.env.SEC_LOGINPAGE, { waitUntil: "networkidle2" });
@@ -50,8 +49,10 @@ const axios = require('axios');
   const LOGIN_BUTTON = "#ctl00_ContentPlaceHolder1_Logincontrol1_LoginBtn";
 
   await page.click(ACCEPT_COOKIES); // click accept cookies
-  console.log("Waiting for cookies to load...");
-  await page.waitFor(25000); // arbitrary delay, otherwise login won't click. https://stackoverflow.com/a/48284848
+  console.log("Waiting for Accept Cookies Button...");
+  await page.waitForSelector("#onetrust-banner-sdk > div", { hidden: true }); // wait for the await cookies div to disappear
+  await page.waitForTimeout(10000);
+  console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
   await page.waitForNavigation({ waitUntil: "networkidle2" });
 
@@ -108,6 +109,9 @@ const axios = require('axios');
 
     const time_seconds = END_TIME_SECONDS;
 
+    await page.waitForXPath("//*[@id='" + tableRows[i] + "']/td[1]/a"); // wait and make sure xpaths loaded
+    console.log("x-paths loaded!");
+
     const PVSystem = await page.evaluate(
       (el) => el.innerText,
       (
@@ -115,11 +119,12 @@ const axios = require('axios');
       )[0]
     );
 
+    const totalYieldYesterdayElement = await page.$x(
+      "//*[@id='" + tableRows[i] + "']/td[3]"
+    );
     const totalYieldYesterday = await page.evaluate(
-      (el) => el.innerText,
-      (
-        await page.$x("//*[@id='" + tableRows[i] + "']/td[3]")
-      )[0]
+      (el) => el.innerText.replace(",", ""),
+      totalYieldYesterdayElement[0]
     );
 
     const actualPVTable = {
@@ -133,35 +138,36 @@ const axios = require('axios');
     PV_tableData.push(actualPVTable);
   }
 
-  /*
-  for (i = 0; i < 3; i++) {
-    console.log(PV_tableData[i]);
+  const comboTotalYieldYesterday = (parseFloat(PV_tableData[0].totalYieldYesterday) + parseFloat(PV_tableData[1].totalYieldYesterday)).toFixed(2);
+
+  const comboPVTable = { 
+    tableID: "OSU_Operations_Total",
+    time: PV_tableData[0].time,
+    time_seconds: PV_tableData[0].time_seconds,
+    PVSystem: "OSU Operations Total",
+    totalYieldYesterday: comboTotalYieldYesterday
   }
-  */
-  // console.log(PV_tableData);
+  PV_tableData.push(comboPVTable);
 
-  const table2DArray = PV_tableData.map((obj) => Object.values(obj)); // Map object values to 2D array
+  // remove the first two elements from the array
+  final_PV_tableData = PV_tableData.slice(2);
 
- // console.log(table2DArray);
+  // Comment out line below before pushing to production, it is redundant with the Upload code in terms of logging responses.
+  //console.log(final_PV_tableData);
 
-  const solarmeter = "Solar_Meters"
+  const solarmeter = "Solar_Meters";
 
-  /*
-  for (let i = 0; i < PV_tableData.length; i++) {
-    console.log(PV_tableData[i].tableID)
-  }
-  */
+  // Comment out for loop below for local development (unless making changes to upload stuff).
+  // Uncomment for loop below before pushing to production.
 
-  for (let i = 0; i < PV_tableData.length; i++) {
-    //console.log(PV_tableData[i].tableID);
-    //console.log(table2DArray)
-    console.log(PV_tableData[i])
+  for (let i = 0; i < final_PV_tableData.length; i++) {
+    console.log(final_PV_tableData[i])
     await axios({
       method: 'post',
       url: `${process.env.DASHBOARD_API}/upload`,
       data: {
           id: solarmeter,
-          body: PV_tableData[i],
+          body: final_PV_tableData[i],
           pwd: process.env.API_PWD,
           type: 'solar'
       }
@@ -173,7 +179,7 @@ const axios = require('axios');
       console.log(err)
   })
   }
-  
+
   // Close browser.
   await browser.close();
 })();
