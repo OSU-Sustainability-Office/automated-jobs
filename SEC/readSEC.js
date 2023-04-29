@@ -69,12 +69,10 @@ const axios = require("axios");
   const END_TIME = `${DATE}T23:59:59`;
 
   // unix time calc
-  const end_time_raw = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
-  );
-  end_time_raw.setDate(end_time_raw.getDate() - 1);
-  end_time_raw.setHours(16, 59, 59, 999); // set the time to 16:59:59 PST
-  const END_TIME_SECONDS = Math.floor(end_time_raw.valueOf() / 1000).toString();
+  dateObj.setUTCHours(23, 59, 59, 0);
+  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+
+  console.log(END_TIME_SECONDS);
 
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
