@@ -51,7 +51,7 @@ const axios = require("axios");
   await page.click(ACCEPT_COOKIES); // click accept cookies
   console.log("Waiting for Accept Cookies Button...");
   await page.waitForSelector("#onetrust-banner-sdk > div", { hidden: true }); // wait for the await cookies div to disappear
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
   console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
   await page.waitForNavigation({ waitUntil: "networkidle2" });
@@ -69,14 +69,11 @@ const axios = require("axios");
   const END_TIME = `${DATE}T23:59:59`;
 
   // unix time calc
-  const dateObj_Seconds = new Date();
   const end_time_raw = new Date(
-    new Date(
-      dateObj_Seconds.getFullYear(),
-      dateObj_Seconds.getMonth(),
-      dateObj_Seconds.getDate()
-    ) - 1
+    new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
   );
+  end_time_raw.setDate(end_time_raw.getDate() - 1);
+  end_time_raw.setHours(16, 59, 59, 999); // set the time to 16:59:59 PST
   const END_TIME_SECONDS = Math.floor(end_time_raw.valueOf() / 1000).toString();
 
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
@@ -138,15 +135,18 @@ const axios = require("axios");
     PV_tableData.push(actualPVTable);
   }
 
-  const comboTotalYieldYesterday = (parseFloat(PV_tableData[0].totalYieldYesterday) + parseFloat(PV_tableData[1].totalYieldYesterday)).toFixed(2);
+  const comboTotalYieldYesterday = (
+    parseFloat(PV_tableData[0].totalYieldYesterday) +
+    parseFloat(PV_tableData[1].totalYieldYesterday)
+  ).toFixed(2);
 
-  const comboPVTable = { 
+  const comboPVTable = {
     tableID: "OSU_Operations_Total",
     time: PV_tableData[0].time,
     time_seconds: PV_tableData[0].time_seconds,
     PVSystem: "OSU Operations Total",
-    totalYieldYesterday: comboTotalYieldYesterday
-  }
+    totalYieldYesterday: comboTotalYieldYesterday,
+  };
   PV_tableData.push(comboPVTable);
 
   // remove the first two elements from the array
@@ -161,23 +161,26 @@ const axios = require("axios");
   // Uncomment for loop below before pushing to production.
 
   for (let i = 0; i < final_PV_tableData.length; i++) {
-    console.log(final_PV_tableData[i])
+    console.log(final_PV_tableData[i]);
     await axios({
-      method: 'post',
+      method: "post",
       url: `${process.env.DASHBOARD_API}/upload`,
       data: {
-          id: solarmeter,
-          body: final_PV_tableData[i],
-          pwd: process.env.API_PWD,
-          type: 'solar'
-      }
-  }).then(res => {
-      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`)
-      console.log(`uploaded ${solarmeter} data to API`)
-      
-  }).catch(err => {
-      console.log(err)
-  })
+        id: solarmeter,
+        body: final_PV_tableData[i],
+        pwd: process.env.API_PWD,
+        type: "solar",
+      },
+    })
+      .then((res) => {
+        console.log(
+          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`
+        );
+        console.log(`uploaded ${solarmeter} data to API`);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
   }
 
   // Close browser.
