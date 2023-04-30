@@ -8,7 +8,7 @@ const endDate = moment().unix();
 validIDs.forEach(id => {
   const options = {
     hostname: 'api.sustainability.oregonstate.edu',
-    path: `/v2/energy/data?id=${id}&startDate=${startDate}&endDate=${endDate}&point=accumulated_real&meterClass=48`,
+    path: `/v2/energy/data?id=${id.id}&startDate=${startDate}&endDate=${endDate}&point=accumulated_real&meterClass=48`,
     method: 'GET'
   };
 
@@ -23,17 +23,15 @@ validIDs.forEach(id => {
 
     res.on('end', () => {
       const parsedData = JSON.parse(data);
-
-      if (parsedData.length === 0) {
-        console.log(`ID ${id}: error: not enough data`);
-        return;
+      if (parsedData.length > 0) {
+        const firstTime = parsedData[0].time;
+        const timeDifference = moment().diff(moment.unix(firstTime), 'minutes');
+        const buildingName = id.buildingName;
+        console.log(`Meter ID ${id.id} (${buildingName}): First time value is ${moment.unix(firstTime).format('YYYY-MM-DD HH:mm:ss')}. Within the past ${timeDifference} minutes.`);
+      } else {
+        const buildingName = id.buildingName;
+        console.log(`Meter ID ${id.id} (${buildingName}): Error - not enough data.`);
       }
-
-      const firstTime = parsedData[0].time;
-      const formattedTime = moment.unix(firstTime).format('YYYY-MM-DD HH:mm:ss');
-      const timeAgo = moment.unix(firstTime).fromNow();
-
-      console.log(`ID ${id}: ${formattedTime} within ${timeAgo}`);
     });
   });
 

@@ -1,4 +1,21 @@
 {
-    "IDs": [1, 2, 8, 67]
+    "IDs": [
+      {
+        "id": 1,
+        "buildingName": "Tebeau Hall"
+      },
+      {
+        "id": 2,
+        "buildingName": "McNary Dining Hall"
+      },
+      {
+        "id": 8,
+        "buildingName": "Memorial Union"
+      },
+      {
+        "id": 67,
+        "buildingName": "Hindsdale Wave Lab"
+      }
+    ]
   }
   
