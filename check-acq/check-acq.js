@@ -1,47 +1,60 @@
-const https = require('https');
-const moment = require('moment');
-const validIDs = require('./validIDs.json').buildings;
+const https = require("https");
+const moment = require("moment");
+const validIDs = require("./validIDs.json").buildings;
 
-const startDate = moment().subtract(2, 'months').unix();
+const startDate = moment().subtract(2, "months").unix();
 const endDate = moment().unix();
+const formattedStartDate = startDate.toLocaleString();
+const formattedEndDate = endDate.toLocaleString();
+const duration = moment.duration(endDate - startDate, 'seconds');
+const formattedDuration = duration.humanize();
 
 let totalBuildingData = [];
 let buildingOutput;
 
-const requests = validIDs.flatMap(buildings => {
+const requests = validIDs.flatMap((buildings) => {
   const meterIds = buildings.meter_id;
-  return meterIds.map(meterId => {
+  return meterIds.map((meterId) => {
     return new Promise((resolve, reject) => {
       const options = {
-        hostname: 'api.sustainability.oregonstate.edu',
+        hostname: "api.sustainability.oregonstate.edu",
         path: `/v2/energy/data?id=${meterId}&startDate=${startDate}&endDate=${endDate}&point=accumulated_real&meterClass=48`,
-        method: 'GET'
+        method: "GET",
       };
       const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
+        let data = "";
+        res.on("data", (chunk) => {
           data += chunk;
         });
-        res.on('end', () => {
+        res.on("end", () => {
           const parsedData = JSON.parse(data);
+          //console.log(parsedData)
           if (parsedData.length > 0) {
             const firstTime = parsedData[0].time;
-            const timeDifference = moment().diff(moment.unix(firstTime), 'minutes');
-            const buildingName = buildings.buildingName;
+            const timeDifference = moment().diff(
+              moment.unix(firstTime),
+              "minutes"
+            );
+            const building_name = buildings.building_name;
             const buildingID = buildings.building_id;
-            buildingOutput = `${buildingName} (Building ID ${buildingID}, Meter ID ${meterId}): First time value is ${moment.unix(firstTime).format('YYYY-MM-DD HH:mm:ss')}. Within the past ${timeDifference} minutes.`;
+            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}): First time value is ${moment
+              .unix(firstTime)
+              .format(
+                "YYYY-MM-DD HH:mm:ss"
+              )}. Data within the past ${timeDifference} minutes.`;
             console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           } else {
-            const buildingName = buildings.buildingName;
-            buildingOutput = `${buildingName} (Building ID ${buildingID}, Meter ID ${meterId}): First time value is ${moment.unix(firstTime).format('YYYY-MM-DD HH:mm:ss')}. Within the past ${timeDifference} minutes.`;
+            const building_name = buildings.building_name;
+            const buildingID = buildings.building_id;
+            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}): No data within the past ${formattedDuration}`;
             console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           }
           resolve();
         });
       });
-      req.on('error', (error) => {
+      req.on("error", (error) => {
         console.error(error);
         reject(error);
       });
@@ -53,13 +66,21 @@ const requests = validIDs.flatMap(buildings => {
 Promise.all(requests)
   .then(() => {
     totalBuildingData.sort((a, b) => {
-      const buildingIDA = parseInt(a.match(/Building ID (\d+)/)[1]);
-      const buildingIDB = parseInt(b.match(/Building ID (\d+)/)[1]);
-      return buildingIDA - buildingIDB;
+      const building_ID_A = parseInt(a.match(/Building ID (\d+)/)[1]);
+      const building_ID_B = parseInt(b.match(/Building ID (\d+)/)[1]);
+
+      const meter_ID_A = parseInt(a.match(/Meter ID (\d+)/)[1]);
+      const meter_ID_B = parseInt(b.match(/Meter ID (\d+)/)[1]);
+
+      if (building_ID_A === building_ID_B) {
+        return meter_ID_A - meter_ID_B;
+      } else {
+        return building_ID_A - building_ID_B;
+      }
     });
-    console.log('All requests completed');
-    console.log('Total building data:', totalBuildingData);
+    console.log("All requests completed");
+    console.log("Total building data:", totalBuildingData);
   })
   .catch((error) => {
-    console.error('Error:', error);
+    console.error("Error:", error);
   });
