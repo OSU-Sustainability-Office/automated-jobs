@@ -29,25 +29,20 @@ const requests = validIDs.flatMap((buildings) => {
         res.on("end", () => {
           const parsedData = JSON.parse(data);
           //console.log(parsedData)
+          const building_name = buildings.building_name;
+          const buildingID = buildings.building_id;
+          const meter_groupID = buildings.meter_id;
           if (parsedData.length > 0) {
             const firstTime = parsedData[0].time;
             const timeDifference = moment().diff(
               moment.unix(firstTime),
               "minutes"
             );
-            const building_name = buildings.building_name;
-            const buildingID = buildings.building_id;
-            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}): First time value is ${moment
-              .unix(firstTime)
-              .format(
-                "YYYY-MM-DD HH:mm:ss"
-              )}. Data within the past ${timeDifference} minutes.`;
+            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}, Meter Group ID ${meter_groupID.join(', ')}): Data within the past ${timeDifference} minutes.`;
             console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           } else {
-            const building_name = buildings.building_name;
-            const buildingID = buildings.building_id;
-            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}): No data within the past ${formattedDuration}`;
+            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}, Meter Group ID ${meter_groupID.join(', ')}): No data within the past ${formattedDuration}`;
             console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           }

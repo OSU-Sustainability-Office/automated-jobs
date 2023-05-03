@@ -19,6 +19,24 @@
       "building_name": "Memorial Union"
     },
     {
+      "building_id": 4,
+      "meter_id": [36, 37],
+      "meter_group_id": [9, 150, 151],
+      "building_name": "Milne Computer Center"
+    },
+    {
+      "building_id": 5,
+      "meter_id": [40],
+      "meter_group_id": [11],
+      "building_name": "Dryden Hall"
+    },
+    {
+      "building_id": 6,
+      "meter_id": [33, 34, 72],
+      "meter_group_id": [52, 148, 149],
+      "building_name": "Kelley Engineering Center"
+    },
+    {
       "building_id": 25,
       "meter_id": [2, 6],
       "meter_group_id": [12],
