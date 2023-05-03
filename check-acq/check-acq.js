@@ -6,7 +6,7 @@ const startDate = moment().subtract(2, "months").unix();
 const endDate = moment().unix();
 const formattedStartDate = startDate.toLocaleString();
 const formattedEndDate = endDate.toLocaleString();
-const duration = moment.duration(endDate - startDate, 'seconds');
+const duration = moment.duration(endDate - startDate, "seconds");
 const formattedDuration = duration.humanize();
 
 let totalBuildingData = [];
@@ -38,11 +38,15 @@ const requests = validIDs.flatMap((buildings) => {
               moment.unix(firstTime),
               "minutes"
             );
-            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}, Meter Group ID ${meter_groupID.join(', ')}): Data within the past ${timeDifference} minutes.`;
+            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}, Meter Group ID ${meter_groupID.join(
+              ", "
+            )}): Data within the past ${timeDifference} minutes.`;
             console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           } else {
-            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}, Meter Group ID ${meter_groupID.join(', ')}): No data within the past ${formattedDuration}`;
+            buildingOutput = `${building_name} (Building ID ${buildingID}, Meter ID ${meterId}, Meter Group ID ${meter_groupID.join(
+              ", "
+            )}): No data within the past ${formattedDuration}`;
             console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           }
