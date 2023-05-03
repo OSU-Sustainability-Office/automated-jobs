@@ -1,20 +1,22 @@
 {
-    "IDs": [
+    "buildings": [
       {
-        "id": 1,
+        "building_id": 1,
+        "meter_id": [1],
+        "meter_group_id": [8],
         "buildingName": "Tebeau Hall"
       },
       {
-        "id": 2,
-        "buildingName": "McNary Dining Hall"
-      },
-      {
-        "id": 8,
-        "buildingName": "Memorial Union"
-      },
-      {
-        "id": 67,
+        "building_id": 2,
+        "meter_id": [67],
+        "meter_group_id": [168],
         "buildingName": "Hindsdale Wave Lab"
+      },
+      {
+        "building_id": 25,
+        "meter_id": [2, 6],
+        "meter_group_id": [12],
+        "buildingName": "McNary Dining Hall"
       }
     ]
   }
