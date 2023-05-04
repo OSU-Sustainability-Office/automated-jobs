@@ -2,43 +2,122 @@
   "buildings": [
     {
       "building_id": 1,
-      "meter_id": [1],
+      "meter": [
+        {
+          "id": 1,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [8],
       "building_name": "Tebeau Hall"
     },
     {
       "building_id": 2,
-      "meter_id": [67],
+      "meter": [
+        {
+          "id": 67,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [168],
       "building_name": "Hindsdale Wave Lab"
     },
     {
       "building_id": 3,
-      "meter_id": [8, 9],
+      "meter": [
+        {
+          "id": 8,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 9,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [9, 130, 131],
       "building_name": "Memorial Union"
     },
     {
       "building_id": 4,
-      "meter_id": [36, 37],
+      "meter": [
+        {
+          "id": 36,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 37,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [9, 150, 151],
       "building_name": "Milne Computer Center"
     },
     {
       "building_id": 5,
-      "meter_id": [40],
+      "meter": [
+        {
+          "id": 40,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [11],
       "building_name": "Dryden Hall"
     },
     {
       "building_id": 6,
-      "meter_id": [33, 34, 72],
+      "meter": [
+        {
+          "id": 33,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 34,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 72,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
       "meter_group_id": [52, 148, 149],
       "building_name": "Kelley Engineering Center"
     },
     {
       "building_id": 25,
-      "meter_id": [2, 6],
+      "meter": [
+        {
+          "id": 2,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 6,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [12],
       "building_name": "McNary Dining Hall"
     }
