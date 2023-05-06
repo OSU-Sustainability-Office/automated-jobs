@@ -46,7 +46,7 @@ const requests = validIDs.flatMap((buildings) => {
         method: "GET",
       };
       const req = https.request(options, (res) => {
-        console.log(options)
+        // console.log(options)
         let data = "";
         res.on("data", (chunk) => {
           data += chunk;
@@ -104,8 +104,27 @@ Promise.all(requests)
         return building_ID_A - building_ID_B;
       }
     });
+    // console.log("All requests completed");
+    //console.log("Total building data:", totalBuildingData);
+
+           const noData = [];
+    const hasData = [];
+    totalBuildingData.forEach((data) => {
+      const dataWithinDaysMatch = data.match(/Data within the past (\d+) days?/);
+      const dataWithinWeeksMatch = data.match(/Data within the past (\d+) weeks?/);
+      const dataWithinMonthsMatch = data.match(/Data within the past (\d+) months?/);
+      
+      if (data.includes("No data within the past") || (dataWithinDaysMatch && parseInt(dataWithinDaysMatch[1]) > 2) || dataWithinWeeksMatch || dataWithinMonthsMatch) {
+        noData.push(data);
+      } else {
+        hasData.push(data);
+      }
+    });
+
+    const sortedData = [...noData, "", ...hasData].join("\n");
+
     console.log("All requests completed");
-    console.log("Total building data:", totalBuildingData);
+    console.log("Total building data:\n", sortedData);
   })
   .catch((error) => {
     console.error("Error:", error);
