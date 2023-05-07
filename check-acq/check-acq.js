@@ -3,7 +3,7 @@ const moment = require("moment");
 const validIDs = require("./validIDs.json").buildings;
 
 const startDate = moment().subtract(2, "months").unix();
-const endDate = moment().subtract(3, "days").unix();
+const endDate = moment().subtract(5, "days").unix();
 //const endDate = moment().unix();
 const formattedStartDate = startDate.toLocaleString();
 const formattedEndDate = endDate.toLocaleString();
@@ -131,13 +131,23 @@ Promise.all(requests)
 
     const noData = [];
     const hasData = [];
+    const regex = /(Data) within the past (\d+) (\w+)/;
+
     totalBuildingData.forEach((data) => {
-      if (data.includes("No data within the past")) {
-        noData.push(data);
+      const match = data.match(regex);
+      if (match) {
+        const daysAgo = parseInt(match[2]);
+        if (daysAgo > 2) {
+          noData.push(data);
+        } else {
+          hasData.push(data);
+        }
       } else {
         hasData.push(data);
       }
     });
+    console.log(noData)
+    console.log(hasData)
 
     const sortedData = [...noData, "", ...hasData].join("\n");
 
