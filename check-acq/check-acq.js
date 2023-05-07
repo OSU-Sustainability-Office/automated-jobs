@@ -3,11 +3,13 @@ const moment = require("moment");
 const validIDs = require("./validIDs.json").buildings;
 
 const startDate = moment().subtract(2, "months").unix();
-const endDate = moment().unix();
+const endDate = moment().subtract(3, "days").unix();
+//const endDate = moment().unix();
 const formattedStartDate = startDate.toLocaleString();
 const formattedEndDate = endDate.toLocaleString();
 const duration = moment.duration(endDate - startDate, "seconds");
-const formattedDuration = duration.humanize();
+const daysDuration = Math.round(duration.asDays());
+const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? 's' : ''}`;
 
 let totalBuildingData = [];
 let buildingOutput;
@@ -126,11 +128,8 @@ Promise.all(requests)
            const noData = [];
     const hasData = [];
     totalBuildingData.forEach((data) => {
-      const dataWithinDaysMatch = data.match(/Data within the past (\d+) days?/);
-      const dataWithinWeeksMatch = data.match(/Data within the past (\d+) weeks?/);
-      const dataWithinMonthsMatch = data.match(/Data within the past (\d+) months?/);
       
-      if (data.includes("No data within the past") || (dataWithinDaysMatch && parseInt(dataWithinDaysMatch[1]) > 2) || dataWithinWeeksMatch || dataWithinMonthsMatch) {
+      if (data.includes("No data within the past")) {
         noData.push(data);
       } else {
         hasData.push(data);
