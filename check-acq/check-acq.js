@@ -9,7 +9,7 @@ const formattedStartDate = startDate.toLocaleString();
 const formattedEndDate = endDate.toLocaleString();
 const duration = moment.duration(endDate - startDate, "seconds");
 const daysDuration = Math.round(duration.asDays());
-const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? 's' : ''}`;
+const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? "s" : ""}`;
 
 let totalBuildingData = [];
 let buildingOutput;
@@ -27,7 +27,7 @@ const requests = validIDs.flatMap((buildings) => {
       id: buildings.meter[i].id,
       class: buildings.meter[i].class,
       point: buildings.meter[i].point,
-      point_name: buildings.meter[i].point_name
+      point_name: buildings.meter[i].point_name,
     };
     //console.log(meterObject)
     meterIdTable.push(meterObject);
@@ -35,11 +35,11 @@ const requests = validIDs.flatMap((buildings) => {
   //console.log(meterTable)
   //console.log(meterIds)
   //console.log(buildings.meter.length)
-  
+
   return meterIdTable.map((meterObj) => {
     //console.log(meterId)
     //console.log(meterObj.id)
-    
+
     return new Promise((resolve, reject) => {
       //console.log(meterObj)
       const options = {
@@ -67,29 +67,33 @@ const requests = validIDs.flatMap((buildings) => {
               moment.unix(firstTime),
               "seconds"
             );
-            
+
             let timeDifferenceText;
-            
+
             if (timeDifference < 3600) {
               // If less than an hour, express in minutes
               const minutes = Math.floor(timeDifference / 60);
-              timeDifferenceText = `${minutes} minute${minutes > 1 ? 's' : ''}`;
+              timeDifferenceText = `${minutes} minute${minutes > 1 ? "s" : ""}`;
             } else if (timeDifference < 86400) {
               // If between 1 hour and 1 day, express in hours
               const hours = Math.floor(timeDifference / 3600);
-              timeDifferenceText = `${hours} hour${hours > 1 ? 's' : ''}`;
+              timeDifferenceText = `${hours} hour${hours > 1 ? "s" : ""}`;
             } else {
               // If 1 day or more, express in days
               const days = Math.floor(timeDifference / 86400);
-              timeDifferenceText = `${days} day${days > 1 ? 's' : ''}`;
+              timeDifferenceText = `${days} day${days > 1 ? "s" : ""}`;
             }
-            buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
+            buildingOutput = `${building_name} (Building ID ${buildingID}, ${
+              meterObj.point_name
+            }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
               ", "
             )}): Data within the past ${timeDifferenceText}`;
             //console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           } else {
-            buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
+            buildingOutput = `${building_name} (Building ID ${buildingID}, ${
+              meterObj.point_name
+            }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
               ", "
             )}): No data within the past ${formattedDuration}`;
             //console.log(buildingOutput);
@@ -104,7 +108,7 @@ const requests = validIDs.flatMap((buildings) => {
       });
       req.end();
     });
-  }); 
+  });
 });
 
 Promise.all(requests)
@@ -125,10 +129,9 @@ Promise.all(requests)
     // console.log("All requests completed");
     //console.log("Total building data:", totalBuildingData);
 
-           const noData = [];
+    const noData = [];
     const hasData = [];
     totalBuildingData.forEach((data) => {
-      
       if (data.includes("No data within the past")) {
         noData.push(data);
       } else {
