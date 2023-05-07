@@ -63,11 +63,27 @@ const requests = validIDs.flatMap((buildings) => {
             //console.log(firstTime)
             const timeDifference = moment().diff(
               moment.unix(firstTime),
-              "minutes"
+              "seconds"
             );
+            
+            let timeDifferenceText;
+            
+            if (timeDifference < 3600) {
+              // If less than an hour, express in minutes
+              const minutes = Math.floor(timeDifference / 60);
+              timeDifferenceText = `${minutes} minute${minutes > 1 ? 's' : ''}`;
+            } else if (timeDifference < 86400) {
+              // If between 1 hour and 1 day, express in hours
+              const hours = Math.floor(timeDifference / 3600);
+              timeDifferenceText = `${hours} hour${hours > 1 ? 's' : ''}`;
+            } else {
+              // If 1 day or more, express in days
+              const days = Math.floor(timeDifference / 86400);
+              timeDifferenceText = `${days} day${days > 1 ? 's' : ''}`;
+            }
             buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
               ", "
-            )}): Data within the past ${timeDifference} minutes.`;
+            )}): Data within the past ${timeDifferenceText}`;
             //console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           } else {
@@ -123,8 +139,8 @@ Promise.all(requests)
 
     const sortedData = [...noData, "", ...hasData].join("\n");
 
-    console.log("All requests completed");
-    console.log("Total building data:\n", sortedData);
+    console.log("All requests completed\n");
+    console.log(sortedData);
   })
   .catch((error) => {
     console.error("Error:", error);
