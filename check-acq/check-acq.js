@@ -3,7 +3,7 @@ const moment = require("moment");
 const validIDs = require("./validIDs.json").buildings;
 
 const startDate = moment().subtract(2, "months").unix();
-//const endDate = moment().subtract(3, "days").unix();
+//const endDate = moment().subtract(2, "days").unix();
 const endDate = moment().unix();
 const duration = moment.duration(endDate - startDate, "seconds");
 const daysDuration = Math.round(duration.asDays());
@@ -11,6 +11,8 @@ const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? "s" : ""}`;
 
 let totalBuildingData = [];
 let buildingOutput;
+
+console.log("Acquisuite Data Checker\n");
 
 const requests = validIDs.flatMap((buildings) => {
   const meterlength = buildings.meter.length;
@@ -110,7 +112,7 @@ Promise.all(requests)
 
     const noData = [];
     const hasData = [];
-    const regex = /(Data) within the past (\d+) (minute|hour|day|minutes|hours|days)?/;
+    const regex = /(Data) within the past (\d+) (second|minute|hour|day|seconds|minutes|hours|days)?/;
 
     totalBuildingData.forEach((data) => {
       const match = data.match(regex);
