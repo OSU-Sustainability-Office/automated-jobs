@@ -5,8 +5,6 @@ const validIDs = require("./validIDs.json").buildings;
 const startDate = moment().subtract(2, "months").unix();
 //const endDate = moment().subtract(3, "days").unix();
 const endDate = moment().unix();
-const formattedStartDate = startDate.toLocaleString();
-const formattedEndDate = endDate.toLocaleString();
 const duration = moment.duration(endDate - startDate, "seconds");
 const daysDuration = Math.round(duration.asDays());
 const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? "s" : ""}`;
@@ -15,12 +13,8 @@ let totalBuildingData = [];
 let buildingOutput;
 
 const requests = validIDs.flatMap((buildings) => {
-  const meterIds = buildings.meter[0].id;
   const meterlength = buildings.meter.length;
   let meterIdTable = [];
-  let meterClassTable = [];
-
-  //console.log(meterlength)
 
   for (i = 0; i < meterlength; i++) {
     let meterObject = {
@@ -29,40 +23,29 @@ const requests = validIDs.flatMap((buildings) => {
       point: buildings.meter[i].point,
       point_name: buildings.meter[i].point_name,
     };
-    //console.log(meterObject)
     meterIdTable.push(meterObject);
   }
-  //console.log(meterTable)
-  //console.log(meterIds)
-  //console.log(buildings.meter.length)
 
   return meterIdTable.map((meterObj) => {
-    //console.log(meterId)
-    //console.log(meterObj.id)
 
     return new Promise((resolve, reject) => {
-      //console.log(meterObj)
       const options = {
         hostname: "api.sustainability.oregonstate.edu",
         path: `/v2/energy/data?id=${meterObj.id}&startDate=${startDate}&endDate=${endDate}&point=${meterObj.point}&meterClass=${meterObj.class}`,
         method: "GET",
       };
       const req = https.request(options, (res) => {
-        // console.log(options)
         let data = "";
         res.on("data", (chunk) => {
           data += chunk;
         });
         res.on("end", () => {
           const parsedData = JSON.parse(data);
-          //console.log(parsedData)
           const building_name = buildings.building_name;
           const buildingID = buildings.building_id;
           const meter_groupID = buildings.meter_group_id;
           if (parsedData.length > 0) {
             const firstTime = parsedData[0].time;
-            //console.log(parsedData[0])
-            //console.log(firstTime)
             const timeDifference = moment().diff(
               moment.unix(firstTime),
               "seconds"
@@ -88,7 +71,6 @@ const requests = validIDs.flatMap((buildings) => {
             }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
               ", "
             )}): Data within the past ${timeDifferenceText}`;
-            //console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           } else {
             buildingOutput = `${building_name} (Building ID ${buildingID}, ${
@@ -96,7 +78,6 @@ const requests = validIDs.flatMap((buildings) => {
             }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
               ", "
             )}): No data within the past ${formattedDuration}`;
-            //console.log(buildingOutput);
             totalBuildingData.push(buildingOutput);
           }
           resolve();
@@ -126,8 +107,6 @@ Promise.all(requests)
         return building_ID_A - building_ID_B;
       }
     });
-    // console.log("All requests completed");
-    //console.log("Total building data:", totalBuildingData);
 
     const noData = [];
     const hasData = [];
@@ -138,26 +117,16 @@ Promise.all(requests)
       if (match) {
         const unit = match[3];
         const timeAgo = parseInt(match[2]);
-        //console.log(timeAgo)
-        //console.log(unit)
         if ((unit === 'days' || unit === 'day') && timeAgo > 2) {
           noData.push(data);
         } else {
           hasData.push(data);
         }
       } else {
-        //console.log('hi')
         noData.push(data);
       }
     });
-    
-    //console.log(noData)
-    //console.log(hasData)
 
-    const sortedData = [...noData, "", ...hasData].join("\n");
-
-    //console.log("All requests completed\n");
-    //console.log(sortedData);
     console.log("Buildings with Missing Data:\n");
     console.log(noData)
     console.log("Buildings with Valid Data:\n");
