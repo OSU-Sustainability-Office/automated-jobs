@@ -3,8 +3,8 @@ const moment = require("moment");
 const validIDs = require("./validIDs.json").buildings;
 
 const startDate = moment().subtract(2, "months").unix();
-const endDate = moment().subtract(5, "days").unix();
-//const endDate = moment().unix();
+//const endDate = moment().subtract(3, "days").unix();
+const endDate = moment().unix();
 const formattedStartDate = startDate.toLocaleString();
 const formattedEndDate = endDate.toLocaleString();
 const duration = moment.duration(endDate - startDate, "seconds");
@@ -131,28 +131,37 @@ Promise.all(requests)
 
     const noData = [];
     const hasData = [];
-    const regex = /(Data) within the past (\d+) (\w+)/;
+    const regex = /(Data) within the past (\d+) (minute|hour|day|minutes|hours|days)?/;
 
     totalBuildingData.forEach((data) => {
       const match = data.match(regex);
       if (match) {
-        const daysAgo = parseInt(match[2]);
-        if (daysAgo > 2) {
+        const unit = match[3];
+        const timeAgo = parseInt(match[2]);
+        //console.log(timeAgo)
+        //console.log(unit)
+        if ((unit === 'days' || unit === 'day') && timeAgo > 2) {
           noData.push(data);
         } else {
           hasData.push(data);
         }
       } else {
-        hasData.push(data);
+        //console.log('hi')
+        noData.push(data);
       }
     });
-    console.log(noData)
-    console.log(hasData)
+    
+    //console.log(noData)
+    //console.log(hasData)
 
     const sortedData = [...noData, "", ...hasData].join("\n");
 
-    console.log("All requests completed\n");
-    console.log(sortedData);
+    //console.log("All requests completed\n");
+    //console.log(sortedData);
+    console.log("Buildings with Missing Data:\n");
+    console.log(noData)
+    console.log("Buildings with Valid Data:\n");
+    console.log(hasData)
   })
   .catch((error) => {
     console.error("Error:", error);
