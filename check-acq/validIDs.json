@@ -11,7 +11,9 @@
         }
       ],
       "meter_group_id": [8],
-      "building_name": "Tebeau Hall"
+      "building_name": "Tebeau Hall",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 2,
@@ -24,7 +26,9 @@
         }
       ],
       "meter_group_id": [168],
-      "building_name": "Hindsdale Wave Lab"
+      "building_name": "Hindsdale Wave Lab",
+      "_meter_comments": "",
+      "_meter_group_comments": "38 is defunct, no data"
     },
     {
       "building_id": 3,
@@ -43,7 +47,9 @@
         }
       ],
       "meter_group_id": [9, 130, 131],
-      "building_name": "Memorial Union"
+      "building_name": "Memorial Union",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 4,
@@ -61,8 +67,10 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [150, 151],
-      "building_name": "Milne Computer Center"
+      "meter_group_id": [10, 150, 151],
+      "building_name": "Milne Computer Center",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 5,
@@ -100,7 +108,9 @@
         }
       ],
       "meter_group_id": [52, 148, 149],
-      "building_name": "Kelley Engineering Center"
+      "building_name": "Kelley Engineering Center",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 7,
@@ -113,7 +123,9 @@
         }
       ],
       "meter_group_id": [17],
-      "building_name": "Sackett Hall"
+      "building_name": "Sackett Hall",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 8,
@@ -126,7 +138,9 @@
         }
       ],
       "meter_group_id": [54],
-      "building_name": "Cauthorn Hall"
+      "building_name": "Cauthorn Hall",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 9,
@@ -145,7 +159,9 @@
         }
       ],
       "meter_group_id": [55, 174],
-      "building_name": "Valley Library"
+      "building_name": "Valley Library",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 10,
@@ -163,8 +179,40 @@
           "point_name": "Steam"
         }
       ],
-      "meter_group_id": [56],
-      "building_name": "Dixon Recreational Center"
+      "meter_group_id": [14, 56, 60],
+      "building_name": "Dixon Recreational Center",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
+    },
+    {
+      "building_id": 11,
+      "meter": [
+        {
+          "id": 44,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [27],
+      "building_name": "West Hall",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
+    },
+    {
+      "building_id": 12,
+      "meter": [
+        {
+          "id": 46,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [28, 58],
+      "building_name": "West Dining Hall",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     },
     {
       "building_id": 25,
@@ -183,7 +231,9 @@
         }
       ],
       "meter_group_id": [12],
-      "building_name": "McNary Dining Hall"
+      "building_name": "McNary Dining Hall",
+      "_meter_comments": "",
+      "_meter_group_comments": ""
     }
   ]
 }
