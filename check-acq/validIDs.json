@@ -61,7 +61,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [9, 150, 151],
+      "meter_group_id": [150, 151],
       "building_name": "Milne Computer Center"
     },
     {
@@ -101,6 +101,70 @@
       ],
       "meter_group_id": [52, 148, 149],
       "building_name": "Kelley Engineering Center"
+    },
+    {
+      "building_id": 7,
+      "meter": [
+        {
+          "id": 4,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [17],
+      "building_name": "Sackett Hall"
+    },
+    {
+      "building_id": 8,
+      "meter": [
+        {
+          "id": 45,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [54],
+      "building_name": "Cauthorn Hall"
+    },
+    {
+      "building_id": 9,
+      "meter": [
+        {
+          "id": 77,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 78,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
+      "meter_group_id": [55, 174],
+      "building_name": "Valley Library"
+    },
+    {
+      "building_id": 10,
+      "meter": [
+        {
+          "id": 5,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 7,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
+      "meter_group_id": [56],
+      "building_name": "Dixon Recreational Center"
     },
     {
       "building_id": 25,
