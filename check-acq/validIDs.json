@@ -12,8 +12,8 @@
       ],
       "meter_group_id": [8],
       "building_name": "Tebeau Hall",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": []
     },
     {
       "building_id": 2,
@@ -27,8 +27,13 @@
       ],
       "meter_group_id": [168],
       "building_name": "Hindsdale Wave Lab",
-      "_meter_comments": "",
-      "_meter_group_comments": "38 is defunct, no data"
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 38,
+          "note": "No data"
+        }
+      ]
     },
     {
       "building_id": 3,
@@ -48,8 +53,30 @@
       ],
       "meter_group_id": [9, 130, 131],
       "building_name": "Memorial Union",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [
+        {
+          "id": 8,
+          "note": "No data since Febuary 2023"
+        },
+        {
+          "id": 9,
+          "note": "No data since Febuary 2023"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 9,
+          "note": "Some Data Invalid"
+        },
+        {
+          "id": 130,
+          "note": "Data Invalid"
+        },
+        {
+          "id": 131,
+          "note": "Data Invalid"
+        }
+      ]
     },
     {
       "building_id": 4,
@@ -69,8 +96,8 @@
       ],
       "meter_group_id": [10, 150, 151],
       "building_name": "Milne Computer Center",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": []
     },
     {
       "building_id": 5,
@@ -83,7 +110,9 @@
         }
       ],
       "meter_group_id": [11],
-      "building_name": "Dryden Hall"
+      "building_name": "Dryden Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
     },
     {
       "building_id": 6,
@@ -109,8 +138,17 @@
       ],
       "meter_group_id": [52, 148, 149],
       "building_name": "Kelley Engineering Center",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 25,
+          "note": "No Data"
+        },
+        {
+          "id": 73,
+          "note": "Some Data Invalid"
+        }
+      ]
     },
     {
       "building_id": 7,
@@ -124,8 +162,8 @@
       ],
       "meter_group_id": [17],
       "building_name": "Sackett Hall",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": []
     },
     {
       "building_id": 8,
@@ -139,8 +177,17 @@
       ],
       "meter_group_id": [54],
       "building_name": "Cauthorn Hall",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 32,
+          "note": "No Data"
+        },
+        {
+          "id": 59,
+          "note": "No Data"
+        }
+      ]
     },
     {
       "building_id": 9,
@@ -160,8 +207,18 @@
       ],
       "meter_group_id": [55, 174],
       "building_name": "Valley Library",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [
+        {
+          "id": 3,
+          "note": "No Data since October 2020"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 24,
+          "note": "No Data"
+        }
+      ]
     },
     {
       "building_id": 10,
@@ -181,8 +238,17 @@
       ],
       "meter_group_id": [14, 56, 60],
       "building_name": "Dixon Recreational Center",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 14,
+          "note": "Some Data Invalid, for meter ID 9 within this group"
+        },
+        {
+          "id": 60,
+          "note": "Some Data Invalid, for meter ID 9 within this group"
+        }
+      ]
     },
     {
       "building_id": 11,
@@ -196,23 +262,30 @@
       ],
       "meter_group_id": [27],
       "building_name": "West Hall",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": []
     },
     {
       "building_id": 12,
-      "meter": [
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "West Dining Hall",
+      "_meter_comments": [
         {
           "id": 46,
-          "class": 48,
-          "point": "accumulated_real",
-          "point_name": "Electricity"
+          "note": "No Data since April 2020"
         }
       ],
-      "meter_group_id": [28, 58],
-      "building_name": "West Dining Hall",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_group_comments": [
+        {
+          "id": 28,
+          "note": "No Data since April 2020"
+        },
+        {
+          "id": 58,
+          "note": "No Data since April 2020"
+        }
+      ]
     },
     {
       "building_id": 25,
@@ -230,7 +303,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [12],
+      "meter_group_id": [12, 13, 74, 75, 129],
       "building_name": "McNary Dining Hall",
       "_meter_comments": "",
       "_meter_group_comments": ""

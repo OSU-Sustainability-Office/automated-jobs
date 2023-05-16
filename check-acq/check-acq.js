@@ -29,7 +29,6 @@ const requests = validIDs.flatMap((buildings) => {
   }
 
   return meterIdTable.map((meterObj) => {
-
     return new Promise((resolve, reject) => {
       const options = {
         hostname: "api.sustainability.oregonstate.edu",
@@ -112,14 +111,15 @@ Promise.all(requests)
 
     const noData = [];
     const hasData = [];
-    const regex = /(Data) within the past (\d+) (second|minute|hour|day|seconds|minutes|hours|days)?/;
+    const regex =
+      /(Data) within the past (\d+) (second|minute|hour|day|seconds|minutes|hours|days)?/;
 
     totalBuildingData.forEach((data) => {
       const match = data.match(regex);
       if (match) {
         const unit = match[3];
         const timeAgo = parseInt(match[2]);
-        if ((unit === 'days' || unit === 'day') && timeAgo > 2) {
+        if ((unit === "days" || unit === "day") && timeAgo > 2) {
           noData.push(data);
         } else {
           hasData.push(data);
@@ -130,9 +130,9 @@ Promise.all(requests)
     });
 
     console.log("Buildings with Missing Data:\n");
-    console.log(noData)
+    console.log(noData);
     console.log("Buildings with Valid Data:\n");
-    console.log(hasData)
+    console.log(hasData);
   })
   .catch((error) => {
     console.error("Error:", error);
