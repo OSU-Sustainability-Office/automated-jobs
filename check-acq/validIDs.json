@@ -305,8 +305,8 @@
       ],
       "meter_group_id": [12, 13, 74, 75, 129],
       "building_name": "McNary Dining Hall",
-      "_meter_comments": "",
-      "_meter_group_comments": ""
+      "_meter_comments": [],
+      "_meter_group_comments": []
     }
   ]
 }
