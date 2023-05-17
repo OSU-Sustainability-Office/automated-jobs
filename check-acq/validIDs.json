@@ -31,7 +31,7 @@
       "_meter_group_comments": [
         {
           "id": 38,
-          "note": "No data"
+          "note": "No data (No Request)"
         }
       ]
     },
@@ -66,15 +66,15 @@
       "_meter_group_comments": [
         {
           "id": 9,
-          "note": "Some Data Invalid"
+          "note": "Data Invalid (network request sent but no data - no current data?)"
         },
         {
           "id": 130,
-          "note": "Data Invalid"
+          "note": "Data Invalid (network request sent but no data - no current data?)"
         },
         {
           "id": 131,
-          "note": "Data Invalid"
+          "note": "Data Invalid (network request sent but no data - no current data?)"
         }
       ]
     },
@@ -142,7 +142,7 @@
       "_meter_group_comments": [
         {
           "id": 25,
-          "note": "No Data"
+          "note": "No Data (No Request)"
         },
         {
           "id": 73,
@@ -181,11 +181,11 @@
       "_meter_group_comments": [
         {
           "id": 32,
-          "note": "No Data"
+          "note": "No Data (No Request)"
         },
         {
           "id": 59,
-          "note": "No Data"
+          "note": "No Data (No Request)"
         }
       ]
     },
@@ -216,7 +216,7 @@
       "_meter_group_comments": [
         {
           "id": 24,
-          "note": "No Data"
+          "note": "No Data (No Request)"
         }
       ]
     },
@@ -279,11 +279,31 @@
       "_meter_group_comments": [
         {
           "id": 28,
-          "note": "No Data since April 2020"
+          "note": "No Data (No Request)"
         },
         {
           "id": 58,
-          "note": "No Data since April 2020"
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 14,
+      "meter": [
+        {
+          "id": 10,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [61],
+      "building_name": "Arnold Dining Center",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 23,
+          "note": "No Data (No Request)"
         }
       ]
     },
