@@ -8,7 +8,8 @@ whatever AWS calls them).
 
 
 ## Current Job Status:
- - **TeslaSolarCity** Deployed: Uploaded to ECR & running daily on ECS.
+ - **SEC**: Only currently running webscraper. Retrieves some solar panel data from OSU Operations and Student Experience Center
+ - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
  - **SunnyWebBox** (Not Deployed): Can't access web-box without VPN access.
 
 ## Important References for development
