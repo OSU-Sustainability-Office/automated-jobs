@@ -133,8 +133,13 @@ Promise.all(requests)
       }
     });
 
+    if (noData.length > 0) {
+      console.log("Meter Outages Detected");
+    }
+
     console.log("Buildings with Missing Data:\n");
     console.log(noData);
+    console.log("\n");
     console.log("Buildings with Valid Data:\n");
     console.log(hasData);
   })

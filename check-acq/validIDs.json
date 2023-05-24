@@ -669,6 +669,352 @@
           "note": "Some Data Invalid"
         }
       ]
+    },
+    {
+      "building_id": 31,
+      "meter": [],
+      "meter_group_id": [82],
+      "building_name": "Weniger Hall",
+      "_meter_comments": [
+        {
+          "id": 35,
+          "note": "Valid, up to date data. Why doesn't show on graph? Meter Group Campaign also messed up."
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 31,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 32,
+      "meter": [
+        {
+          "id": 42,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [83],
+      "building_name": "Wilson Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 18,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 34,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Orchard Court",
+      "_meter_comments": [
+        {
+          "note": "No Data or Meter Yet?"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 35,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "35th Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 36,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "53rd Street Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 37,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Hermiston Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 38,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "NWREC Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 39,
+      "meter": [
+        {
+          "id": 87,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 88,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 89,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 90,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 91,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 92,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 93,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 94,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 95,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 96,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 97,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 98,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 99,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 100,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 101,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 102,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 103,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 104,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 105,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 106,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 107,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 108,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 109,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 110,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 111,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 112,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 113,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 114,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 115,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 116,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [180],
+      "building_name": "LINC",
+      "_meter_comments": [
+        {
+          "note": "Why does LINC have so many meters? BatchData requests used on frontend"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 40,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Agricultural and Life Sciences Building",
+      "_meter_comments": [
+        {
+          "id": 117,
+          "note": "Not sure if this has ever shown valid data"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 179,
+          "note": "Some Data Invalid. Other Request returned No Data"
+        }
+      ]
+    },
+    {
+      "building_id": 41,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Weatherford Hall",
+      "_meter_comments": [
+        {
+          "id": 119,
+          "note": "Not sure if this has ever shown valid data. Not connected to a meter group"
+        },
+        {
+          "id": 120,
+          "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 211,
+          "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
+        }
+      ]
+    },
+    {
+      "building_id": 42,
+      "meter": [
+        {
+          "id": 124,
+          "class": 9990001,
+          "point": "energy_change",
+          "point_name": "Solar"
+        }
+      ],
+      "meter_group_id": [215],
+      "building_name": "OSU Operations",
+      "_meter_comments": [],
+      "_meter_group_comments": []
     }
   ]
 }
