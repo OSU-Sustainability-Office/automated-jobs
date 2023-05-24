@@ -45,8 +45,12 @@ const requests = validIDs.flatMap((buildings) => {
           const building_name = buildings.building_name;
           const buildingID = buildings.building_id;
           const meter_groupID = buildings.meter_group_id;
+          const lastObjectIndex = parsedData.length - 1; // Get the index of the last object in the array
           if (parsedData.length > 0) {
-            const firstTime = parsedData[0].time;
+            let firstTime = parsedData[0].time;
+            if (meterObj.point_name === "Solar") {
+              firstTime = parsedData[lastObjectIndex].time;
+            }
             const timeDifference = moment().diff(
               moment.unix(firstTime),
               "seconds"
