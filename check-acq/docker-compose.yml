@@ -1,0 +1,9 @@
+version: "3.8" # Docker engine 19.03.0+
+services:
+  # Scrape solar panel data from solarcity
+  tesla:
+    image: "buildkite/puppeteer:latest"
+    command: "node check-acq.js"
+    ports:
+      - "443:443"
+      - "80:80"
