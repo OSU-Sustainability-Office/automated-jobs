@@ -8,7 +8,8 @@ whatever AWS calls them).
 
 
 ## Current Job Status:
- - **SEC**: Only currently running webscraper. Retrieves some solar panel data from OSU Operations and Student Experience Center
+ - **SEC** (Deployed): Retrieves some solar panel data from OSU Operations and Student Experience Center. Email alerts integrated for failed upload.
+ - **Check-Acq** (Deployed): Pings every building / meter on campus (that has worked within the past year) and checks if the meter / building has data from 2 days ago or newer. Email alerts integrated for missing data, but the email part needs more testing.
  - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
  - **SunnyWebBox** (Not Deployed): Can't access web-box without VPN access.
 
