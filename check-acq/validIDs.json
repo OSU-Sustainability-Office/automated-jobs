@@ -1,0 +1,1020 @@
+{
+  "buildings": [
+    {
+      "building_id": 1,
+      "meter": [
+        {
+          "id": 1,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [8],
+      "building_name": "Tebeau Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 2,
+      "meter": [
+        {
+          "id": 67,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [168],
+      "building_name": "Hindsdale Wave Lab",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 38,
+          "note": "No data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 3,
+      "meter": [
+        {
+          "id": 8,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 9,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [9, 130, 131],
+      "building_name": "Memorial Union",
+      "_meter_comments": [
+        {
+          "id": 8,
+          "note": "No data since Febuary 2023"
+        },
+        {
+          "id": 9,
+          "note": "No data since Febuary 2023"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 9,
+          "note": "Data Invalid (network request sent but no data - no current data?)"
+        },
+        {
+          "id": 130,
+          "note": "Data Invalid (network request sent but no data - no current data?)"
+        },
+        {
+          "id": 131,
+          "note": "Data Invalid (network request sent but no data - no current data?)"
+        }
+      ]
+    },
+    {
+      "building_id": 4,
+      "meter": [
+        {
+          "id": 36,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 37,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [10, 150, 151],
+      "building_name": "Milne Computer Center",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 5,
+      "meter": [
+        {
+          "id": 40,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [11],
+      "building_name": "Dryden Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 6,
+      "meter": [
+        {
+          "id": 33,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 34,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 72,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
+      "meter_group_id": [52, 148, 149],
+      "building_name": "Kelley Engineering Center",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 25,
+          "note": "No Data (No Request)"
+        },
+        {
+          "id": 73,
+          "note": "Some Data Invalid"
+        }
+      ]
+    },
+    {
+      "building_id": 7,
+      "meter": [
+        {
+          "id": 4,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [17],
+      "building_name": "Sackett Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 8,
+      "meter": [
+        {
+          "id": 45,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [54],
+      "building_name": "Cauthorn Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 32,
+          "note": "No Data (No Request)"
+        },
+        {
+          "id": 59,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 9,
+      "meter": [
+        {
+          "id": 77,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 78,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
+      "meter_group_id": [55, 174],
+      "building_name": "Valley Library",
+      "_meter_comments": [
+        {
+          "id": 3,
+          "note": "No Data since October 2020"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 24,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 10,
+      "meter": [
+        {
+          "id": 5,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 7,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
+      "meter_group_id": [14, 56, 60],
+      "building_name": "Dixon Recreational Center",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 14,
+          "note": "Some Data Invalid, for meter ID 9 within this group"
+        },
+        {
+          "id": 60,
+          "note": "Some Data Invalid, for meter ID 9 within this group"
+        }
+      ]
+    },
+    {
+      "building_id": 11,
+      "meter": [
+        {
+          "id": 44,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [27],
+      "building_name": "West Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 12,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "West Dining Hall",
+      "_meter_comments": [
+        {
+          "id": 46,
+          "note": "No Data since April 2020"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 28,
+          "note": "No Data (No Request)"
+        },
+        {
+          "id": 58,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 14,
+      "meter": [
+        {
+          "id": 10,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [61],
+      "building_name": "Arnold Dining Center",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 23,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 15,
+      "meter": [
+        {
+          "id": 13,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [62],
+      "building_name": "Bloss Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 21,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 16,
+      "meter": [
+        {
+          "id": 53,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [63, 155],
+      "building_name": "Buxton Hall",
+      "_meter_comments": [
+        {
+          "id": 38,
+          "note": "No data since June 2018"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 16,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 17,
+      "meter": [
+        {
+          "id": 51,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 52,
+          "class": 17,
+          "point": "cubic_feet",
+          "point_name": "Gas"
+        }
+      ],
+      "meter_group_id": [64, 70],
+      "building_name": "CH2M Hill Alumni Center",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 34,
+          "note": "No Data (No Request)"
+        },
+        {
+          "id": 70,
+          "note": "Some Data Invalid"
+        }
+      ]
+    },
+    {
+      "building_id": 18,
+      "meter": [
+        {
+          "id": 41,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [65],
+      "building_name": "Callahan Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 19,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 19,
+      "meter": [
+        {
+          "id": 15,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [66],
+      "building_name": "Finley Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 22,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 20,
+      "meter": [
+        {
+          "id": 47,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [67],
+      "building_name": "Gill Coliseum",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 33,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 21,
+      "meter": [
+        {
+          "id": 18,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [68],
+      "building_name": "Halsell Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 35,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 22,
+      "meter": [
+        {
+          "id": 39,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [69],
+      "building_name": "Hawley Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 15,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 23,
+      "meter": [
+        {
+          "id": 28,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [71],
+      "building_name": "ILLC",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 37,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 24,
+      "meter": [
+        {
+          "id": 55,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [72],
+      "building_name": "Johnson Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 29,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 25,
+      "meter": [
+        {
+          "id": 2,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 6,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [12, 13, 74, 75, 129],
+      "building_name": "McNary Dining Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 26,
+      "meter": [
+        {
+          "id": 6,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [12, 13, 74, 75],
+      "building_name": "McNary Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 27,
+      "meter": [
+        {
+          "id": 49,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [76],
+      "building_name": "Milam Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 36,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 28,
+      "meter": [
+        {
+          "id": 31,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 32,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 73,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        }
+      ],
+      "meter_group_id": [77, 146, 147],
+      "building_name": "Nash Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 30,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 29,
+      "meter": [
+        {
+          "id": 43,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [79],
+      "building_name": "Poling Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 20,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 30,
+      "meter": [
+        {
+          "id": 29,
+          "class": 4444,
+          "point": "total",
+          "point_name": "Steam"
+        },
+        {
+          "id": 30,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 123,
+          "class": 9990001,
+          "point": "energy_change",
+          "point_name": "Solar"
+        }
+      ],
+      "meter_group_id": [80, 81, 214],
+      "building_name": "Student Experience Center",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 26,
+          "note": "No Data (No Request)"
+        },
+        {
+          "id": 81,
+          "note": "Some Data Invalid"
+        },
+        {
+          "id": 214,
+          "note": "Some Data Invalid"
+        }
+      ]
+    },
+    {
+      "building_id": 31,
+      "meter": [],
+      "meter_group_id": [82],
+      "building_name": "Weniger Hall",
+      "_meter_comments": [
+        {
+          "id": 35,
+          "note": "Valid, up to date data. Why doesn't show on graph? Meter Group Campaign also messed up."
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 31,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 32,
+      "meter": [
+        {
+          "id": 42,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [83],
+      "building_name": "Wilson Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": [
+        {
+          "id": 18,
+          "note": "No Data (No Request)"
+        }
+      ]
+    },
+    {
+      "building_id": 34,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Orchard Court",
+      "_meter_comments": [
+        {
+          "note": "No Data or Meter Yet?"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 35,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "35th Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 36,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "53rd Street Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 37,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Hermiston Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 38,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "NWREC Solar Array",
+      "_meter_comments": [
+        {
+          "note": "Use Tesla Iframes now, don't use own API data"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 39,
+      "meter": [
+        {
+          "id": 87,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 88,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 89,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 90,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 91,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 92,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 93,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 94,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 95,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 96,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 97,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 98,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 99,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 100,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 101,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 102,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 103,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 104,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 105,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 106,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 107,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 108,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 109,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 110,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 111,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 112,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 113,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 114,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 115,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 116,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [180],
+      "building_name": "LINC",
+      "_meter_comments": [
+        {
+          "note": "Why does LINC have so many meters? BatchData requests used on frontend"
+        }
+      ],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 40,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Agricultural and Life Sciences Building",
+      "_meter_comments": [
+        {
+          "id": 117,
+          "note": "Not sure if this has ever shown valid data"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 179,
+          "note": "Some Data Invalid. Other Request returned No Data"
+        }
+      ]
+    },
+    {
+      "building_id": 41,
+      "meter": [],
+      "meter_group_id": [],
+      "building_name": "Weatherford Hall",
+      "_meter_comments": [
+        {
+          "id": 119,
+          "note": "Not sure if this has ever shown valid data. Not connected to a meter group"
+        },
+        {
+          "id": 120,
+          "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
+        }
+      ],
+      "_meter_group_comments": [
+        {
+          "id": 211,
+          "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
+        }
+      ]
+    },
+    {
+      "building_id": 42,
+      "meter": [
+        {
+          "id": 124,
+          "class": 9990001,
+          "point": "energy_change",
+          "point_name": "Solar"
+        }
+      ],
+      "meter_group_id": [215],
+      "building_name": "OSU Operations",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    }
+  ]
+}
