@@ -1,5 +1,5 @@
 # automated-jobs:
-Containerized CRON jobs written in Node v.12 for the Sustainability Office.
+Containerized CRON jobs written in Node v.16 for the Sustainability Office.
 
 ## Architecture
 Basically, each automated-job is described through a dockerfile (containerized) then will be uploaded to an image registry (AWS ECR).
