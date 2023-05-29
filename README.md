@@ -20,3 +20,6 @@ whatever AWS calls them).
  - [AWS ECS guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html) 
  - [Docker guide for Node](https://docs.docker.com/language/nodejs/)
  - [Docker w/ ECS](https://docs.docker.com/cloud/ecs-integration/)
+ - [PuppeteerJS Webscraper](https://pptr.dev/)
+ - [AWS Cloudwatch Alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html)
+ - [AWS SNS Email Alerts](https://docs.aws.amazon.com/sns/latest/dg/sns-email-notifications.html)
