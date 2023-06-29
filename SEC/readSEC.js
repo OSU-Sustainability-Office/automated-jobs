@@ -180,7 +180,7 @@ const axios = require("axios");
       .catch((err) => {
         console.log(err);
       });
-    // */ block comment ends here
+    // */ //block comment ends here
   }
 
   // Close browser.
