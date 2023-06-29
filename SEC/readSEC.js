@@ -15,7 +15,7 @@ const axios = require("axios");
 
   // Launch the browser
   browser = await puppeteer.launch({
-    headless: true, // set to false for debug
+    headless: "new", // set to false for debug | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
@@ -155,11 +155,12 @@ const axios = require("axios");
 
   const solarmeter = "Solar_Meters";
 
-  // Comment out for loop below for local development (unless making changes to upload stuff).
-  // Uncomment for loop below before pushing to production.
-
   for (let i = 0; i < final_PV_tableData.length; i++) {
     console.log(final_PV_tableData[i]);
+
+    // Comment out the axios POST request as specified below for local development (unless making changes to upload stuff).
+    // Uncomment this section before pushing to production.
+    // /* block comment starts here
     await axios({
       method: "post",
       url: `${process.env.DASHBOARD_API}/upload`,
@@ -179,6 +180,7 @@ const axios = require("axios");
       .catch((err) => {
         console.log(err);
       });
+    // */ block comment ends here
   }
 
   // Close browser.
