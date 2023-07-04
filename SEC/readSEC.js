@@ -15,7 +15,7 @@ const axios = require("axios");
 
   // Launch the browser
   browser = await puppeteer.launch({
-    headless: "new", // set to false for debug | reference: https://developer.chrome.com/articles/new-headless/
+    headless: "new", // set to false (no quotes) for debug | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
@@ -50,7 +50,7 @@ const axios = require("axios");
 
   await page.click(ACCEPT_COOKIES); // click accept cookies
   console.log("Waiting for Accept Cookies Button...");
-  await page.waitForSelector("#onetrust-banner-sdk > div", { hidden: true }); // wait for the await cookies div to disappear
+  await page.waitForSelector("#onetrust-banner-sdk > div", { hidden: true, timeout: 25000 }); // wait for the await cookies div to disappear
   await page.waitForTimeout(25000);
   console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
@@ -180,7 +180,7 @@ const axios = require("axios");
       .catch((err) => {
         console.log(err);
       });
-    // */ //block comment ends here
+     // */ //block comment ends here
   }
 
   // Close browser.
