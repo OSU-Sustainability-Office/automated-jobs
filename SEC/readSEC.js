@@ -5,7 +5,7 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 120000;
+const TIMEOUT_BUFFER = 600000;
 const CLICK_OPTIONS = { clickCount: 10, delay: 100 };
 const MAX_TRIES = 5;
 const axios = require("axios");
@@ -25,7 +25,7 @@ const axios = require("axios");
   await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
   // Go to your site
-  await page.goto(process.env.SEC_LOGINPAGE, { waitUntil: "networkidle2" });
+  await page.goto(process.env.SEC_LOGINPAGE, { waitUntil: "networkidle0" });
 
   // next two lines to make sure it works the same with headless on or off: https://github.com/puppeteer/puppeteer/issues/665#issuecomment-481094738
   await page.setExtraHTTPHeaders({
@@ -54,7 +54,7 @@ const axios = require("axios");
   await page.waitForTimeout(25000);
   console.log("Cookies Button Clicked!");
   await page.click(LOGIN_BUTTON);
-  await page.waitForNavigation({ waitUntil: "networkidle2" });
+  await page.waitForNavigation({ waitUntil: "networkidle0" });
 
   console.log("Logged in!");
   console.log(await page.title());
@@ -150,9 +150,6 @@ const axios = require("axios");
   // remove the first two elements from the array
   final_PV_tableData = PV_tableData.slice(2);
 
-  // Comment out line below before pushing to production, it is redundant with the Upload code in terms of logging responses.
-  //console.log(final_PV_tableData);
-
   const solarmeter = "Solar_Meters";
 
   for (let i = 0; i < final_PV_tableData.length; i++) {
@@ -180,7 +177,7 @@ const axios = require("axios");
       .catch((err) => {
         console.log(err);
       });
-     // */ //block comment ends here
+      // */ //block comment ends here
   }
 
   // Close browser.
