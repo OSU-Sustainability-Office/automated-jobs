@@ -113,17 +113,23 @@ Promise.all(requests)
       }
     });
 
+    const noData3Or4 = [];
     const noData = [];
     const hasData = [];
     const regex =
-      /(Data) within the past (\d+) (second|minute|hour|day|seconds|minutes|hours|days)?/;
+      /within the past (\d+) (second|minute|hour|day|seconds|minutes|hours|days)?/;
 
     totalBuildingData.forEach((data) => {
       const match = data.match(regex);
       if (match) {
-        const unit = match[3];
-        const timeAgo = parseInt(match[2]);
-        if ((unit === "days" || unit === "day") && timeAgo > 2) {
+        const unit = match[2];
+        const timeAgo = parseInt(match[1]);
+        if (
+          (unit === "days" || unit === "day") &&
+          (timeAgo === 3 || timeAgo === 22)
+        ) {
+          noData3Or4.push(data);
+        } else if ((unit === "days" || unit === "day") && timeAgo > 4) {
           noData.push(data);
         } else {
           hasData.push(data);
@@ -134,10 +140,19 @@ Promise.all(requests)
     });
 
     if (noData.length > 0) {
-      console.log("Meter Outages Detected");
+      console.log("Meter Outages Detected\n");
     }
 
-    console.log("Buildings with Missing Data:\n");
+    if (noData3Or4.length > 0) {
+      console.log("Meter Outages 3 or 4 Days Detected\n");
+    }
+
+    console.log("===============\n");
+
+    console.log("New Buildings with Missing Data (3 or 4 Days):\n");
+    console.log(noData3Or4);
+    console.log("\n");
+    console.log("Buildings with Missing Data (For a Long Time):\n");
     console.log(noData);
     console.log("\n");
     console.log("Buildings with Valid Data:\n");
