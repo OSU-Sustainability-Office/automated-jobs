@@ -126,7 +126,7 @@ Promise.all(requests)
         const timeAgo = parseInt(match[1]);
         if (
           (unit === "days" || unit === "day") &&
-          (timeAgo === 3 || timeAgo === 22)
+          (timeAgo === 3 || timeAgo === 4)
         ) {
           noData3Or4.push(data);
         } else if ((unit === "days" || unit === "day") && timeAgo > 4) {
