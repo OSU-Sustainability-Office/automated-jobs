@@ -48,16 +48,42 @@ const axios = require("axios");
   const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
   const LOGIN_BUTTON = "#ctl00_ContentPlaceHolder1_Logincontrol1_LoginBtn";
 
-  await page.click(ACCEPT_COOKIES); // click accept cookies
-  console.log("Waiting for Accept Cookies Button...");
-  await page.waitForSelector("#onetrust-banner-sdk > div", {
-    hidden: true,
-    timeout: 25000,
-  }); // wait for the await cookies div to disappear
-  await page.waitForTimeout(25000);
-  console.log("Cookies Button Clicked!");
-  await page.click(LOGIN_BUTTON);
-  await page.waitForNavigation({ waitUntil: "networkidle0" });
+  const maxAttempts = 3;
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    try {
+      await page.click(ACCEPT_COOKIES);
+      // wait for the await cookies div to disappear
+      await page.waitForTimeout(25000);
+      console.log("Cookies Button Clicked!");
+      break; // Exit the loop if successful
+    } catch (error) {
+      console.log(
+        `Accept Cookies Button not found (Attempt ${
+          attempt + 1
+        } of ${maxAttempts}). Retrying...`
+      );
+      attempt++;
+    }
+  }
+
+  attempt = 0;
+
+  while (attempt < maxAttempts) {
+    try {
+      await page.click(LOGIN_BUTTON);
+      await page.waitForNavigation({ waitUntil: "networkidle0" });
+      console.log("Login Button Clicked!");
+      break; // Exit the loop if successful
+    } catch (error) {
+      console.log(
+        `Login Button not found (Attempt ${
+          attempt + 1
+        } of ${maxAttempts}). Retrying...`
+      );
+      attempt++;
+    }
+  }
 
   console.log("Logged in!");
   console.log(await page.title());
