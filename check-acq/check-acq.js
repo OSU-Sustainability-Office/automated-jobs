@@ -10,6 +10,7 @@ const daysDuration = Math.round(duration.asDays());
 const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? "s" : ""}`;
 
 let totalBuildingData = [];
+let missedBuildings = [];
 let buildingOutput;
 
 console.log("Acquisuite Data Checker\n");
@@ -17,6 +18,18 @@ console.log("Acquisuite Data Checker\n");
 const requests = validIDs.flatMap((buildings) => {
   const meterlength = buildings.meter.length;
   let meterIdTable = [];
+
+  if (
+    meterlength === 0 &&
+    buildings.building_id !== 35 &&
+    buildings.building_id != 36 &&
+    buildings.building_id != 37 &&
+    buildings.building_id != 38
+  ) {
+    missedBuildings.push(
+      `${buildings.building_name} (Building ID ${buildings.building_id}): No data within the past ${formattedDuration}`,
+    );
+  }
 
   for (i = 0; i < meterlength; i++) {
     let meterObject = {
@@ -53,7 +66,7 @@ const requests = validIDs.flatMap((buildings) => {
             }
             const timeDifference = moment().diff(
               moment.unix(firstTime),
-              "seconds"
+              "seconds",
             );
 
             let timeDifferenceText;
@@ -74,14 +87,14 @@ const requests = validIDs.flatMap((buildings) => {
             buildingOutput = `${building_name} (Building ID ${buildingID}, ${
               meterObj.point_name
             }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
-              ", "
+              ", ",
             )}): Data within the past ${timeDifferenceText}`;
             totalBuildingData.push(buildingOutput);
           } else {
             buildingOutput = `${building_name} (Building ID ${buildingID}, ${
               meterObj.point_name
             }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
-              ", "
+              ", ",
             )}): No data within the past ${formattedDuration}`;
             totalBuildingData.push(buildingOutput);
           }
@@ -154,6 +167,11 @@ Promise.all(requests)
     console.log("\n");
     console.log("Buildings with Missing Data (For a Long Time):\n");
     console.log(noData);
+    console.log("\n");
+    console.log(
+      "Buildings Currently Not Tracked (No Data for More Than a Year):\n",
+    );
+    console.log(missedBuildings);
     console.log("\n");
     console.log("Buildings with Valid Data:\n");
     console.log(hasData);
