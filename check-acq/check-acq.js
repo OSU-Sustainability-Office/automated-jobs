@@ -2,6 +2,7 @@ const https = require("https");
 const moment = require("moment");
 const validIDs = require("./validIDs.json").buildings;
 
+// by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
 const startDate = moment().subtract(2, "months").unix();
 //const endDate = moment().subtract(2, "days").unix();
 const endDate = moment().unix();
@@ -21,6 +22,7 @@ const requests = validIDs.flatMap((buildings) => {
   const meterlength = buildings.meter.length;
   let meterIdTable = [];
 
+  // exclude buildings 35 to 38 as they are tesla solar panel buildings currently handled by Iframes
   if (
     meterlength === 0 &&
     buildings.building_id !== 35 &&
@@ -28,6 +30,7 @@ const requests = validIDs.flatMap((buildings) => {
     buildings.building_id != 37 &&
     buildings.building_id != 38
   ) {
+    // need to retire this later maybe due to new 3Or4Day alert implementation. Buildings not tracked due to no data for years
     missedBuildings.push(
       `${buildings.building_name} (Building ID ${buildings.building_id}): No data within the past ${formattedDuration}`,
     );
@@ -93,6 +96,8 @@ const requests = validIDs.flatMap((buildings) => {
             /*
             first 6 days equal to each other = noChangeData
             first 4 days equal to each other, and then 4 or 5 aren't equal = noChange5Or6Data
+            Overall purpose of the if and else if code block below is to track buildings with no change in data,
+            which may be a sign of meter errors (as seen historically for some gas meters)
             */
 
             if (
@@ -233,7 +238,10 @@ const requests = validIDs.flatMap((buildings) => {
                 ", ",
               )}): No Change in Data (New, 4 or 5 Days)`;
               noChange5Or6Data.push(buildingOutput);
-            } else {
+            }
+
+            // anything that made it to this else block is presumed to have changing and nonzero data
+            else {
               let firstTime = parsedData[0].time;
               if (meterObj.point_name === "Solar") {
                 firstTime = parsedData[lastObjectIndex].time;
@@ -267,7 +275,10 @@ const requests = validIDs.flatMap((buildings) => {
               )}): Data within the past ${timeDifferenceText}`;
               totalBuildingData.push(buildingOutput);
             }
-          } else {
+          }
+
+          // for meters that are tracked in the database but still return no data
+          else {
             buildingOutput = `${building_name} (Building ID ${buildingID}, ${
               meterObj.point_name
             }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
