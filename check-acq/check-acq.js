@@ -92,7 +92,7 @@ const requests = validIDs.flatMap((buildings) => {
 
             /*
             first 6 days equal to each other = noChangeData
-            first 4 days equal to each other, and then 5 or 6 aren't equal = noChange5Or6Data
+            first 4 days equal to each other, and then 4 or 5 aren't equal = noChange5Or6Data
             */
 
             if (
@@ -231,7 +231,7 @@ const requests = validIDs.flatMap((buildings) => {
                 meterObj.point_name
               }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
                 ", ",
-              )}): No Change in Data (New, 5 or 6 Days)`;
+              )}): No Change in Data (New, 4 or 5 Days)`;
               noChange5Or6Data.push(buildingOutput);
             } else {
               let firstTime = parsedData[0].time;
@@ -338,7 +338,7 @@ Promise.all(requests)
     }
 
     if (noChange5Or6Data.length > 0) {
-      console.log("Meters with Unchanging Data 5 or 6 Days Detected\n");
+      console.log("Meters with Unchanging Data 4 or 5 Days Detected\n");
     }
 
     if (noChangeData.length > 0) {
@@ -358,7 +358,7 @@ Promise.all(requests)
     );
     console.log(missedBuildings);
     console.log("\n");
-    console.log("Buildings with No Change in Data (New, 5 or 6 Days):\n");
+    console.log("Buildings with No Change in Data (New, 4 or 5 Days):\n");
     console.log(noChange5Or6Data);
     console.log("\n");
     console.log("Buildings with No Change in Data (Old, At Least 6 Days):\n");
