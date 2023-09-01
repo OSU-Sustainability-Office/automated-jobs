@@ -1015,6 +1015,51 @@
       "building_name": "OSU Operations",
       "_meter_comments": [],
       "_meter_group_comments": []
+    },
+    {
+      "building_id": 43,
+      "meter": [
+        {
+          "id": 125,
+          "class": 17,
+          "point": "cubic_feet",
+          "point_name": "Gas"
+        }
+      ],
+      "meter_group_id": [216],
+      "building_name": "Austin Hall",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 44,
+      "meter": [
+        {
+          "id": 127,
+          "class": 17,
+          "point": "cubic_feet",
+          "point_name": "Gas"
+        }
+      ],
+      "meter_group_id": [217],
+      "building_name": "APCC",
+      "_meter_comments": [],
+      "_meter_group_comments": []
+    },
+    {
+      "building_id": 45,
+      "meter": [
+        {
+          "id": 128,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [218],
+      "building_name": "Unknown 28",
+      "_meter_comments": [],
+      "_meter_group_comments": []
     }
   ]
 }

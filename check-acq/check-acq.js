@@ -12,6 +12,7 @@ const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? "s" : ""}`;
 let totalBuildingData = [];
 let missedBuildings = [];
 let buildingOutput;
+let noChangeData = [];
 
 console.log("Acquisuite Data Checker\n");
 
@@ -58,38 +59,83 @@ const requests = validIDs.flatMap((buildings) => {
           const building_name = buildings.building_name;
           const buildingID = buildings.building_id;
           const meter_groupID = buildings.meter_group_id;
-          const lastObjectIndex = parsedData.length - 1; // Get the index of the last object in the array
+          const lastObjectIndex = parsedData.length - 1;
+
           if (parsedData.length > 0) {
-            let firstTime = parsedData[0].time;
-            if (meterObj.point_name === "Solar") {
-              firstTime = parsedData[lastObjectIndex].time;
-            }
-            const timeDifference = moment().diff(
-              moment.unix(firstTime),
-              "seconds",
-            );
-
-            let timeDifferenceText;
-
-            if (timeDifference < 3600) {
-              // If less than an hour, express in minutes
-              const minutes = Math.floor(timeDifference / 60);
-              timeDifferenceText = `${minutes} minute${minutes > 1 ? "s" : ""}`;
-            } else if (timeDifference < 86400) {
-              // If between 1 hour and 1 day, express in hours
-              const hours = Math.floor(timeDifference / 3600);
-              timeDifferenceText = `${hours} hour${hours > 1 ? "s" : ""}`;
+            /*
+            divide length of parsedData array of objects by 5 (round down) and 
+            check first value e.g.
+            { accumulated_real: 295987, time: 1693539000, id: 14015256 }
+            it will pull 295987 from object example input above
+            check if every fifth value is equal to each other
+            */
+            if (
+              Object.values(parsedData[0])[0] ===
+                Object.values(
+                  parsedData[Math.floor(parsedData.length / 5)],
+                )[0] &&
+              Object.values(
+                parsedData[Math.floor(parsedData.length / 5)],
+              )[0] ===
+                Object.values(
+                  parsedData[Math.floor((parsedData.length * 2) / 5)],
+                )[0] &&
+              Object.values(
+                parsedData[Math.floor((parsedData.length * 2) / 5)],
+              )[0] ===
+                Object.values(
+                  parsedData[Math.floor((parsedData.length * 3) / 5)],
+                )[0] &&
+              Object.values(
+                parsedData[Math.floor((parsedData.length * 3) / 5)],
+              )[0] ===
+                Object.values(
+                  parsedData[Math.floor((parsedData.length * 4) / 5)],
+                )[0] &&
+              Object.values(
+                parsedData[Math.floor((parsedData.length * 4) / 5)],
+              )[0] === Object.values(parsedData[lastObjectIndex])[0]
+            ) {
+              buildingOutput = `${building_name} (Building ID ${buildingID}, ${
+                meterObj.point_name
+              }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
+                ", ",
+              )}): No Change in Data`;
+              noChangeData.push(buildingOutput);
             } else {
-              // If 1 day or more, express in days
-              const days = Math.floor(timeDifference / 86400);
-              timeDifferenceText = `${days} day${days > 1 ? "s" : ""}`;
+              let firstTime = parsedData[0].time;
+              if (meterObj.point_name === "Solar") {
+                firstTime = parsedData[lastObjectIndex].time;
+              }
+              const timeDifference = moment().diff(
+                moment.unix(firstTime),
+                "seconds",
+              );
+
+              let timeDifferenceText;
+
+              if (timeDifference < 3600) {
+                // If less than an hour, express in minutes
+                const minutes = Math.floor(timeDifference / 60);
+                timeDifferenceText = `${minutes} minute${
+                  minutes > 1 ? "s" : ""
+                }`;
+              } else if (timeDifference < 86400) {
+                // If between 1 hour and 1 day, express in hours
+                const hours = Math.floor(timeDifference / 3600);
+                timeDifferenceText = `${hours} hour${hours > 1 ? "s" : ""}`;
+              } else {
+                // If 1 day or more, express in days
+                const days = Math.floor(timeDifference / 86400);
+                timeDifferenceText = `${days} day${days > 1 ? "s" : ""}`;
+              }
+              buildingOutput = `${building_name} (Building ID ${buildingID}, ${
+                meterObj.point_name
+              }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
+                ", ",
+              )}): Data within the past ${timeDifferenceText}`;
+              totalBuildingData.push(buildingOutput);
             }
-            buildingOutput = `${building_name} (Building ID ${buildingID}, ${
-              meterObj.point_name
-            }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
-              ", ",
-            )}): Data within the past ${timeDifferenceText}`;
-            totalBuildingData.push(buildingOutput);
           } else {
             buildingOutput = `${building_name} (Building ID ${buildingID}, ${
               meterObj.point_name
@@ -160,6 +206,10 @@ Promise.all(requests)
       console.log("Meter Outages 3 or 4 Days Detected\n");
     }
 
+    if (noChangeData.length > 0) {
+      console.log("Meters with Unchanging Data Detected\n");
+    }
+
     console.log("===============\n");
 
     console.log("New Buildings with Missing Data (3 or 4 Days):\n");
@@ -172,6 +222,11 @@ Promise.all(requests)
       "Buildings Currently Not Tracked (No Data for More Than a Year):\n",
     );
     console.log(missedBuildings);
+    console.log("\n");
+    console.log(
+      "Buildings with No Change in Data (Checked 5 Times Over 2 Days):\n",
+    );
+    console.log(noChangeData);
     console.log("\n");
     console.log("Buildings with Valid Data:\n");
     console.log(hasData);
