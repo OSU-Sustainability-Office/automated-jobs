@@ -25,7 +25,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [168],
+      "meter_group_id": [168, 38],
       "building_name": "Hindsdale Wave Lab",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -53,16 +53,7 @@
       ],
       "meter_group_id": [9, 130, 131],
       "building_name": "Memorial Union",
-      "_meter_comments": [
-        {
-          "id": 8,
-          "note": "No data since Febuary 2023"
-        },
-        {
-          "id": 9,
-          "note": "No data since Febuary 2023"
-        }
-      ],
+      "_meter_comments": [],
       "_meter_group_comments": [
         {
           "id": 9,
@@ -136,7 +127,7 @@
           "point_name": "Steam"
         }
       ],
-      "meter_group_id": [52, 148, 149],
+      "meter_group_id": [52, 148, 149, 25, 73],
       "building_name": "Kelley Engineering Center",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -175,7 +166,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [54],
+      "meter_group_id": [54, 32, 59],
       "building_name": "Cauthorn Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -203,9 +194,15 @@
           "class": 4444,
           "point": "total",
           "point_name": "Steam"
+        },
+        {
+          "id": 3,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [55, 174],
+      "meter_group_id": [55, 174, 24],
       "building_name": "Valley Library",
       "_meter_comments": [
         {
@@ -267,8 +264,15 @@
     },
     {
       "building_id": 12,
-      "meter": [],
-      "meter_group_id": [],
+      "meter": [
+        {
+          "id": 46,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [28, 58],
       "building_name": "West Dining Hall",
       "_meter_comments": [
         {
@@ -297,7 +301,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [61],
+      "meter_group_id": [61, 23],
       "building_name": "Arnold Dining Center",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -317,7 +321,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [62],
+      "meter_group_id": [62, 21],
       "building_name": "Bloss Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -335,9 +339,15 @@
           "class": 48,
           "point": "accumulated_real",
           "point_name": "Electricity"
+        },
+        {
+          "id": 38,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [63, 155],
+      "meter_group_id": [63, 155, 16],
       "building_name": "Buxton Hall",
       "_meter_comments": [
         {
@@ -368,7 +378,7 @@
           "point_name": "Gas"
         }
       ],
-      "meter_group_id": [64, 70],
+      "meter_group_id": [64, 70, 34],
       "building_name": "CH2M Hill Alumni Center",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -392,7 +402,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [65],
+      "meter_group_id": [65, 19],
       "building_name": "Callahan Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -412,7 +422,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [66],
+      "meter_group_id": [66, 22],
       "building_name": "Finley Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -432,7 +442,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [67],
+      "meter_group_id": [67, 33],
       "building_name": "Gill Coliseum",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -452,7 +462,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [68],
+      "meter_group_id": [68, 35],
       "building_name": "Halsell Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -472,7 +482,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [69],
+      "meter_group_id": [69, 15],
       "building_name": "Hawley Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -492,7 +502,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [71],
+      "meter_group_id": [71, 37],
       "building_name": "ILLC",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -512,7 +522,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [72],
+      "meter_group_id": [72, 29],
       "building_name": "Johnson Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -568,7 +578,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [76],
+      "meter_group_id": [76, 36],
       "building_name": "Milam Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -600,7 +610,7 @@
           "point_name": "Steam"
         }
       ],
-      "meter_group_id": [77, 146, 147],
+      "meter_group_id": [77, 146, 147, 30],
       "building_name": "Nash Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -620,7 +630,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [79],
+      "meter_group_id": [79, 20],
       "building_name": "Poling Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -652,7 +662,7 @@
           "point_name": "Solar"
         }
       ],
-      "meter_group_id": [80, 81, 214],
+      "meter_group_id": [80, 81, 214, 26],
       "building_name": "Student Experience Center",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -673,12 +683,12 @@
     {
       "building_id": 31,
       "meter": [],
-      "meter_group_id": [82],
+      "meter_group_id": [82, 31],
       "building_name": "Weniger Hall",
       "_meter_comments": [
         {
           "id": 35,
-          "note": "Valid, up to date data. Why doesn't show on graph? Meter Group Campaign also messed up."
+          "note": "Valid, up to date data. But Net Energy Usage in specific is not shown. Maybe math error? Meter Group Campaign also messed up."
         }
       ],
       "_meter_group_comments": [
@@ -698,7 +708,7 @@
           "point_name": "Electricity"
         }
       ],
-      "meter_group_id": [83],
+      "meter_group_id": [83, 18],
       "building_name": "Wilson Hall",
       "_meter_comments": [],
       "_meter_group_comments": [
@@ -710,12 +720,20 @@
     },
     {
       "building_id": 34,
-      "meter": [],
+      "meter": [
+        {
+          "id": 68,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
       "meter_group_id": [],
       "building_name": "Orchard Court",
       "_meter_comments": [
         {
-          "note": "No Data or Meter Yet?"
+          "id": 68,
+          "note": "No data since 2019"
         }
       ],
       "_meter_group_comments": []
@@ -963,8 +981,15 @@
     },
     {
       "building_id": 40,
-      "meter": [],
-      "meter_group_id": [],
+      "meter": [
+        {
+          "id": 117,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [179],
       "building_name": "Agricultural and Life Sciences Building",
       "_meter_comments": [
         {
@@ -981,8 +1006,21 @@
     },
     {
       "building_id": 41,
-      "meter": [],
-      "meter_group_id": [],
+      "meter": [
+        {
+          "id": 119,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        },
+        {
+          "id": 120,
+          "class": 48,
+          "point": "accumulated_real",
+          "point_name": "Electricity"
+        }
+      ],
+      "meter_group_id": [211],
       "building_name": "Weatherford Hall",
       "_meter_comments": [
         {

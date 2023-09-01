@@ -32,7 +32,7 @@ const requests = validIDs.flatMap((buildings) => {
   ) {
     // need to retire this later maybe due to new 3Or4Day alert implementation. Buildings not tracked due to no data for years
     missedBuildings.push(
-      `${buildings.building_name} (Building ID ${buildings.building_id}): No data within the past ${formattedDuration}`,
+      `${buildings.building_name} (Building ID ${buildings.building_id}): Unclear Error; See meter_comments from validIDs.json for more info`,
     );
   }
 
@@ -365,7 +365,7 @@ Promise.all(requests)
     console.log(noData);
     console.log("\n");
     console.log(
-      "Buildings Currently Not Tracked (No Data for More Than a Year):\n",
+      "Buildings Currently Not Tracked (Manual Override):\n",
     );
     console.log(missedBuildings);
     console.log("\n");
