@@ -364,9 +364,7 @@ Promise.all(requests)
     console.log("Buildings with Missing Data (For a Long Time):\n");
     console.log(noData);
     console.log("\n");
-    console.log(
-      "Buildings Currently Not Tracked (Manual Override):\n",
-    );
+    console.log("Buildings Currently Not Tracked (Manual Override):\n");
     console.log(missedBuildings);
     console.log("\n");
     console.log("Buildings with No Change in Data (New, 4 or 5 Days):\n");
