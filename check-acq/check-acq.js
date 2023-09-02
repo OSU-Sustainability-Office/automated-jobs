@@ -26,9 +26,9 @@ const requests = validIDs.flatMap((buildings) => {
   if (
     meterlength === 0 &&
     buildings.building_id !== 35 &&
-    buildings.building_id != 36 &&
-    buildings.building_id != 37 &&
-    buildings.building_id != 38
+    buildings.building_id !== 36 &&
+    buildings.building_id !== 37 &&
+    buildings.building_id !== 38
   ) {
     // need to retire this later maybe due to new 3Or4Day alert implementation. Buildings not tracked due to no data for years
     missedBuildings.push(
