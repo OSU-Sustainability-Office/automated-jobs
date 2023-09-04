@@ -1,7 +1,6 @@
 const https = require("https");
-const moment = require("moment");
+const moment = require("moment-timezone");
 const validIDs = require("./validIDs.json").buildings;
-const { saveOutputToFile } = require("./save-output");
 
 // by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
 const startDate = moment().subtract(2, "months").unix();
@@ -358,6 +357,7 @@ Promise.all(requests)
     }
 
     const dataObj = {
+      "Timestamp": moment.unix(endDate).format("MM-DD-YYYY HH:mm:ss ZZ"),
       "New Buildings with Missing Data (3 or 4 Days)": noData3Or4,
       "Buildings with Missing Data (For a Long Time)": noData,
       "Buildings Currently Not Tracked (Manual Override)": missedBuildings,
@@ -367,23 +367,23 @@ Promise.all(requests)
     };
 
     console.log("===============\n");
-
-    console.log(Object.keys(dataObj)[0] + ":\n");
+    console.log(Object.keys(dataObj)[0] + ": " + dataObj.Timestamp + ":\n");
+    console.log(Object.keys(dataObj)[1] + ":\n");
     console.log(noData3Or4);
     console.log("\n");
-    console.log(Object.keys(dataObj)[1] + ":\n");
+    console.log(Object.keys(dataObj)[2] + ":\n");
     console.log(noData);
     console.log("\n");
-    console.log(Object.keys(dataObj)[2] + ":\n");
+    console.log(Object.keys(dataObj)[3] + ":\n");
     console.log(missedBuildings);
     console.log("\n");
-    console.log(Object.keys(dataObj)[3] + ":\n");
+    console.log(Object.keys(dataObj)[4] + ":\n");
     console.log(noChange4Or5Data);
     console.log("\n");
-    console.log(Object.keys(dataObj)[4] + ":\n");
+    console.log(Object.keys(dataObj)[5] + ":\n");
     console.log(noChangeData);
     console.log("\n");
-    console.log(Object.keys(dataObj)[5] + ":\n");
+    console.log(Object.keys(dataObj)[6] + ":\n");
     console.log(hasData);
 
     // Check if a command-line argument or environment variable is set to save output
