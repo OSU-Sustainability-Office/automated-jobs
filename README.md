@@ -6,10 +6,15 @@ Basically, each automated-job is described through a dockerfile (containerized) 
 Through the AWS Management Console we define Scheduled Tasks which run each container on a random node in a Cluster of AWS-managed VMs (or 
 whatever AWS calls them).
 
-
-## Current Job Status:
+## Currently Active Jobs
  - **SEC** (Deployed): Retrieves some solar panel data from OSU Operations and Student Experience Center. Email alerts integrated for failed upload.
- - **Check-Acq** (Deployed): Pings every building / meter on campus (that has worked within the past year) and checks if the meter / building has data from 2 days ago or newer. Email alerts integrated for missed uploads (sent out on the 3rd or 4th day a building reports no data, so you won't get emailed over and over about the same building that is down)
+   - `node readSEC.js`
+ - **Check-Acq** (Deployed): Checks for Acquisuite (not solar panel) meter status. Email alerts integrated for missing or unchanging data.
+    - `node check-acq.js`
+    - `node check-acq.js --save-output`
+        - Saves output to `check-acq/output.json` (note that this output.json file is in .gitignore, it is not tracked on remote)
+
+ ## Deprecated
  - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
  - **SunnyWebBox** (Not Deployed): Can't access web-box without VPN access.
 
