@@ -1,11 +1,9 @@
-// save-output.js
-
 const fs = require("fs");
 
-function saveOutputToFile(data, outputPath, outputFormat) {
+function saveOutputToFile(dataObj, outputPath, outputFormat) {
   // Convert the data to JSON if needed
   let dataToWrite =
-    outputFormat === "json" ? JSON.stringify(data, null, 2) : data;
+    outputFormat === "json" ? JSON.stringify(dataObj, null, 2) : dataObj;
 
   fs.writeFile(outputPath, dataToWrite, (err) => {
     if (err) {

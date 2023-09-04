@@ -377,23 +377,24 @@ Promise.all(requests)
     console.log("Buildings with Valid Data:\n");
     console.log(hasData);
 
+    const dataObj = {
+      "Buildings with Missing Data (For a Long Time)": noData,
+      "New Buildings with Missing Data (3 or 4 Days)": noData3Or4,
+      "Buildings Currently Not Tracked (Manual Override)": missedBuildings,
+      "Buildings with No Change in Data (New, 4 or 5 Days)": noChange4Or5Data,
+      "Buildings with No Change in Data (Old, At Least 6 Days)": noChangeData,
+      "Buildings with Valid Data": hasData,
+    };
+
     // Check if a command-line argument or environment variable is set to save output
     if (
       process.argv.includes("--save-output") ||
       process.env.SAVE_OUTPUT === "true"
     ) {
       const { saveOutputToFile } = require("./save-output");
-      const dataToSave = {
-        noData3Or4,
-        noData,
-        missedBuildings,
-        noChange4Or5Data,
-        noChangeData,
-        hasData,
-      };
       const outputPath = "output.json"; // Change this to the desired file path and name
       const outputFormat = "json"; // Change this to 'text' if you want a text file
-      saveOutputToFile(dataToSave, outputPath, outputFormat);
+      saveOutputToFile(dataObj, outputPath, outputFormat);
     }
   })
   .catch((error) => {
