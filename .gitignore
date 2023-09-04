@@ -106,5 +106,6 @@ dist
 # Config file
 .env
 
-# ouput.json
+# check-acq output
 check-acq/output.json
+check-acq/output.txt
