@@ -12,7 +12,7 @@ whatever AWS calls them).
  - **Check-Acq** (Deployed): Checks for Acquisuite (not solar panel) meter status. Email alerts integrated for missing or unchanging data.
     - `node check-acq.js`
     - `node check-acq.js --save-output`
-        - Saves output to `check-acq/output.json`
+        - Saves output to `check-acq/output.json` (note that this output.json file is in .gitignore, it is not tracked on remote)
 
  ## Deprecated
  - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
