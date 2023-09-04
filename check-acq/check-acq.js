@@ -1,6 +1,7 @@
 const https = require("https");
 const moment = require("moment");
 const validIDs = require("./validIDs.json").buildings;
+const { saveOutputToFile } = require("./save-output");
 
 // by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
 const startDate = moment().subtract(2, "months").unix();
@@ -375,6 +376,25 @@ Promise.all(requests)
     console.log("\n");
     console.log("Buildings with Valid Data:\n");
     console.log(hasData);
+
+    // Check if a command-line argument or environment variable is set to save output
+    if (
+      process.argv.includes("--save-output") ||
+      process.env.SAVE_OUTPUT === "true"
+    ) {
+      const { saveOutputToFile } = require("./save-output");
+      const dataToSave = {
+        noData3Or4,
+        noData,
+        missedBuildings,
+        noChange4Or5Data,
+        noChangeData,
+        hasData,
+      };
+      const outputPath = "output.json"; // Change this to the desired file path and name
+      const outputFormat = "json"; // Change this to 'text' if you want a text file
+      saveOutputToFile(dataToSave, outputPath, outputFormat);
+    }
   })
   .catch((error) => {
     console.error("Error:", error);
