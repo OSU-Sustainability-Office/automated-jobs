@@ -14,7 +14,7 @@ let totalBuildingData = [];
 let missedBuildings = [];
 let buildingOutput;
 let noChangeData = [];
-let noChange5Or6Data = [];
+let noChange4Or5Data = [];
 
 console.log("Acquisuite Data Checker\n");
 
@@ -161,7 +161,7 @@ const requests = validIDs.flatMap((buildings) => {
                     moment().subtract(6, "days").unix(),
                   ).index
                 ] &&
-              moment().diff(moment.unix(parsedData[0].time), "days") <= 6
+              moment().diff(moment.unix(parsedData[0].time), "days") <= 2
             ) {
               buildingOutput = `${building_name} (Building ID ${buildingID}, ${
                 meterObj.point_name
@@ -230,14 +230,14 @@ const requests = validIDs.flatMap((buildings) => {
                       moment().subtract(6, "days").unix(),
                     ).index
                   ]) &&
-              moment().diff(moment.unix(parsedData[0].time), "days") <= 6
+              moment().diff(moment.unix(parsedData[0].time), "days") <= 2
             ) {
               buildingOutput = `${building_name} (Building ID ${buildingID}, ${
                 meterObj.point_name
               }, Meter ID ${meterObj.id}, Meter Group ID ${meter_groupID.join(
                 ", ",
               )}): No Change in Data (New, 4 or 5 Days)`;
-              noChange5Or6Data.push(buildingOutput);
+              noChange4Or5Data.push(buildingOutput);
             }
 
             // anything that made it to this else block is presumed to have changing and nonzero data
@@ -348,7 +348,7 @@ Promise.all(requests)
       console.log("Meter Outages 3 or 4 Days Detected\n");
     }
 
-    if (noChange5Or6Data.length > 0) {
+    if (noChange4Or5Data.length > 0) {
       console.log("Meters with Unchanging Data 4 or 5 Days Detected\n");
     }
 
@@ -368,7 +368,7 @@ Promise.all(requests)
     console.log(missedBuildings);
     console.log("\n");
     console.log("Buildings with No Change in Data (New, 4 or 5 Days):\n");
-    console.log(noChange5Or6Data);
+    console.log(noChange4Or5Data);
     console.log("\n");
     console.log("Buildings with No Change in Data (Old, At Least 6 Days):\n");
     console.log(noChangeData);
