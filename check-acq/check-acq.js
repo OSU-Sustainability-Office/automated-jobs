@@ -357,7 +357,7 @@ Promise.all(requests)
     }
 
     const dataObj = {
-      "Timestamp": moment.unix(endDate).format("MM-DD-YYYY HH:mm:ss ZZ"),
+      Timestamp: moment.unix(endDate).format("MM-DD-YYYY HH:mm:ss ZZ"),
       "New Buildings with Missing Data (3 or 4 Days)": noData3Or4,
       "Buildings with Missing Data (For a Long Time)": noData,
       "Buildings Currently Not Tracked (Manual Override)": missedBuildings,
