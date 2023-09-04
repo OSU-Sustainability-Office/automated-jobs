@@ -392,9 +392,8 @@ Promise.all(requests)
       process.env.SAVE_OUTPUT === "true"
     ) {
       const { saveOutputToFile } = require("./save-output");
-      const outputPath = "output.json"; // Change this to the desired file path and name
-      const outputFormat = "json"; // Change this to 'text' if you want a text file
-      saveOutputToFile(dataObj, outputPath, outputFormat);
+      saveOutputToFile(dataObj, "output.json", "json");
+      saveOutputToFile(dataObj, "output.txt", "json");
     }
   })
   .catch((error) => {
