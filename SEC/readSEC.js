@@ -5,9 +5,7 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 600000;
-const CLICK_OPTIONS = { clickCount: 10, delay: 100 };
-const MAX_TRIES = 5;
+const TIMEOUT_BUFFER = 600000; // lower to 10000 for debug
 const axios = require("axios");
 
 (async () => {
@@ -204,7 +202,7 @@ const axios = require("axios");
       .catch((err) => {
         console.log(err);
       });
-    // */ //block comment ends here
+     // */ //block comment ends here
   }
 
   // Close browser.
