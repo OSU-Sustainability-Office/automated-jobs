@@ -94,13 +94,26 @@ const requests = validIDs.flatMap((buildings) => {
             }
 
             /*
-            first 6 days equal to each other = noChangeData
-            first 4 days equal to each other, and then 4 or 5 aren't equal = noChange5Or6Data
+            below should read as "days ago", e.g. "now === 1" means "now vs 1 day ago"
+
+            noChangeData: (now === 1 and 1 === 2 and 2 === 3 and 3 === 4 and 4 === 5 and 5 === 6)
+
+            noChange4or5Data: (now === 1 and 1 === 2 and 2 === 3 and 3 === 4 and 4 !== 5 or 5 !== 6)
+
             Overall purpose of the if and else if code block below is to track buildings with no change in data,
             which may be a sign of meter errors (as seen historically for some gas meters)
             */
 
             if (
+              firstKeyValues[
+                findClosestWithIndex(timeValues, moment().unix()).index
+              ] ===
+                firstKeyValues[
+                  findClosestWithIndex(
+                    timeValues,
+                    moment().subtract(1, "days").unix(),
+                  ).index
+                ] &&
               firstKeyValues[
                 findClosestWithIndex(
                   timeValues,
@@ -170,6 +183,15 @@ const requests = validIDs.flatMap((buildings) => {
               )}): No Change in Data (Old, At Least 6 Days)`;
               noChangeData.push(buildingOutput);
             } else if (
+              firstKeyValues[
+                findClosestWithIndex(timeValues, moment().unix()).index
+              ] ===
+                firstKeyValues[
+                  findClosestWithIndex(
+                    timeValues,
+                    moment().subtract(1, "days").unix(),
+                  ).index
+                ] &&
               firstKeyValues[
                 findClosestWithIndex(
                   timeValues,
