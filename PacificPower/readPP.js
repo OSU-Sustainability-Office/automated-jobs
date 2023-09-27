@@ -81,7 +81,7 @@ const axios = require("axios");
   await page.waitForNavigation({ waitUntil: "networkidle0" });
   console.log(await page.title());
 
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(15000);
 
   // reference: https://stackoverflow.com/a/66461236
   let [timeframeMenu] = await page.$x("//span[contains(., 'One Month')]");
@@ -105,12 +105,24 @@ const axios = require("axios");
   );
   console.log("Switched from graph to table view");
 
-  const element = await page.waitForSelector(
-    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > table > tbody > tr:nth-child(96) > div:nth-child(1)",
-  ); // select the element
   console.log("getting table values");
-  const value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-  console.log(value);
+  for (let i = 1; i <= 96; i++) {
+    let element = await page.waitForSelector(
+      "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > table > tbody > tr:nth-child(" +
+        i +
+        ") > div:nth-child(1)",
+    ); // select the element
+    let value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
+    let formattedValue =
+      value.slice(0, 8) +
+      ": " +
+      value.slice(8, 13) +
+      ", " +
+      value.slice(13, 23) +
+      ": " +
+      value.slice(23);
+    console.log(formattedValue);
+  }
   await page.waitForTimeout(100000); // arbitarily long timeout for debug
 
   // implement some loops with:
