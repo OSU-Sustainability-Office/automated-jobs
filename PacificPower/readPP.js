@@ -13,7 +13,7 @@ const axios = require("axios");
 
   // Launch the browser
   browser = await puppeteer.launch({
-    headless: false, // set to false (no quotes) for debug | reference: https://developer.chrome.com/articles/new-headless/
+    headless: "new", // set to false (no quotes) for debug | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--disable-features=site-per-process, --no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
@@ -62,6 +62,9 @@ const axios = require("axios");
   const frame = await elementHandle.contentFrame();
 
   console.log("filling username in iframe");
+
+  // may need to change these 5000 value timeouts later to something less arbitrary, increase timeout, or ideally wait until completion
+  await page.waitForTimeout(5000);
   await frame.type("input#signInName", process.env.PP_USERNAME);
 
   console.log("filling password in iframe");
@@ -73,9 +76,48 @@ const axios = require("axios");
   console.log(await page.title());
 
   const USAGE_DETAILS = "a.usage-link";
-  await page.click(USAGE_DETAILS);
+  await page.waitForTimeout(5000);
+  await page.click(USAGE_DETAILS); // does this still error sometimes? increase timeout?
   await page.waitForNavigation({ waitUntil: "networkidle0" });
   console.log(await page.title());
+
+  await page.waitForTimeout(5000);
+
+  // reference: https://stackoverflow.com/a/66461236
+  let [timeframeMenu] = await page.$x("//span[contains(., 'One Month')]");
+  if (timeframeMenu) {
+    await timeframeMenu.click();
+    console.log("Opened timeframe menu");
+  }
+  await page.waitForTimeout(5000);
+  [timeframeMenu] = await page.$x("//span[contains(., 'One Day')]");
+  if (timeframeMenu) {
+    await timeframeMenu.click();
+    console.log("Selected One Day");
+  }
+  // await page.click('#mat-option-508')
+  // the month / day values will increment the ID if you change options on the building menu
+  // the building menu ID's should stay constant (unless refresh page)
+
+  await page.waitForTimeout(5000);
+  await page.click(
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3)",
+  );
+  console.log("Switched from graph to table view");
+
+  const element = await page.waitForSelector(
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > table > tbody > tr:nth-child(96) > div:nth-child(1)",
+  ); // select the element
+  console.log("getting table values");
+  const value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
+  console.log(value);
+  await page.waitForTimeout(100000); // arbitarily long timeout for debug
+
+  // implement some loops with:
+  // each building of building menu
+  // each 15? minutes in Kwh table (per building)
+
+  // need to format text strings in output
 
   // Close browser.
   await browser.close();
