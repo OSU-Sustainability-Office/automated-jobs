@@ -1,0 +1,106 @@
+[
+  {
+    "building_id": 9,
+    "building_name": "Valley Library",
+    "_meter_comments": [
+      {
+        "id": 3,
+        "note": "No Data since October 2020"
+      }
+    ]
+  },
+  {
+    "building_id": 12,
+    "building_name": "West Dining Hall",
+    "_meter_comments": [
+      {
+        "id": 46,
+        "note": "No Data since April 2020"
+      }
+    ]
+  },
+  {
+    "building_id": 16,
+    "building_name": "Buxton Hall",
+    "_meter_comments": [
+      {
+        "id": 38,
+        "note": "No data since June 2018"
+      }
+    ]
+  },
+  {
+    "building_id": 31,
+    "building_name": "Weniger Hall",
+    "_meter_comments": [
+      {
+        "id": 35,
+        "note": "Valid, up to date data. But Net Energy Usage in specific is not shown. Maybe math error?"
+      }
+    ]
+  },
+  {
+    "building_id": 34,
+    "building_name": "Orchard Court",
+    "_meter_comments": [
+      {
+        "id": 68,
+        "note": "No data since 2019"
+      }
+    ]
+  },
+  {
+    "building_id": 35,
+    "building_name": "35th Solar Array",
+    "_meter_comments": [
+      {
+        "id": 83,
+        "note": "Use Tesla Iframes now, don't use own API data"
+      }
+    ]
+  },
+  {
+    "building_id": 36,
+    "building_name": "53rd Street Solar Array",
+    "_meter_comments": [
+      {
+        "id": 84,
+        "note": "Use Tesla Iframes now, don't use own API data"
+      }
+    ]
+  },
+  {
+    "building_id": 37,
+    "building_name": "Hermiston Solar Array",
+    "_meter_comments": [
+      {
+        "id": 85,
+        "note": "Use Tesla Iframes now, don't use own API data"
+      }
+    ]
+  },
+  {
+    "building_id": 38,
+    "building_name": "NWREC Solar Array",
+    "_meter_comments": [
+      {
+        "id": 86,
+        "note": "Use Tesla Iframes now, don't use own API data"
+      }
+    ]
+  },
+  {
+    "building_id": 41,
+    "building_name": "Weatherford Hall",
+    "_meter_comments": [
+      {
+        "id": 119,
+        "note": "Not sure if this has ever shown valid data. Not connected to a meter group"
+      },
+      {
+        "id": 120,
+        "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
+      }
+    ]
+  }
+]
