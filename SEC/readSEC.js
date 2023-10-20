@@ -4,6 +4,7 @@
 
 const puppeteer = require("puppeteer");
 require("dotenv").config();
+const meterlist = require("./meterlist.json");
 
 const TIMEOUT_BUFFER = 600000; // lower to 10000 for debug
 const axios = require("axios");
@@ -30,7 +31,7 @@ const axios = require("axios");
     "Accept-Language": "en-US,en;q=0.9",
   });
   await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
   );
   console.log(await page.title());
 
@@ -46,7 +47,7 @@ const axios = require("axios");
   const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
   const LOGIN_BUTTON = "#ctl00_ContentPlaceHolder1_Logincontrol1_LoginBtn";
 
-  const maxAttempts = 3;
+  const maxAttempts = 5;
   let attempt = 0;
   while (attempt < maxAttempts) {
     try {
@@ -59,7 +60,7 @@ const axios = require("axios");
       console.log(
         `Accept Cookies Button not found (Attempt ${
           attempt + 1
-        } of ${maxAttempts}). Retrying...`,
+        } of ${maxAttempts}). Retrying...`
       );
       attempt++;
     }
@@ -77,7 +78,7 @@ const axios = require("axios");
       console.log(
         `Login Button not found (Attempt ${
           attempt + 1
-        } of ${maxAttempts}). Retrying...`,
+        } of ${maxAttempts}). Retrying...`
       );
       attempt++;
     }
@@ -103,59 +104,49 @@ const axios = require("axios");
 
   // https://stackoverflow.com/questions/62452376/scraping-a-table-with-puppeteer-how-can-i-format-each-td-element-as-an-object-p
   const PV_tableData = [];
-  class PVTable {
-    constructor(tableID, time, time_seconds, PVSystem, totalYieldYesterday) {
-      this.tableID = tableID;
-      this.time = time;
-      this.time_seconds = time_seconds;
-      this.PVSystem = PVSystem;
-      this.totalYieldYesterday = totalYieldYesterday;
-    }
-  }
-
-  // array with list of ID for each row
-  const tableRows = [
-    "3080beca-6c32-4e74-9a8b-3e8490ce5d37",
-    "d4d43f97-e171-4ba0-9570-6731a66bc32c",
-    "a67b3f74-acd1-4119-ab92-24b9bc3c7c60",
-  ];
-
-  const tableIDNames = ["SEC_OSU_Op_Lube", "SEC_OSU_Op", "SEC_Solar"];
 
   // https://stackoverflow.com/questions/59686300/how-to-get-text-from-xpath-in-puppeteer-node-js
-  for (let i = 0; i <= tableRows.length - 1; i++) {
-    const tableID = tableIDNames[i];
-    //console.log(tableID);
+  for (let i = 0; i < meterlist.length; i++) {
+    const meterName = meterlist[i].meterName;
+
+    const meterID = meterlist[i].meterID;
 
     const time = END_TIME;
 
     const time_seconds = END_TIME_SECONDS;
 
-    await page.waitForXPath("//*[@id='" + tableRows[i] + "']/td[1]/a"); // wait and make sure xpaths loaded
+    await page.waitForXPath(
+      "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a"
+    ); // wait and make sure xpaths loaded
     console.log("x-paths loaded!");
 
     const PVSystem = await page.evaluate(
       (el) => el.innerText,
-      (await page.$x("//*[@id='" + tableRows[i] + "']/td[1]/a"))[0],
+      (
+        await page.$x(
+          "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a"
+        )
+      )[0]
     );
 
     const totalYieldYesterdayElement = await page.$x(
-      "//*[@id='" + tableRows[i] + "']/td[3]",
+      "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[3]"
     );
     const totalYieldYesterday = await page.evaluate(
       (el) => el.innerText.replace(",", ""),
-      totalYieldYesterdayElement[0],
+      totalYieldYesterdayElement[0]
     );
 
-    const actualPVTable = {
-      tableID,
+    const PVTable = {
+      meterName,
+      meterID,
       time,
       time_seconds,
       PVSystem,
       totalYieldYesterday,
     };
 
-    PV_tableData.push(actualPVTable);
+    PV_tableData.push(PVTable);
   }
 
   const comboTotalYieldYesterday = (
@@ -164,7 +155,8 @@ const axios = require("axios");
   ).toFixed(2);
 
   const comboPVTable = {
-    tableID: "OSU_Operations_Total",
+    meterName: "OSU Operations Total",
+    meterID: 124,
     time: PV_tableData[0].time,
     time_seconds: PV_tableData[0].time_seconds,
     PVSystem: "OSU Operations Total",
@@ -173,7 +165,7 @@ const axios = require("axios");
   PV_tableData.push(comboPVTable);
 
   // remove the first two elements from the array
-  final_PV_tableData = PV_tableData.slice(2);
+  let final_PV_tableData = PV_tableData.slice(2);
 
   const solarmeter = "Solar_Meters";
 
@@ -195,7 +187,7 @@ const axios = require("axios");
     })
       .then((res) => {
         console.log(
-          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`
         );
         console.log(`uploaded ${solarmeter} data to API`);
       })

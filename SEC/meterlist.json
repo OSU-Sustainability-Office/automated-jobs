@@ -1,0 +1,17 @@
+[
+  {
+    "meterID": 121,
+    "meterName": "OSU Operations Lube Shop",
+    "puppeteerSelector": "3080beca-6c32-4e74-9a8b-3e8490ce5d37"
+  },
+  {
+    "meterID": 122,
+    "meterName": "OSU Operations",
+    "puppeteerSelector": "d4d43f97-e171-4ba0-9570-6731a66bc32c"
+  },
+  {
+    "meterID": 123,
+    "meterName": "SEC Solar",
+    "puppeteerSelector": "a67b3f74-acd1-4119-ab92-24b9bc3c7c60"
+  }
+]
