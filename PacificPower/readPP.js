@@ -84,6 +84,7 @@ const axios = require("axios");
   await page.waitForTimeout(15000);
 
   // reference: https://stackoverflow.com/a/66461236
+  /*
   let [timeframeMenu] = await page.$x("//span[contains(., 'One Month')]");
   if (timeframeMenu) {
     await timeframeMenu.click();
@@ -95,17 +96,19 @@ const axios = require("axios");
     await timeframeMenu.click();
     console.log("Selected One Day");
   }
+  */
   // await page.click('#mat-option-508')
   // the month / day values will increment the ID if you change options on the building menu
   // the building menu ID's should stay constant (unless refresh page)
 
-  await page.waitForTimeout(5000);
+  // await page.waitForTimeout(5000);
   await page.click(
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3)",
   );
   console.log("Switched from graph to table view");
 
   console.log("getting table values");
+  /*
   for (let i = 1; i <= 96; i++) {
     let element = await page.waitForSelector(
       "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > table > tbody > tr:nth-child(" +
@@ -123,6 +126,18 @@ const axios = require("axios");
       value.slice(23);
     console.log(formattedValue);
   }
+  */
+  let element = await page.waitForSelector(
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
+  ); // select the element
+  let value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
+  let positionUsage = "Usage(kwh)";
+  let positionEst = "Est. Rounded";
+  let formattedValue = parseFloat(
+    value.split(positionUsage)[1].split(positionEst)[0],
+  );
+  console.log(value);
+  console.log(formattedValue);
   await page.waitForTimeout(100000); // arbitarily long timeout for debug
 
   // implement some loops with:
