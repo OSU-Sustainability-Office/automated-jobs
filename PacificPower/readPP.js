@@ -23,6 +23,8 @@ const axios = require("axios");
   await page.setDefaultTimeout(TIMEOUT_BUFFER);
   const maxAttempts = 5;
   let attempt = 0;
+  let topID = "";
+  let newID = "";
 
   // Go to your site
   await page.goto(process.env.PP_LOGINPAGE, { waitUntil: "networkidle0" });
@@ -240,6 +242,7 @@ const axios = require("axios");
     console.log(formattedValue);
   }
   */
+ /*
   while (attempt < maxAttempts) {
     try {
       await page.waitForTimeout(1000);
@@ -276,6 +279,7 @@ const axios = require("axios");
   ); // select the element
   const value2 = await element2.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
   console.log(value2);
+  */
 
   await page.click("#mat-select-1 > div > div.mat-select-value > span");
   console.log("Meter Menu Opened");
@@ -293,11 +297,9 @@ const axios = require("axios");
   while (attempt < maxAttempts) {
     try {
       await page.waitForTimeout(1000);
-      let topID = await page.$eval("mat-option", (el) => el.getAttribute("id"));
+      topID = await page.$eval("mat-option", (el) => el.getAttribute("id"));
+      newID = parseInt(topID.slice(11))
       console.log(topID);
-      console.log(topID.slice(11));
-      newID = topID.slice(0, 11) + (parseInt(topID.slice(11)) + 1).toString();
-      console.log(newID);
       console.log("Meter ID Found");
       break; // Exit the loop if successful
     } catch (error) {
@@ -311,6 +313,85 @@ const axios = require("axios");
   }
 
   attempt = 0;
+
+  let abort = false;
+
+  while (!abort) {
+    await page.click("#mat-select-1 > div > div.mat-select-value > span");
+    // newID = 686;
+    console.log(newID)
+    console.log(topID)
+    console.log("Meter Menu Opened");
+    topID = topID.slice(0, 11) + (newID).toString();
+    await page.click('#' + topID)
+
+    let yearCheck = false;
+    // [yearCheck] = await page.$x("//span[contains(., 'One Year')]");
+    if (yearCheck) {
+      newID += 1;
+      continue;
+    }
+    let noDataCheck = false;
+    // noDataCheck = await page.waitForXPath('//*[contains(text(), "No usage data is currently available.")]')
+    // noDataCheck = await page.waitForXPath('//*[contains(text(), "No usage data is currently available.")]')
+    if (noDataCheck) {
+      abort = true;
+    }
+
+    /*
+    if (newID === 510) {
+      newID += 1;
+      continue;
+    }
+
+    else if (newID === 512) {
+      abort = true;
+    }
+    */
+
+    // reuse starts here
+    while (attempt < maxAttempts) {
+      try {
+        await page.waitForTimeout(1000);
+        await page.waitForSelector(
+          "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
+        );
+        console.log("Monthly Data Top Row Found, getting table top row value");
+        break; // Exit the loop if successful
+      } catch (error) {
+        console.log(
+          `Monthly Data Top Row not found (Attempt ${
+            attempt + 1
+          } of ${maxAttempts}). Retrying...`,
+        );
+        attempt++;
+      }
+    }
+  
+    attempt = 0;
+    let element = await page.waitForSelector(
+      "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
+    ); // select the element
+    let value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
+    let positionUsage = "Usage(kwh)";
+    let positionEst = "Est. Rounded";
+    let formattedValue = parseFloat(
+      value.split(positionUsage)[1].split(positionEst)[0],
+    );
+    console.log(value);
+    console.log(formattedValue);
+  
+    const element2 = await page.waitForSelector(
+      "#mat-select-1 > div > div.mat-select-value > span",
+    ); // select the element
+    const value2 = await element2.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
+    console.log(value2);
+
+    if (!noDataCheck && !yearCheck) {
+      newID += 1;
+    }
+
+  }
 
   // const selector = await page.$(".mat-option ng-star-inserted mat-active")
   // const links = await selector.$eval((el) => el.id);
