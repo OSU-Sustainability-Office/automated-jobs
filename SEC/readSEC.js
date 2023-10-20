@@ -31,7 +31,7 @@ const axios = require("axios");
     "Accept-Language": "en-US,en;q=0.9",
   });
   await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
   );
   console.log(await page.title());
 
@@ -60,7 +60,7 @@ const axios = require("axios");
       console.log(
         `Accept Cookies Button not found (Attempt ${
           attempt + 1
-        } of ${maxAttempts}). Retrying...`
+        } of ${maxAttempts}). Retrying...`,
       );
       attempt++;
     }
@@ -78,7 +78,7 @@ const axios = require("axios");
       console.log(
         `Login Button not found (Attempt ${
           attempt + 1
-        } of ${maxAttempts}). Retrying...`
+        } of ${maxAttempts}). Retrying...`,
       );
       attempt++;
     }
@@ -116,7 +116,7 @@ const axios = require("axios");
     const time_seconds = END_TIME_SECONDS;
 
     await page.waitForXPath(
-      "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a"
+      "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a",
     ); // wait and make sure xpaths loaded
     console.log("x-paths loaded!");
 
@@ -124,17 +124,17 @@ const axios = require("axios");
       (el) => el.innerText,
       (
         await page.$x(
-          "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a"
+          "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a",
         )
-      )[0]
+      )[0],
     );
 
     const totalYieldYesterdayElement = await page.$x(
-      "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[3]"
+      "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[3]",
     );
     const totalYieldYesterday = await page.evaluate(
       (el) => el.innerText.replace(",", ""),
-      totalYieldYesterdayElement[0]
+      totalYieldYesterdayElement[0],
     );
 
     const PVTable = {
@@ -187,7 +187,7 @@ const axios = require("axios");
     })
       .then((res) => {
         console.log(
-          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`
+          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
         );
         console.log(`uploaded ${solarmeter} data to API`);
       })
