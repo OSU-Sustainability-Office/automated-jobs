@@ -64,7 +64,7 @@ const axios = require("axios");
   console.log("filling username in iframe");
 
   // may need to change these 5000 value timeouts later to something less arbitrary, increase timeout, or ideally wait until completion
-  await page.waitForTimeout(5000);
+  //await page.waitForTimeout(5000);
   await frame.type("input#signInName", process.env.PP_USERNAME);
 
   console.log("filling password in iframe");
@@ -76,12 +76,12 @@ const axios = require("axios");
   console.log(await page.title());
 
   const USAGE_DETAILS = "a.usage-link";
-  await page.waitForTimeout(5000);
+  // await page.waitForTimeout(5000);
   await page.click(USAGE_DETAILS); // does this still error sometimes? increase timeout?
   await page.waitForNavigation({ waitUntil: "networkidle0" });
   console.log(await page.title());
 
-  await page.waitForTimeout(15000);
+  // await page.waitForTimeout(15000);
 
   // reference: https://stackoverflow.com/a/66461236
   /*
@@ -102,9 +102,28 @@ const axios = require("axios");
   // the building menu ID's should stay constant (unless refresh page)
 
   // await page.waitForTimeout(5000);
-  await page.click(
-    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3)",
-  );
+
+  const maxAttempts = 5;
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    try {
+      await page.waitForTimeout(1000);
+      await page.click(
+        "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3)",
+      );
+      break; // Exit the loop if successful
+    } catch (error) {
+      console.log(
+        `energy usage link not found (Attempt ${
+          attempt + 1
+        } of ${maxAttempts}). Retrying...`,
+      );
+      attempt++;
+    }
+  }
+
+  attempt = 0;
+
   console.log("Switched from graph to table view");
 
   console.log("getting table values");
