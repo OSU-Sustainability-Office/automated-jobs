@@ -79,23 +79,9 @@ const fs = require("fs");
   );
   console.log(await page.title());
 
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      await page.waitForSelector(ACCEPT_COOKIES);
-      console.log("Cookies Button found");
-      break;
-    } catch (error) {
-      console.log(
-        `Accept Cookies Button not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  await page.waitForSelector(ACCEPT_COOKIES);
+  console.log("Cookies Button found");
 
   await page.click(ACCEPT_COOKIES);
   await page.click(LOCATION_BUTTON);
@@ -111,23 +97,9 @@ const fs = require("fs");
   // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
   console.log("waiting for iframe with form to be ready.");
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      await page.waitForSelector("iframe");
-      console.log("iframe is ready. Loading iframe content");
-      break;
-    } catch (error) {
-      console.log(
-        `Iframe not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  await page.waitForSelector("iframe");
+  console.log("iframe is ready. Loading iframe content");
 
   const signin_iframe = await page.$(SIGN_IN_IFRAME);
   const frame = await signin_iframe.contentFrame();
@@ -145,23 +117,9 @@ const fs = require("fs");
   await page.waitForNavigation({ waitUntil: "networkidle0" });
   console.log(await page.title());
 
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      await page.waitForSelector(USAGE_DETAILS);
-      console.log("Usage Details Link found");
-      break;
-    } catch (error) {
-      console.log(
-        `Usage Details Link not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  await page.waitForSelector(USAGE_DETAILS);
+  console.log("Usage Details Link found");
 
   await page.click(USAGE_DETAILS);
   await page.waitForNavigation({ waitUntil: "networkidle0" });
@@ -169,24 +127,9 @@ const fs = require("fs");
   yearCheck = false;
 
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      console.log(await page.title());
-      [yearCheck] = await page.$x(YEAR_IDENTIFIER);
-      // console.log(yearCheck);
-      break;
-    } catch (error) {
-      console.log(
-        `Year Identifier not found. (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  console.log(await page.title());
+  [yearCheck] = await page.$x(YEAR_IDENTIFIER);
 
   let graphButton = "";
 
@@ -196,67 +139,25 @@ const fs = require("fs");
     graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      await page.waitForSelector(graphButton);
-      console.log("Graph to Table Button clicked");
-      break;
-    } catch (error) {
-      console.log(
-        `Graph to Table Button not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  await page.waitForSelector(graphButton);
+  console.log("Graph to Table Button clicked");
 
   await page.click(graphButton);
 
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      await page.waitForSelector(METER_MENU);
-      console.log("Meter Menu Opened");
-      break;
-    } catch (error) {
-      console.log(
-        `Meter Menu Open not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  await page.waitForSelector(METER_MENU);
+  console.log("Meter Menu Opened");
 
   await page.click(METER_MENU);
 
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(10000);
-      meter_selector_full = await page.$eval("mat-option", (el) =>
-        el.getAttribute("id"),
-      );
-      meter_selector_num = parseInt(meter_selector_full.slice(11));
-      // console.log(meter_selector_full);
-      console.log("Meter ID Found");
-      break;
-    } catch (error) {
-      console.log(
-        `Meter ID not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  await page.waitForTimeout(10000);
+  meter_selector_full = await page.$eval("mat-option", (el) =>
+    el.getAttribute("id"),
+  );
+  meter_selector_num = parseInt(meter_selector_full.slice(11));
+  // console.log(meter_selector_full);
+  console.log("Meter ID Found");
 
   await page.click(METER_MENU);
   console.log("Meter Menu Closed");
@@ -275,50 +176,20 @@ const fs = require("fs");
       await page.click(METER_MENU);
       console.log("Meter Menu Opened");
 
-      while (attempt < maxAttempts) {
-        try {
-          await page.waitForTimeout(10000);
-          await page.waitForSelector(
-            "#" +
-              meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString(),
-          );
-          console.log("New Meter Opened");
-          break;
-        } catch (error) {
-          console.log(
-            `New Meter not found (Attempt ${
-              attempt + 1
-            } of ${maxAttempts}). Retrying...`,
-          );
-          attempt++;
-        }
-      }
-
-      attempt = 0;
+      await page.waitForTimeout(10000);
+      await page.waitForSelector(
+        "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
+      );
+      console.log("New Meter Opened");
 
       await page.click(
         "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
       );
 
       yearCheck = false;
-      while (attempt < maxAttempts) {
-        try {
-          await page.waitForTimeout(10000);
-          [yearCheck] = await page.$x(YEAR_IDENTIFIER);
-          // console.log(yearCheck);
-          break;
-        } catch (error) {
-          console.log(
-            `Year Identifier not found. (Attempt ${
-              attempt + 1
-            } of ${maxAttempts}). Retrying...`,
-          );
-          attempt++;
-        }
-      }
-
-      attempt = 0;
+      await page.waitForTimeout(10000);
+      [yearCheck] = await page.$x(YEAR_IDENTIFIER);
+      // console.log(yearCheck);
 
       let noDataCheck = false;
       noDataCheck =
