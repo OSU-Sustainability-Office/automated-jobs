@@ -13,6 +13,10 @@ whatever AWS calls them).
     - `node check-acq.js`
     - `node check-acq.js --save-output`
         - Saves output to `check-acq/output.json` (note that this output.json file is in .gitignore, it is not tracked on remote)
+ - **PacificPower** (WIP): Retrieves electric energy meter data from PacificPower.
+    - `node readPP.js`
+    - `node readPP.js --save-output`
+        - Saves output to `PacificPower/output.json` (note that this output.json file is in .gitignore, it is not tracked on remote)
 
  ## Deprecated
  - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.

@@ -1,19 +1,23 @@
 // https://pptr.dev/guides/evaluate-javascript
 
-// Import puppeteer
+// Lower timeouts (other than setDefaultTimeout) from 10000 to 1000 for debug
+
+// The various timeouts and while loops + try/catch blocks on this page are probably overkill, but the errors seem to show up at
+// random (based on Internet speed etc), so better safe than sorry for production. You can lower the timeouts for debug.
 
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 600000; // lower to 15000 for debug
+const TIMEOUT_BUFFER = 7200000; // Currently set for 2 hours (7,200,000 ms). Lower to 15 seconds (15,000 ms) for debug
 const axios = require("axios");
+const fs = require("fs");
 
 (async () => {
   console.log("Accessing Pacific Power Web Page...");
 
   // Launch the browser
   browser = await puppeteer.launch({
-    headless: "new", // set to false (no quotes) for debug | reference: https://developer.chrome.com/articles/new-headless/
+    headless: "new", // set to false (no quotes) for debug. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--disable-features=site-per-process, --no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
@@ -23,8 +27,31 @@ const axios = require("axios");
   await page.setDefaultTimeout(TIMEOUT_BUFFER);
   const maxAttempts = 5;
   let attempt = 0;
-  let topID = "";
-  let newID = "";
+  let meter_selector_full = "";
+  let meter_selector_num = "";
+  const ACCEPT_COOKIES = "button.cookie-accept-button";
+  const LOCATION_BUTTON = "a.modalCloseButton"; // button for closing a popup about what state you're in
+
+  // This is the button that takes you to the sign in page, not the button you press to actually log in
+  const SIGN_IN_PAGE_BUTTON = "a.link.link--default.link--size-default.signin";
+
+  const SIGN_IN_IFRAME =
+    'iframe[src="/oauth2/authorization/B2C_1A_PAC_SIGNIN"]';
+  const SIGN_IN_INPUT = "input#signInName"; // aka username
+  const SIGN_IN_PASSWORD = "input#password";
+
+  // This is the actual login button, as opposed to signin page button
+  const LOGIN_BUTTON = "button#next";
+
+  // This button takes you to a specific meter's page
+  const USAGE_DETAILS = "a.usage-link";
+
+  const GRAPH_TO_TABLE_BUTTON =
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
+  const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
+  const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
+  const MONTHLY_TOP =
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)";
 
   // Go to your site
   await page.goto(process.env.PP_LOGINPAGE, { waitUntil: "networkidle0" });
@@ -38,16 +65,12 @@ const axios = require("axios");
   );
   console.log(await page.title());
 
-  // might try while loops like in SEC/readSEC.js later if needed, or use xpath - https://stackoverflow.com/questions/58087966/how-to-click-element-in-puppeteer-using-xpath
-  // test with headless false or incognito for reset cookies. Remember to fully re open incognito window
-
-  const ACCEPT_COOKIES = "button.cookie-accept-button";
   while (attempt < maxAttempts) {
     try {
-      await page.waitForTimeout(1000);
-      await page.click(ACCEPT_COOKIES);
-      console.log("Cookies Button clicked");
-      break; // Exit the loop if successful
+      await page.waitForTimeout(10000);
+      await page.waitForSelector(ACCEPT_COOKIES);
+      console.log("Cookies Button found");
+      break;
     } catch (error) {
       console.log(
         `Accept Cookies Button not found (Attempt ${
@@ -60,56 +83,26 @@ const axios = require("axios");
 
   attempt = 0;
 
-  const LOCATION_BUTTON = "a.modalCloseButton";
+  await page.click(ACCEPT_COOKIES);
+  await page.click(LOCATION_BUTTON);
+  console.log("Location Button clicked");
 
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(1000);
-      await page.click(LOCATION_BUTTON);
-      console.log("Location Button clicked");
-      break; // Exit the loop if successful
-    } catch (error) {
-      console.log(
-        `Location Button not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
+  await page.click(SIGN_IN_PAGE_BUTTON);
+  console.log("SignIn Page Button Clicked!");
 
-  attempt = 0;
-
-  const SIGN_IN_PAGE_BUTTON = "a.link.link--default.link--size-default.signin";
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(1000);
-      await page.click(SIGN_IN_PAGE_BUTTON);
-      await page.waitForNavigation({ waitUntil: "networkidle0" });
-      console.log("SignIn Page Button Clicked!");
-      console.log(await page.title());
-      break; // Exit the loop if successful
-    } catch (error) {
-      console.log(
-        `Login Button not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
+  // Putting the networkidle0 stuff in the try catch block seemed to cause more crashes, but this is unclear
+  await page.waitForNavigation({ waitUntil: "networkidle0" });
+  console.log(await page.title());
 
   // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
   console.log("waiting for iframe with form to be ready.");
   while (attempt < maxAttempts) {
     try {
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(10000);
       await page.waitForSelector("iframe");
       console.log("iframe is ready. Loading iframe content");
-      break; // Exit the loop if successful
+      break;
     } catch (error) {
       console.log(
         `Iframe not found (Attempt ${
@@ -122,51 +115,28 @@ const axios = require("axios");
 
   attempt = 0;
 
-  const elementHandle = await page.$(
-    'iframe[src="/oauth2/authorization/B2C_1A_PAC_SIGNIN"]',
-  );
-  const frame = await elementHandle.contentFrame();
+  const signin_iframe = await page.$(SIGN_IN_IFRAME);
+  const frame = await signin_iframe.contentFrame();
 
   console.log("filling username in iframe");
 
-  // may need to change these 5000 value timeouts later to something less arbitrary, increase timeout, or ideally wait until completion
-  //await page.waitForTimeout(5000);
-  await frame.type("input#signInName", process.env.PP_USERNAME);
+  await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
 
   console.log("filling password in iframe");
-  await frame.type("input#password", process.env.PP_PWD);
+  await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
 
-  const LOGIN_BUTTON = "button#next";
+  await frame.click(LOGIN_BUTTON);
+  console.log("Login Button clicked");
+
+  await page.waitForNavigation({ waitUntil: "networkidle0" });
+  console.log(await page.title());
+
   while (attempt < maxAttempts) {
     try {
-      await page.waitForTimeout(1000);
-      await frame.click(LOGIN_BUTTON);
-      await page.waitForNavigation({ waitUntil: "networkidle0" });
-      console.log("Login Button clicked");
-      console.log(await page.title());
-      break; // Exit the loop if successful
-    } catch (error) {
-      console.log(
-        `Login Button not found (Attempt ${
-          attempt + 1
-        } of ${maxAttempts}). Retrying...`,
-      );
-      attempt++;
-    }
-  }
-
-  attempt = 0;
-
-  const USAGE_DETAILS = "a.usage-link";
-  // await page.waitForTimeout(5000);
-  while (attempt < maxAttempts) {
-    try {
-      await page.waitForTimeout(1000);
-      await page.click(USAGE_DETAILS); // does this still error sometimes? increase timeout?
-      await page.waitForNavigation({ waitUntil: "networkidle0" });
-      console.log("Usage Details Link clicked");
-      console.log(await page.title());
-      break; // Exit the loop if successful
+      await page.waitForTimeout(10000);
+      await page.waitForSelector(USAGE_DETAILS);
+      console.log("Usage Details Link found");
+      break;
     } catch (error) {
       console.log(
         `Usage Details Link not found (Attempt ${
@@ -179,41 +149,19 @@ const axios = require("axios");
 
   attempt = 0;
 
-  // await page.waitForTimeout(15000);
-
-  // reference: https://stackoverflow.com/a/66461236
-  /*
-  let [timeframeMenu] = await page.$x("//span[contains(., 'One Month')]");
-  if (timeframeMenu) {
-    await timeframeMenu.click();
-    console.log("Opened timeframe menu");
-  }
-  await page.waitForTimeout(5000);
-  [timeframeMenu] = await page.$x("//span[contains(., 'One Day')]");
-  if (timeframeMenu) {
-    await timeframeMenu.click();
-    console.log("Selected One Day");
-  }
-  */
-  // await page.click('#mat-option-508')
-  // the month / day values will increment the ID if you change options on the building menu
-  // the building menu ID's should stay constant (unless refresh page)
-
-  // await page.waitForTimeout(5000);
+  await page.click(USAGE_DETAILS);
+  await page.waitForNavigation({ waitUntil: "networkidle0" });
+  console.log(await page.title());
 
   while (attempt < maxAttempts) {
     try {
-      await page.waitForTimeout(1000);
-      await page.click(
-        "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3)",
-      );
-      console.log(
-        "Energy Usage Link clicked, switched from graph to table view",
-      );
-      break; // Exit the loop if successful
+      await page.waitForTimeout(10000);
+      await page.waitForSelector(GRAPH_TO_TABLE_BUTTON);
+      console.log("Graph to Table Button clicked");
+      break;
     } catch (error) {
       console.log(
-        `Energy Usage Link not found (Attempt ${
+        `Graph to Table Button not found (Attempt ${
           attempt + 1
         } of ${maxAttempts}). Retrying...`,
       );
@@ -223,37 +171,17 @@ const axios = require("axios");
 
   attempt = 0;
 
-  /*
-  for (let i = 1; i <= 96; i++) {
-    let element = await page.waitForSelector(
-      "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > table > tbody > tr:nth-child(" +
-        i +
-        ") > div:nth-child(1)",
-    ); // select the element
-    let value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-    let formattedValue =
-      value.slice(0, 8) +
-      ": " +
-      value.slice(8, 13) +
-      ", " +
-      value.slice(13, 23) +
-      ": " +
-      value.slice(23);
-    console.log(formattedValue);
-  }
-  */
- /*
+  await page.click(GRAPH_TO_TABLE_BUTTON);
+
   while (attempt < maxAttempts) {
     try {
-      await page.waitForTimeout(1000);
-      await page.waitForSelector(
-        "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
-      );
-      console.log("Monthly Data Top Row Found, getting table top row value");
-      break; // Exit the loop if successful
+      await page.waitForTimeout(10000);
+      await page.waitForSelector(METER_MENU);
+      console.log("Meter Menu Opened");
+      break;
     } catch (error) {
       console.log(
-        `Monthly Data Top Row not found (Attempt ${
+        `Meter Menu Open not found (Attempt ${
           attempt + 1
         } of ${maxAttempts}). Retrying...`,
       );
@@ -262,46 +190,19 @@ const axios = require("axios");
   }
 
   attempt = 0;
-  let element = await page.waitForSelector(
-    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
-  ); // select the element
-  let value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-  let positionUsage = "Usage(kwh)";
-  let positionEst = "Est. Rounded";
-  let formattedValue = parseFloat(
-    value.split(positionUsage)[1].split(positionEst)[0],
-  );
-  console.log(value);
-  console.log(formattedValue);
 
-  const element2 = await page.waitForSelector(
-    "#mat-select-1 > div > div.mat-select-value > span",
-  ); // select the element
-  const value2 = await element2.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-  console.log(value2);
-  */
-
-  await page.click("#mat-select-1 > div > div.mat-select-value > span");
-  console.log("Meter Menu Opened");
-
-  // let [timeframeMenu] = await page.$x("//span[contains(., '" + value2 + "')]");
-
-  // const value3 = await timeframeMenu.evaluate(el => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-  // console.log(value3);
-
-  // const n = await page.$("#mat-active")
-  //get class attribute
-
-  // https://www.tutorialspoint.com/puppeteer/puppeteer_getting_element_attribute.htm
+  await page.click(METER_MENU);
 
   while (attempt < maxAttempts) {
     try {
-      await page.waitForTimeout(1000);
-      topID = await page.$eval("mat-option", (el) => el.getAttribute("id"));
-      newID = parseInt(topID.slice(11))
-      console.log(topID);
+      await page.waitForTimeout(10000);
+      meter_selector_full = await page.$eval("mat-option", (el) =>
+        el.getAttribute("id"),
+      );
+      meter_selector_num = parseInt(meter_selector_full.slice(11));
+      // console.log(meter_selector_full);
       console.log("Meter ID Found");
-      break; // Exit the loop if successful
+      break;
     } catch (error) {
       console.log(
         `Meter ID not found (Attempt ${
@@ -314,106 +215,159 @@ const axios = require("axios");
 
   attempt = 0;
 
+  await page.click(METER_MENU);
+  console.log("Meter Menu Closed");
+
+  // one time pause after closing menu before the while loops, just in case
+  await page.waitForTimeout(10000);
+
   let abort = false;
 
+  let PPArray = [];
+
+  console.log("\nLogs are recurring after this line");
+
   while (!abort) {
-    await page.click("#mat-select-1 > div > div.mat-select-value > span");
-    // newID = 686;
-    console.log(newID)
-    console.log(topID)
-    console.log("Meter Menu Opened");
-    topID = topID.slice(0, 11) + (newID).toString();
-    await page.click('#' + topID)
+    try {
+      await page.waitForSelector(METER_MENU);
+      console.log("\n" + meter_selector_num.toString());
+      await page.click(METER_MENU);
+      console.log("Meter Menu Opened");
 
-    let yearCheck = false;
-    // [yearCheck] = await page.$x("//span[contains(., 'One Year')]");
-    if (yearCheck) {
-      newID += 1;
-      continue;
-    }
-    let noDataCheck = false;
-    // noDataCheck = await page.waitForXPath('//*[contains(text(), "No usage data is currently available.")]')
-    // noDataCheck = await page.waitForXPath('//*[contains(text(), "No usage data is currently available.")]')
-    if (noDataCheck) {
+      while (attempt < maxAttempts) {
+        try {
+          await page.waitForTimeout(10000);
+          await page.waitForSelector(
+            "#" +
+              meter_selector_full.slice(0, 11) +
+              meter_selector_num.toString(),
+          );
+          console.log("New Meter Opened");
+          break;
+        } catch (error) {
+          console.log(
+            `New Meter not found (Attempt ${
+              attempt + 1
+            } of ${maxAttempts}). Retrying...`,
+          );
+          attempt++;
+        }
+      }
+
+      attempt = 0;
+
+      await page.click(
+        "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
+      );
+
+      let yearCheck = false;
+      while (attempt < maxAttempts) {
+        try {
+          await page.waitForTimeout(10000);
+          [yearCheck] = await page.$x(YEAR_IDENTIFIER);
+          // console.log(yearCheck);
+          break;
+        } catch (error) {
+          console.log(
+            `Year Identifier not found. (Attempt ${
+              attempt + 1
+            } of ${maxAttempts}). Retrying...`,
+          );
+          attempt++;
+        }
+      }
+
+      attempt = 0;
+
+      if (yearCheck) {
+        console.log("Year Check Found, skipping to next meter");
+        meter_selector_num += 1;
+        continue;
+      } else {
+        console.log("Data is not yearly. Data is probably monthly.");
+      }
+      let noDataCheck = false;
+
+      noDataCheck = !!(await page.$(GRAPH_TO_TABLE_BUTTON));
+
+      if (!noDataCheck) {
+        console.log("No Data Found, Stopping Webscraper");
+        abort = true;
+        break;
+      } else {
+        console.log("Data Found");
+      }
+
+      let monthly_top = "";
+      monthly_top = await page.waitForSelector(MONTHLY_TOP);
+      console.log("Monthly Data Top Row Found, getting table top row value");
+      let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
+      console.log(monthly_top_text);
+      let positionUsage = "Usage(kwh)";
+      let positionEst = "Est. Rounded";
+      let usage_kwh = parseFloat(
+        monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+      );
+      console.log(usage_kwh);
+
+      const pp_meter_element = await page.waitForSelector(METER_MENU);
+      const pp_meter_full = await pp_meter_element.evaluate(
+        (el) => el.textContent,
+      );
+      console.log(pp_meter_full);
+
+      let positionMeter = "(Meter #";
+      let pp_meter_id = parseFloat(
+        pp_meter_full.split(positionMeter)[1].split(pp_meter_full.length)[0],
+      );
+      console.log(pp_meter_id);
+
+      const PPTable = {
+        pp_meter_id,
+        usage_kwh,
+      };
+
+      PPArray.push(PPTable);
+
+      /* // for testing json output
+    if (newID === 511) {
       abort = true;
-    }
 
-    /*
-    if (newID === 510) {
-      newID += 1;
-      continue;
-    }
-
-    else if (newID === 512) {
-      abort = true;
+      break;
     }
     */
 
-    // reuse starts here
-    while (attempt < maxAttempts) {
-      try {
-        await page.waitForTimeout(1000);
-        await page.waitForSelector(
-          "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
-        );
-        console.log("Monthly Data Top Row Found, getting table top row value");
-        break; // Exit the loop if successful
-      } catch (error) {
-        console.log(
-          `Monthly Data Top Row not found (Attempt ${
-            attempt + 1
-          } of ${maxAttempts}). Retrying...`,
-        );
-        attempt++;
+      // If graph-to-table button is found (noDataCheck === true), it shows there is valid data. If "One Year" cannot be found in
+      // any span elements on the page, yearCheck === false. If both those conditions are met, then increment the loop as normal.
+      if (noDataCheck && !yearCheck) {
+        meter_selector_num += 1;
       }
+    } catch (error) {
+      // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
+      console.error(error);
+      console.log(
+        meter_selector_num.toString() +
+          " Unknown Error, Skipping to next meter",
+      );
+      meter_selector_num += 1;
+      continue;
     }
-  
-    attempt = 0;
-    let element = await page.waitForSelector(
-      "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)",
-    ); // select the element
-    let value = await element.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-    let positionUsage = "Usage(kwh)";
-    let positionEst = "Est. Rounded";
-    let formattedValue = parseFloat(
-      value.split(positionUsage)[1].split(positionEst)[0],
-    );
-    console.log(value);
-    console.log(formattedValue);
-  
-    const element2 = await page.waitForSelector(
-      "#mat-select-1 > div > div.mat-select-value > span",
-    ); // select the element
-    const value2 = await element2.evaluate((el) => el.textContent); // grab the textContent from the element, by evaluating this function in the browser context
-    console.log(value2);
-
-    if (!noDataCheck && !yearCheck) {
-      newID += 1;
-    }
-
   }
-
-  // const selector = await page.$(".mat-option ng-star-inserted mat-active")
-  // const links = await selector.$eval((el) => el.id);
-  // console.log(links)
-
-  // let [timeframeMenu] = await page.$x("//span[contains(., '" + value2 + "')]");
-
-  /*
-  if (timeframeMenu) {
-    await timeframeMenu.click();
-    console.log(timeframeMenu)
-  }
-  */
-
-  await page.waitForTimeout(100000); // arbitarily long timeout for debug
-
-  // implement some loops with:
-  // each building of building menu
-  // each 15? minutes in Kwh table (per building)
-
-  // need to format text strings in output
 
   // Close browser.
+  const jsonContent = JSON.stringify(PPArray, null, 2);
+
+  // node readPP.js --save-output
+  if (
+    process.argv.includes("--save-output") ||
+    process.env.SAVE_OUTPUT === "true"
+  ) {
+    fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
+      if (err) {
+        return console.log(err);
+      }
+      console.log("The file was saved!");
+    });
+  }
   await browser.close();
 })();
