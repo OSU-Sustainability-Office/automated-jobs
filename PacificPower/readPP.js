@@ -2,6 +2,15 @@
 
 // Lower timeouts (other than setDefaultTimeout) from 10000 to 1000 for debug
 
+// Prod may be better on 25s to be safe (25000 ms), needs more testing
+
+// armchair math:
+// There are currently 8 one-time pauses and 2 pauses recurring in while loop
+// 10s pause = ((10 * 8) + (10 * 2 * 114)) / 60 = 39.33 minutes
+// 25s pause = ((25 * 8) + (25 * 2 * 114)) / 60 = 98.33 minutes
+// First 8 pauses at 25s, last 2 recurring pauses 10s = 41.33 minutes
+// probably a bit longer than that of course, that is purely from the waitforTimeouts
+
 // The various timeouts and while loops + try/catch blocks on this page are probably overkill, but the errors seem to show up at
 // random (based on Internet speed etc), so better safe than sorry for production. You can lower the timeouts for debug.
 
