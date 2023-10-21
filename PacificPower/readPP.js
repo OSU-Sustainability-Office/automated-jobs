@@ -7,6 +7,7 @@
 // armchair math:
 // There are currently 8 one-time pauses and 2 pauses recurring in while loop
 // 10s pause = ((10 * 8) + (10 * 2 * 114)) / 60 = 39.33 minutes
+//  - Real time experiment: 42 minutes with all 10s pause
 // 25s pause = ((25 * 8) + (25 * 2 * 114)) / 60 = 98.33 minutes
 // First 8 pauses at 25s, last 2 recurring pauses 10s = 41.33 minutes
 // probably a bit longer than that of course, that is purely from the waitforTimeouts
@@ -292,15 +293,7 @@ const fs = require("fs");
 
       attempt = 0;
 
-      if (yearCheck) {
-        console.log("Year Check Found, skipping to next meter");
-        meter_selector_num += 1;
-        continue;
-      } else {
-        console.log("Data is not yearly. Data is probably monthly.");
-      }
       let noDataCheck = false;
-
       noDataCheck = !!(await page.$(GRAPH_TO_TABLE_BUTTON));
 
       if (!noDataCheck) {
@@ -309,6 +302,14 @@ const fs = require("fs");
         break;
       } else {
         console.log("Data Found");
+      }
+
+      if (yearCheck) {
+        console.log("Year Check Found, skipping to next meter");
+        meter_selector_num += 1;
+        continue;
+      } else {
+        console.log("Data is not yearly. Data is probably monthly.");
       }
 
       let monthly_top = "";
