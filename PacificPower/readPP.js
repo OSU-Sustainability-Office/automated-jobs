@@ -217,7 +217,7 @@ const fs = require("fs");
       console.log("Monthly Data Top Row Found, getting table top row value");
       let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
       console.log(monthly_top_text);
-      let positionUsage = "Usage(kwh)";
+      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
       let positionEst = "Est. Rounded";
       let usage_kwh = parseFloat(
         monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
