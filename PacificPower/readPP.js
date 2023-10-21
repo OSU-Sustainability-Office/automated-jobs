@@ -151,6 +151,10 @@ const fs = require("fs");
 
   await page.click(USAGE_DETAILS);
   await page.waitForNavigation({ waitUntil: "networkidle0" });
+
+  // got an error here before so just add a timeout. Not sure, maybe networkidle0 is unreliable. Generally fine to add timeouts
+  // before the meter while loop section
+  await page.waitForTimeout(10000);
   console.log(await page.title());
 
   while (attempt < maxAttempts) {
@@ -314,11 +318,18 @@ const fs = require("fs");
       const pp_meter_full = await pp_meter_element.evaluate(
         (el) => el.textContent,
       );
-      console.log(pp_meter_full);
+
+      let pp_meter_full_trim = pp_meter_full.trim();
+      console.log(pp_meter_full_trim);
 
       let positionMeter = "(Meter #";
-      let pp_meter_id = parseFloat(
-        pp_meter_full.split(positionMeter)[1].split(pp_meter_full.length)[0],
+      let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
+      console.log(meterStringIndex);
+      let pp_meter_id = parseInt(
+        pp_meter_full_trim.slice(
+          meterStringIndex + 8,
+          pp_meter_full_trim.length - 2,
+        ),
       );
       console.log(pp_meter_id);
 
