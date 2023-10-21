@@ -18,7 +18,7 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 7200000; // Currently set for 2 hours (7,200,000 ms). Lower to 15 seconds (15,000 ms) for debug
+const TIMEOUT_BUFFER = 3600000; // Currently set for 1 hour (3,600,000 ms), based on 42 minutes actual result as noted above
 const axios = require("axios");
 const fs = require("fs");
 
@@ -56,12 +56,16 @@ const fs = require("fs");
   // This button takes you to a specific meter's page
   const USAGE_DETAILS = "a.usage-link";
 
-  const GRAPH_TO_TABLE_BUTTON =
+  const GRAPH_TO_TABLE_BUTTON_MONTHLY =
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
+  const GRAPH_TO_TABLE_BUTTON_YEARLY =
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
   const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
   const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
   const MONTHLY_TOP =
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)";
+  let yearCheck = false;
+  let abort = false;
 
   // Go to your site
   await page.goto(process.env.PP_LOGINPAGE, { waitUntil: "networkidle0" });
@@ -162,15 +166,40 @@ const fs = require("fs");
   await page.click(USAGE_DETAILS);
   await page.waitForNavigation({ waitUntil: "networkidle0" });
 
-  // got an error here before so just add a timeout. Not sure, maybe networkidle0 is unreliable. Generally fine to add timeouts
-  // before the meter while loop section
-  await page.waitForTimeout(10000);
-  console.log(await page.title());
+  yearCheck = false;
+
+  // it's theoretically possible to get yearly result for first meter, so check just in case
+  while (attempt < maxAttempts) {
+    try {
+      await page.waitForTimeout(10000);
+      console.log(await page.title());
+      [yearCheck] = await page.$x(YEAR_IDENTIFIER);
+      // console.log(yearCheck);
+      break;
+    } catch (error) {
+      console.log(
+        `Year Identifier not found. (Attempt ${
+          attempt + 1
+        } of ${maxAttempts}). Retrying...`,
+      );
+      attempt++;
+    }
+  }
+
+  attempt = 0;
+
+  let graphButton = "";
+
+  if (yearCheck) {
+    graphButton = GRAPH_TO_TABLE_BUTTON_YEARLY;
+  } else {
+    graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
+  }
 
   while (attempt < maxAttempts) {
     try {
       await page.waitForTimeout(10000);
-      await page.waitForSelector(GRAPH_TO_TABLE_BUTTON);
+      await page.waitForSelector(graphButton);
       console.log("Graph to Table Button clicked");
       break;
     } catch (error) {
@@ -185,7 +214,7 @@ const fs = require("fs");
 
   attempt = 0;
 
-  await page.click(GRAPH_TO_TABLE_BUTTON);
+  await page.click(graphButton);
 
   while (attempt < maxAttempts) {
     try {
@@ -235,8 +264,6 @@ const fs = require("fs");
   // one time pause after closing menu before the while loops, just in case
   await page.waitForTimeout(10000);
 
-  let abort = false;
-
   let PPArray = [];
 
   console.log("\nLogs are recurring after this line");
@@ -274,7 +301,7 @@ const fs = require("fs");
         "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
       );
 
-      let yearCheck = false;
+      yearCheck = false;
       while (attempt < maxAttempts) {
         try {
           await page.waitForTimeout(10000);
@@ -294,7 +321,9 @@ const fs = require("fs");
       attempt = 0;
 
       let noDataCheck = false;
-      noDataCheck = !!(await page.$(GRAPH_TO_TABLE_BUTTON));
+      noDataCheck =
+        !!(await page.$(GRAPH_TO_TABLE_BUTTON_YEARLY)) ||
+        !!(await page.$(GRAPH_TO_TABLE_BUTTON_MONTHLY));
 
       if (!noDataCheck) {
         console.log("No Data Found, Stopping Webscraper");
