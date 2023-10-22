@@ -119,9 +119,11 @@ const fs = require("fs");
   await page.waitForNavigation({ waitUntil: "networkidle0" });
   console.log(await page.title());
 
+  await page.waitForTimeout(25000);
+
   while (attempt < maxAttempts) {
     try {
-      await page.waitForSelector(USAGE_DETAILS, { timeout: 10000 });
+      await page.waitForSelector(USAGE_DETAILS, { timeout: 25000 });
       console.log("Usage Details Link found");
       break;
     } catch (error) {
@@ -140,7 +142,7 @@ const fs = require("fs");
   await page.waitForNavigation({ waitUntil: "networkidle0" });
 
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  // await page.waitForTimeout(10000);
+  await page.waitForTimeout(10000);
   console.log(await page.title());
   while (attempt < maxAttempts) {
     try {
@@ -171,47 +173,70 @@ const fs = require("fs");
     graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
   await page.waitForSelector(graphButton);
   console.log("Graph to Table Button clicked");
 
   await page.click(graphButton);
 
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
   await page.waitForSelector(METER_MENU);
-  console.log("Meter Menu Opened");
 
   await page.click(METER_MENU);
 
-  await page.waitForTimeout(10000);
+  await page.waitForFunction(() =>
+    document.querySelector(
+      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+    ),
+  );
+  console.log("Meter Menu Opened");
   meter_selector_full = await page.$eval("mat-option", (el) =>
     el.getAttribute("id"),
   );
   meter_selector_num = parseInt(meter_selector_full.slice(11));
+  let first_selector_num = meter_selector_num;
   // console.log(meter_selector_full);
   console.log("Meter ID Found");
 
   await page.click(METER_MENU);
   console.log("Meter Menu Closed");
-
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(
+        "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+      ),
+  );
   // one time pause after closing menu before the while loops, just in case
-  await page.waitForTimeout(10000);
+  // await page.waitForTimeout(10000);
 
   let PPArray = [];
 
   console.log("\nLogs are recurring after this line");
 
   // testing at specific meter ID, e.g. to see if termination behavior works
-  // meter_selector_num = 510
+  // meter_selector_num = 622
+
+  let continueVar = 0;
+  let continueVarMonthly = 0;
 
   while (!abort) {
     try {
-      await page.waitForSelector(METER_MENU);
       console.log("\n" + meter_selector_num.toString());
+      await page.waitForFunction(
+        () =>
+          !document.querySelector(
+            "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+          ),
+      );
       await page.click(METER_MENU);
       console.log("Meter Menu Opened");
 
-      await page.waitForTimeout(10000);
+      // await page.waitForTimeout(10000);
+      await page.waitForFunction(() =>
+        document.querySelector(
+          "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+        ),
+      );
       await page.waitForSelector(
         "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
       );
@@ -221,32 +246,62 @@ const fs = require("fs");
         "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
       );
 
-      let monthly_top = "";
-      await page.waitForTimeout(20000);
-      while (attempt < maxAttempts) {
-        try {
-          await page.waitForSelector(MONTHLY_TOP, { timeout: 10000 });
-          console.log(
-            "Monthly Data Top Row Found, getting table top row value",
-          );
-          break;
-        } catch (error) {
-          console.log(
-            `monthly top row not found (Attempt ${
-              attempt + 1
-            } of ${maxAttempts}). Retrying...`,
-          );
-          attempt++;
+      // await page.waitForFunction(() => !document.querySelector("body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"));
+
+      if (first_selector_num !== meter_selector_num) {
+        // console.log(first_selector_num);
+        // await page.waitForTimeout(500);
+        while (attempt < 1 && continueVar === 0) {
+          try {
+            await page.waitForFunction(
+              () =>
+                document.querySelector(
+                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
+                ),
+              { timeout: 25000 },
+            );
+            console.log("Loading Screen Found");
+            break;
+          } catch (error) {
+            // console.error(error);
+            console.log(`Loading Screen not found.`);
+            attempt++;
+          }
         }
-      }
 
-      if (attempt === maxAttempts) {
-        console.log("No Data Found, Stopping Webscraper");
-        abort = true;
-        break;
-      }
+        // console.log(continueVar)
 
-      attempt = 0;
+        if (continueVar === 5) {
+          console.log("Loading Screen not found, Stopping Webscraper");
+          abort = true;
+          break;
+        }
+
+        if (attempt === 1) {
+          console.log("Loading Screen not found, trying again");
+          attempt = 0;
+          continueVar += 1;
+          continue;
+          // abort = true;
+          // break;
+        }
+
+        attempt = 0;
+
+        // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
+        if (continueVar === 0) {
+          await page.waitForFunction(
+            () =>
+              !document.querySelector(
+                "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
+              ),
+          );
+        }
+        // await page.waitForFunction(() => !document.querySelector("body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"));
+      }
+      let monthly_top = "";
+      // console.log('here 2')
+      // await page.waitForSelector(MONTHLY_TOP);
 
       const pp_meter_element = await page.waitForSelector(METER_MENU);
       const pp_meter_full = await pp_meter_element.evaluate(
@@ -266,7 +321,39 @@ const fs = require("fs");
       );
       console.log(pp_meter_id);
 
-      monthly_top = await page.waitForSelector(MONTHLY_TOP);
+      await page.waitForSelector(
+        "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
+      );
+      while (attempt < 1 && continueVarMonthly < 5) {
+        try {
+          monthly_top = await page.waitForSelector(MONTHLY_TOP, {
+            timeout: 25000,
+          });
+          console.log("Monthly Top Found");
+          break;
+        } catch (error) {
+          // console.error(error);
+          console.log(`Monthly Top not found.`);
+          attempt++;
+        }
+      }
+
+      if (continueVarMonthly === 5) {
+        console.log("Monthly Top not found, Stopping Webscraper");
+        abort = true;
+        break;
+      }
+
+      if (attempt === 1) {
+        console.log("Monthly Top not found, try again");
+        attempt = 0;
+        continueVarMonthly += 1;
+        continue;
+      }
+
+      attempt = 0;
+      continueVarMonthly = 0;
+      console.log("Monthly Data Top Row Found, getting table top row value");
       let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
       console.log(monthly_top_text);
       let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
@@ -304,6 +391,7 @@ const fs = require("fs");
       // If "Est. Rounded" is found, then the data is monthly.
       if (monthly_top_text.includes(positionEst)) {
         meter_selector_num += 1;
+        continueVar = 0;
       }
     } catch (error) {
       // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
