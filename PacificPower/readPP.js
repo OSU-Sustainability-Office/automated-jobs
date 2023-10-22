@@ -18,7 +18,7 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 3600000; // Currently set for 1 hour (3,600,000 ms), based on 42 minutes actual result as noted above
+const TIMEOUT_BUFFER = 7200000; // Currently set for 2 hours (7,200,000 ms), based on 42 minutes actual result as noted above
 const axios = require("axios");
 const fs = require("fs");
 
@@ -62,9 +62,11 @@ const fs = require("fs");
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
   const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
   const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
+  const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
   const MONTHLY_TOP =
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)";
   let yearCheck = false;
+  let monthCheck = false;
   let abort = false;
 
   // Go to your site
@@ -117,25 +119,55 @@ const fs = require("fs");
   await page.waitForNavigation({ waitUntil: "networkidle0" });
   console.log(await page.title());
 
-  await page.waitForTimeout(10000);
-  await page.waitForSelector(USAGE_DETAILS);
-  console.log("Usage Details Link found");
+  while (attempt < maxAttempts) {
+    try {
+      await page.waitForSelector(USAGE_DETAILS, { timeout: 10000 });
+      console.log("Usage Details Link found");
+      break;
+    } catch (error) {
+      console.log(
+        `Usage Details Link not found (Attempt ${
+          attempt + 1
+        } of ${maxAttempts}). Retrying...`,
+      );
+      attempt++;
+    }
+  }
+
+  attempt = 0;
 
   await page.click(USAGE_DETAILS);
   await page.waitForNavigation({ waitUntil: "networkidle0" });
 
-  yearCheck = false;
-
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  await page.waitForTimeout(10000);
+  // await page.waitForTimeout(10000);
   console.log(await page.title());
-  [yearCheck] = await page.$x(YEAR_IDENTIFIER);
+  while (attempt < maxAttempts) {
+    try {
+      [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 5000 });
+      [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 5000 });
+      console.log("Year / Month Check found");
+      if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
+        throw "try again";
+      }
+      break;
+    } catch (error) {
+      console.log(
+        `Year / Month Check not found (Attempt ${
+          attempt + 1
+        } of ${maxAttempts}). Retrying...`,
+      );
+      attempt++;
+    }
+  }
+
+  attempt = 0;
 
   let graphButton = "";
 
-  if (yearCheck) {
+  if (yearCheck && !monthCheck) {
     graphButton = GRAPH_TO_TABLE_BUTTON_YEARLY;
-  } else {
+  } else if (!yearCheck && monthCheck) {
     graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
@@ -169,6 +201,9 @@ const fs = require("fs");
 
   console.log("\nLogs are recurring after this line");
 
+  // testing at specific meter ID, e.g. to see if termination behavior works
+  // meter_selector_num = 510
+
   while (!abort) {
     try {
       await page.waitForSelector(METER_MENU);
@@ -186,43 +221,32 @@ const fs = require("fs");
         "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
       );
 
-      yearCheck = false;
-      await page.waitForTimeout(10000);
-      [yearCheck] = await page.$x(YEAR_IDENTIFIER);
-      // console.log(yearCheck);
+      let monthly_top = "";
+      await page.waitForTimeout(20000);
+      while (attempt < maxAttempts) {
+        try {
+          await page.waitForSelector(MONTHLY_TOP, { timeout: 10000 });
+          console.log(
+            "Monthly Data Top Row Found, getting table top row value",
+          );
+          break;
+        } catch (error) {
+          console.log(
+            `monthly top row not found (Attempt ${
+              attempt + 1
+            } of ${maxAttempts}). Retrying...`,
+          );
+          attempt++;
+        }
+      }
 
-      let noDataCheck = false;
-      noDataCheck =
-        !!(await page.$(GRAPH_TO_TABLE_BUTTON_YEARLY)) ||
-        !!(await page.$(GRAPH_TO_TABLE_BUTTON_MONTHLY));
-
-      if (!noDataCheck) {
+      if (attempt === maxAttempts) {
         console.log("No Data Found, Stopping Webscraper");
         abort = true;
         break;
-      } else {
-        console.log("Data Found");
       }
 
-      if (yearCheck) {
-        console.log("Year Check Found, skipping to next meter");
-        meter_selector_num += 1;
-        continue;
-      } else {
-        console.log("Data is not yearly. Data is probably monthly.");
-      }
-
-      let monthly_top = "";
-      monthly_top = await page.waitForSelector(MONTHLY_TOP);
-      console.log("Monthly Data Top Row Found, getting table top row value");
-      let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
-      console.log(monthly_top_text);
-      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
-      let positionEst = "Est. Rounded";
-      let usage_kwh = parseFloat(
-        monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-      );
-      console.log(usage_kwh);
+      attempt = 0;
 
       const pp_meter_element = await page.waitForSelector(METER_MENU);
       const pp_meter_full = await pp_meter_element.evaluate(
@@ -234,7 +258,6 @@ const fs = require("fs");
 
       let positionMeter = "(Meter #";
       let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
-      console.log(meterStringIndex);
       let pp_meter_id = parseInt(
         pp_meter_full_trim.slice(
           meterStringIndex + 8,
@@ -243,7 +266,27 @@ const fs = require("fs");
       );
       console.log(pp_meter_id);
 
+      monthly_top = await page.waitForSelector(MONTHLY_TOP);
+      let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
+      console.log(monthly_top_text);
+      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
+      let positionEst = "Est. Rounded";
+
+      if (monthly_top_text.includes(positionEst)) {
+        console.log("Data is not yearly. Data is probably monthly.");
+      } else {
+        console.log("Year Check Found, skipping to next meter");
+        meter_selector_num += 1;
+        continue;
+      }
+
+      let usage_kwh = parseFloat(
+        monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+      );
+      console.log(usage_kwh);
+
       const PPTable = {
+        meter_selector_num,
         pp_meter_id,
         usage_kwh,
       };
@@ -258,9 +301,8 @@ const fs = require("fs");
     }
     */
 
-      // If graph-to-table button is found (noDataCheck === true), it shows there is valid data. If "One Year" cannot be found in
-      // any span elements on the page, yearCheck === false. If both those conditions are met, then increment the loop as normal.
-      if (noDataCheck && !yearCheck) {
+      // If "Est. Rounded" is found, then the data is monthly.
+      if (monthly_top_text.includes(positionEst)) {
         meter_selector_num += 1;
       }
     } catch (error) {
