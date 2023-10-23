@@ -214,10 +214,11 @@ const fs = require("fs");
   console.log("\nLogs are recurring after this line");
 
   // testing at specific meter ID, e.g. to see if termination behavior works
-  meter_selector_num = 622;
+  // meter_selector_num = 622;
 
   let continueVar = 0;
   let continueVarMonthly = 0;
+  let redo = false;
 
   while (!abort) {
     try {
@@ -331,13 +332,17 @@ const fs = require("fs");
         } catch (error) {
           // console.error(error);
           console.log(`Monthly Top not found.`);
-          meter_selector_num += 1;
+
+          // return to the previous meter and start again, seems only way to avoid the "no data" (when there actually is data) glitch
+          // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
+          meter_selector_num -= 1;
+          redo = true;
           attempt++;
         }
       }
 
       if (continueVarMonthly === 5) {
-        console.log("Monthly Top not found, Stopping Webscraper");
+        console.log("Re-Checked 5 times, Stopping Webscraper");
         abort = true;
         break;
       }
@@ -349,48 +354,59 @@ const fs = require("fs");
         continue;
       }
 
-      attempt = 0;
-      continueVarMonthly = 0;
-      console.log("Monthly Data Top Row Found, getting table top row value");
-      monthly_top = await page.waitForSelector(MONTHLY_TOP);
-      let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
-      console.log(monthly_top_text);
-      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
-      let positionEst = "Est. Rounded";
+      if (!redo) {
+        attempt = 0;
+        continueVarMonthly = 0;
 
-      if (monthly_top_text.includes(positionEst)) {
-        console.log("Data is not yearly. Data is probably monthly.");
-      } else {
-        console.log("Year Check Found, skipping to next meter");
-        meter_selector_num += 1;
-        continue;
+        console.log("Monthly Data Top Row Found, getting table top row value");
+        monthly_top = await page.waitForSelector(MONTHLY_TOP);
+        let monthly_top_text = await monthly_top.evaluate(
+          (el) => el.textContent,
+        );
+        console.log(monthly_top_text);
+        let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
+        let positionEst = "Est. Rounded";
+
+        if (monthly_top_text.includes(positionEst)) {
+          console.log("Data is not yearly. Data is probably monthly.");
+        } else {
+          console.log("Year Check Found, skipping to next meter");
+          meter_selector_num += 1;
+          continue;
+        }
+
+        let usage_kwh = parseFloat(
+          monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+        );
+        console.log(usage_kwh);
+
+        const PPTable = {
+          meter_selector_num,
+          pp_meter_id,
+          usage_kwh,
+        };
+
+        PPArray.push(PPTable);
+
+        /* // for testing json output
+      if (newID === 511) {
+        abort = true;
+  
+        break;
       }
+      */
 
-      let usage_kwh = parseFloat(
-        monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-      );
-      console.log(usage_kwh);
-
-      const PPTable = {
-        meter_selector_num,
-        pp_meter_id,
-        usage_kwh,
-      };
-
-      PPArray.push(PPTable);
-
-      /* // for testing json output
-    if (newID === 511) {
-      abort = true;
-
-      break;
-    }
-    */
-
-      // If "Est. Rounded" is found, then the data is monthly.
-      if (monthly_top_text.includes(positionEst)) {
+        // If "Est. Rounded" is found, then the data is monthly.
+        if (monthly_top_text.includes(positionEst)) {
+          meter_selector_num += 1;
+          continueVar = 0;
+        }
+      } else {
+        redo = false;
         meter_selector_num += 1;
         continueVar = 0;
+        attempt = 0;
+        continue;
       }
     } catch (error) {
       // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
