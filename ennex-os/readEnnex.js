@@ -259,7 +259,7 @@ const meterlist = require("./meterlist.json");
 
     // Comment out the axios POST request as specified below for local development (unless making changes to upload stuff).
     // Uncomment this section before pushing to production.
-    /* block comment starts here
+    // /* block comment starts here
     await axios({
       method: "post",
       url: `${process.env.DASHBOARD_API}/upload`,
@@ -279,7 +279,7 @@ const meterlist = require("./meterlist.json");
       .catch((err) => {
         console.log(err);
       });
-    */ //block comment ends here
+    // */ //block comment ends here
   }
 
   // Close browser.
