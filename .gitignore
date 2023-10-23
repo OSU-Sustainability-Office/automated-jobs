@@ -109,3 +109,6 @@ dist
 # check-acq output
 check-acq/output.json
 check-acq/output.txt
+
+# PacificPower output
+pacificpower/output.json
