@@ -1,0 +1,10 @@
+version: "3.8" # Docker engine 19.03.0+
+services:
+  # Scrape solar panel data from solarcity
+  tesla:
+    image: "buildkite/puppeteer:latest"
+    working_dir: solar
+    command: "npm install && node readEnnex.js"
+    ports:
+      - "443:443"
+      - "80:80"
