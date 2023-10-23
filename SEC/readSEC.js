@@ -149,28 +149,10 @@ const axios = require("axios");
     PV_tableData.push(PVTable);
   }
 
-  const comboTotalYieldYesterday = (
-    parseFloat(PV_tableData[0].totalYieldYesterday) +
-    parseFloat(PV_tableData[1].totalYieldYesterday)
-  ).toFixed(2);
-
-  const comboPVTable = {
-    meterName: "OSU Operations Total",
-    meterID: 124,
-    time: PV_tableData[0].time,
-    time_seconds: PV_tableData[0].time_seconds,
-    PVSystem: "OSU Operations Total",
-    totalYieldYesterday: comboTotalYieldYesterday,
-  };
-  PV_tableData.push(comboPVTable);
-
-  // remove the first two elements from the array
-  let final_PV_tableData = PV_tableData.slice(2);
-
   const solarmeter = "Solar_Meters";
 
-  for (let i = 0; i < final_PV_tableData.length; i++) {
-    console.log(final_PV_tableData[i]);
+  for (let i = 0; i < PV_tableData.length; i++) {
+    console.log(PV_tableData[i]);
 
     // Comment out the axios POST request as specified below for local development (unless making changes to upload stuff).
     // Uncomment this section before pushing to production.
@@ -180,7 +162,7 @@ const axios = require("axios");
       url: `${process.env.DASHBOARD_API}/upload`,
       data: {
         id: solarmeter,
-        body: final_PV_tableData[i],
+        body: PV_tableData[i],
         pwd: process.env.API_PWD,
         type: "solar",
       },

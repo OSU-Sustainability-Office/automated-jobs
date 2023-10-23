@@ -7,8 +7,10 @@ Through the AWS Management Console we define Scheduled Tasks which run each cont
 whatever AWS calls them).
 
 ## Currently Active Jobs
- - **SEC** (Deployed): Retrieves some solar panel data from OSU Operations and Student Experience Center. Email alerts integrated for failed upload.
+ - **SEC** (Deployed): Retrieves some solar panel data from  Student Experience Center. Email alerts integrated for failed upload.
    - `node readSEC.js`
+ - **ennex-os** (Deployed): Retrieves some solar panel data from OSU Operations. Email alerts integrated for failed upload.
+   - `node readEnnex.js`
  - **Check-Acq** (Deployed): Checks for Acquisuite (not solar panel) meter status. Email alerts integrated for missing or unchanging data.
     - `node check-acq.js`
     - `node check-acq.js --save-output`
