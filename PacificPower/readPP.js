@@ -142,12 +142,12 @@ const fs = require("fs");
   await page.waitForNavigation({ waitUntil: "networkidle0" });
 
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
   console.log(await page.title());
   while (attempt < maxAttempts) {
     try {
-      [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 5000 });
-      [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 5000 });
+      [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
+      [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
       console.log("Year / Month Check found");
       if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
         throw "try again";
@@ -214,7 +214,7 @@ const fs = require("fs");
   console.log("\nLogs are recurring after this line");
 
   // testing at specific meter ID, e.g. to see if termination behavior works
-  // meter_selector_num = 622
+  meter_selector_num = 622;
 
   let continueVar = 0;
   let continueVarMonthly = 0;
@@ -271,12 +271,6 @@ const fs = require("fs");
 
         // console.log(continueVar)
 
-        if (continueVar === 5) {
-          console.log("Loading Screen not found, Stopping Webscraper");
-          abort = true;
-          break;
-        }
-
         if (attempt === 1) {
           console.log("Loading Screen not found, trying again");
           attempt = 0;
@@ -321,12 +315,15 @@ const fs = require("fs");
       );
       console.log(pp_meter_id);
 
-      await page.waitForSelector(
-        "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
-      );
+      // await page.waitForSelector(
+      // "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
+      // );
       while (attempt < 1 && continueVarMonthly < 5) {
         try {
-          monthly_top = await page.waitForSelector(MONTHLY_TOP, {
+          await page.waitForSelector(
+            "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
+          );
+          await page.waitForSelector(MONTHLY_TOP, {
             timeout: 25000,
           });
           console.log("Monthly Top Found");
@@ -334,6 +331,7 @@ const fs = require("fs");
         } catch (error) {
           // console.error(error);
           console.log(`Monthly Top not found.`);
+          meter_selector_num += 1;
           attempt++;
         }
       }
@@ -354,6 +352,7 @@ const fs = require("fs");
       attempt = 0;
       continueVarMonthly = 0;
       console.log("Monthly Data Top Row Found, getting table top row value");
+      monthly_top = await page.waitForSelector(MONTHLY_TOP);
       let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
       console.log(monthly_top_text);
       let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
