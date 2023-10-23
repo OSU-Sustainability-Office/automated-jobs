@@ -206,12 +206,18 @@ const fs = require("fs");
   // testing at specific meter ID, e.g. to see if termination behavior works
   // meter_selector_num = 622;
 
-  let continueVar = 0;
+  let continueVarLoading = 0;
   let continueVarMonthly = 0;
-  let redo = false;
+  let prev_meter_flag = false;
 
   while (!abort) {
     try {
+      if (continueVarMonthly === 5) {
+        console.log("Re-Checked 5 times, Stopping Webscraper");
+        abort = true;
+        break;
+      }
+
       console.log("\n" + meter_selector_num.toString());
       await page.waitForFunction(
         () =>
@@ -242,7 +248,7 @@ const fs = require("fs");
       if (first_selector_num !== meter_selector_num) {
         // console.log(first_selector_num);
         // await page.waitForTimeout(500);
-        while (attempt < 1 && continueVar === 0) {
+        while (attempt < 1 && continueVarLoading === 0) {
           try {
             await page.waitForFunction(
               () =>
@@ -265,7 +271,7 @@ const fs = require("fs");
         if (attempt === 1) {
           console.log("Loading Screen not found, trying again");
           attempt = 0;
-          continueVar += 1;
+          continueVarLoading += 1;
           continue;
           // abort = true;
           // break;
@@ -274,7 +280,7 @@ const fs = require("fs");
         attempt = 0;
 
         // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
-        if (continueVar === 0) {
+        if (continueVarLoading === 0) {
           await page.waitForFunction(
             () =>
               !document.querySelector(
@@ -326,26 +332,20 @@ const fs = require("fs");
           // return to the previous meter and start again, seems only way to avoid the "no data" (when there actually is data) glitch
           // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
           meter_selector_num -= 1;
-          redo = true;
+          prev_meter_flag = true;
           attempt++;
         }
       }
 
-      if (continueVarMonthly === 5) {
-        console.log("Re-Checked 5 times, Stopping Webscraper");
-        abort = true;
-        break;
-      }
-
       if (attempt === 1) {
         console.log("Monthly Top not found, try again");
-        console.log('Attempt ' + continueVarMonthly.toString() + ' of 5');
+        console.log("Attempt " + (continueVarMonthly + 1).toString() + " of 5");
         attempt = 0;
         continueVarMonthly += 1;
         continue;
       }
 
-      if (!redo) {
+      if (!prev_meter_flag) {
         attempt = 0;
         continueVarMonthly = 0;
 
@@ -390,12 +390,12 @@ const fs = require("fs");
         // If "Est. Rounded" is found, then the data is monthly.
         if (monthly_top_text.includes(positionEst)) {
           meter_selector_num += 1;
-          continueVar = 0;
+          continueVarLoading = 0;
         }
       } else {
-        redo = false;
+        prev_meter_flag = false;
         meter_selector_num += 1;
-        continueVar = 0;
+        continueVarLoading = 0;
         attempt = 0;
         continue;
       }
