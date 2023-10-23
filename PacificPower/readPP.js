@@ -1,16 +1,6 @@
 // https://pptr.dev/guides/evaluate-javascript
 
-// Lower timeouts (other than setDefaultTimeout) from 10000 to 1000 for debug
-
-// Prod may be better on 25s to be safe (25000 ms), needs more testing
-
-// armchair math:
-// There are currently 8 one-time pauses and 2 pauses recurring in while loop
-// 10s pause = ((10 * 8) + (10 * 2 * 114)) / 60 = 39.33 minutes
-//  - Real time experiment: 42 minutes with all 10s pause
-// 25s pause = ((25 * 8) + (25 * 2 * 114)) / 60 = 98.33 minutes
-// First 8 pauses at 25s, last 2 recurring pauses 10s = 41.33 minutes
-// probably a bit longer than that of course, that is purely from the waitforTimeouts
+// total runtime with current parameters: As fast as 4 minutes not counting last noData checks, or 9 minutes with noData checks
 
 // The various timeouts and while loops + try/catch blocks on this page are probably overkill, but the errors seem to show up at
 // random (based on Internet speed etc), so better safe than sorry for production. You can lower the timeouts for debug.
@@ -349,6 +339,7 @@ const fs = require("fs");
 
       if (attempt === 1) {
         console.log("Monthly Top not found, try again");
+        console.log('Attempt ' + continueVarMonthly.toString() + ' of 5');
         attempt = 0;
         continueVarMonthly += 1;
         continue;
