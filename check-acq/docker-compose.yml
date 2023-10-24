@@ -3,7 +3,8 @@ services:
   # Scrape solar panel data from solarcity
   tesla:
     image: "buildkite/puppeteer:latest"
-    command: "node check-acq.js"
+    working_dir: solar
+    command: "npm install && node check-acq.js"
     ports:
       - "443:443"
       - "80:80"
