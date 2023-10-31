@@ -112,3 +112,4 @@ check-acq/output.txt
 
 # PacificPower output
 pacificpower/output.json
+pacificpower/logs/log-file*.txt
