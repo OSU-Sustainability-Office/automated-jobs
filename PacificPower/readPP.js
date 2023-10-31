@@ -51,12 +51,17 @@ const fs = require("fs");
   const GRAPH_TO_TABLE_BUTTON_YEARLY =
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
   const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
+  const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
   const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
   const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
+  const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
+  const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
   const MONTHLY_TOP =
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)";
   let yearCheck = false;
   let monthCheck = false;
+  let weekCheck = false;
+  let twoYearCheck = false;
   let abort = false;
 
   // Go to your site
@@ -71,7 +76,7 @@ const fs = require("fs");
   );
   console.log(await page.title());
 
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
   await page.waitForSelector(ACCEPT_COOKIES);
   console.log("Cookies Button found");
 
@@ -89,7 +94,7 @@ const fs = require("fs");
   // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
   console.log("waiting for iframe with form to be ready.");
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
   await page.waitForSelector("iframe");
   console.log("iframe is ready. Loading iframe content");
 
@@ -111,6 +116,24 @@ const fs = require("fs");
 
   await page.waitForTimeout(25000);
 
+  await page.waitForSelector("#loader-temp-secure", {
+    hidden: true,
+  });
+
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(
+        "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading",
+      ),
+  );
+
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(
+        "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
+      ),
+  );
+
   while (attempt < maxAttempts) {
     try {
       await page.waitForSelector(USAGE_DETAILS, { timeout: 25000 });
@@ -130,9 +153,13 @@ const fs = require("fs");
 
   await page.click(USAGE_DETAILS);
   await page.waitForNavigation({ waitUntil: "networkidle0" });
+  await page.waitForTimeout(25000);
 
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  await page.waitForTimeout(25000);
+  // await page.waitForTimeout(25000);
+  await page.waitForFunction(
+    () => !document.querySelector("#loading-component > mat-spinner"),
+  );
   console.log(await page.title());
   while (attempt < maxAttempts) {
     try {
@@ -203,12 +230,17 @@ const fs = require("fs");
 
   console.log("\nLogs are recurring after this line");
 
+  if (
+    process.argv.includes("--testing")
+  ) {
+    console.log(meter_selector_num)
+  }
+   else {
   // testing at specific meter ID, e.g. to see if termination behavior works
   // meter_selector_num = 622;
 
   let continueVarLoading = 0;
   let continueVarMonthly = 0;
-  let prev_meter_flag = false;
 
   while (!abort) {
     try {
@@ -331,9 +363,60 @@ const fs = require("fs");
 
           // return to the previous meter and start again, seems only way to avoid the "no data" (when there actually is data) glitch
           // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
-          meter_selector_num -= 1;
+          // meter_selector_num -= 1;
           prev_meter_flag = true;
           attempt++;
+          await page.waitForSelector(TIME_MENU);
+
+          await page.click(TIME_MENU);
+          // await page.waitForTimeout(10000);
+          await page.waitForFunction(() =>
+            document.querySelector(
+              "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+            ),
+          );
+          console.log("Time Menu Opened");
+          if (continueVarMonthly % 2 === 0) {
+            [weekCheck] = await page.$x(WEEK_IDENTIFIER, { timeout: 25000 });
+            if (weekCheck) {
+              console.log("Week Option Found");
+              await weekCheck.click();
+              console.log("Week Option Clicked");
+            } else {
+              console.log("Week Option Not Found");
+              [twoYearCheck] = await page.$x(TWO_YEAR_IDENTIFIER, {
+                timeout: 25000,
+              });
+              if (twoYearCheck) {
+                console.log("Two Year Option Found");
+                await twoYearCheck.click();
+                console.log("Two Year Option Clicked");
+              } else {
+                console.log("Some other error");
+                break;
+              }
+            }
+          } else {
+            [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
+            if (monthCheck) {
+              console.log("Month Option Found");
+              await monthCheck.click();
+              console.log("Month Option Clicked");
+            } else {
+              console.log("Month Option Not Found");
+              [yearCheck] = await page.$x(YEAR_IDENTIFIER, {
+                timeout: 25000,
+              });
+              if (yearCheck) {
+                console.log("Year Option Found");
+                await yearCheck.click();
+                console.log("Year Option Clicked");
+              } else {
+                console.log("Some other error");
+                break;
+              }
+            }
+          }
         }
       }
 
@@ -345,41 +428,39 @@ const fs = require("fs");
         continue;
       }
 
-      if (!prev_meter_flag) {
-        attempt = 0;
-        continueVarMonthly = 0;
+      attempt = 0;
+      continueVarMonthly = 0;
 
-        console.log("Monthly Data Top Row Found, getting table top row value");
-        monthly_top = await page.waitForSelector(MONTHLY_TOP);
-        let monthly_top_text = await monthly_top.evaluate(
-          (el) => el.textContent,
-        );
-        console.log(monthly_top_text);
-        let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
-        let positionEst = "Est. Rounded";
+      console.log("Monthly Data Top Row Found, getting table top row value");
+      monthly_top = await page.waitForSelector(MONTHLY_TOP);
+      let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
+      console.log(monthly_top_text);
+      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
+      let positionEst = "Est. Rounded";
 
-        if (monthly_top_text.includes(positionEst)) {
-          console.log("Data is not yearly. Data is probably monthly.");
-        } else {
-          console.log("Year Check Found, skipping to next meter");
-          meter_selector_num += 1;
-          continue;
-        }
+      if (monthly_top_text.includes(positionEst)) {
+        console.log("Data is not yearly. Data is probably monthly.");
+      } else {
+        console.log("Year Check Found, skipping to next meter");
+        meter_selector_num += 1;
+        continueVarLoading = 0;
+        continue;
+      }
 
-        let usage_kwh = parseFloat(
-          monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-        );
-        console.log(usage_kwh);
+      let usage_kwh = parseFloat(
+        monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+      );
+      console.log(usage_kwh);
 
-        const PPTable = {
-          meter_selector_num,
-          pp_meter_id,
-          usage_kwh,
-        };
+      const PPTable = {
+        meter_selector_num,
+        pp_meter_id,
+        usage_kwh,
+      };
 
-        PPArray.push(PPTable);
+      PPArray.push(PPTable);
 
-        /* // for testing json output
+      /* // for testing json output
       if (newID === 511) {
         abort = true;
   
@@ -387,17 +468,10 @@ const fs = require("fs");
       }
       */
 
-        // If "Est. Rounded" is found, then the data is monthly.
-        if (monthly_top_text.includes(positionEst)) {
-          meter_selector_num += 1;
-          continueVarLoading = 0;
-        }
-      } else {
-        prev_meter_flag = false;
+      // If "Est. Rounded" is found, then the data is monthly.
+      if (monthly_top_text.includes(positionEst)) {
         meter_selector_num += 1;
         continueVarLoading = 0;
-        attempt = 0;
-        continue;
       }
     } catch (error) {
       // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
@@ -411,14 +485,14 @@ const fs = require("fs");
     }
   }
 
-  // Close browser.
-  const jsonContent = JSON.stringify(PPArray, null, 2);
+}
 
   // node readPP.js --save-output
   if (
     process.argv.includes("--save-output") ||
     process.env.SAVE_OUTPUT === "true"
   ) {
+    const jsonContent = JSON.stringify(PPArray, null, 2);
     fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
       if (err) {
         return console.log(err);
@@ -426,5 +500,7 @@ const fs = require("fs");
       console.log("The file was saved!");
     });
   }
+  
+  // Close browser.
   await browser.close();
 })();
