@@ -135,7 +135,7 @@ let page = "";
       } else {
         console.log("Already logged in, go to My Account");
         // Go to your site
-        await page.goto("https://www.pacificpower.net/my-account.html");
+        await page.goto(process.env.PP_ACCOUNTPAGE);
       }
 
       // this one needs more timeout, based on results from stresstest.sh
