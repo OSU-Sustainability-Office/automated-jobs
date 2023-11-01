@@ -135,10 +135,7 @@ let page = "";
       } else {
         console.log("Already logged in, go to My Account");
         // Go to your site
-        await page.goto("https://www.pacificpower.net/my-account.html", {
-          waitUntil: "networkidle0",
-          timeout: 25000,
-        });
+        await page.goto("https://www.pacificpower.net/my-account.html");
       }
 
       // this one needs more timeout, based on results from stresstest.sh
