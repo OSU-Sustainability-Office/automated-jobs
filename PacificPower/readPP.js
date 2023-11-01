@@ -49,6 +49,7 @@ let twoYearCheck = false;
 let continueMetersFlag = false;
 let continueLoadingFlag = false;
 let continueVarMonthlyFlag = false;
+let loggedInFlag = false;
 let graphButton = "";
 let first_selector_num = 0;
 let PPArray = [];
@@ -101,35 +102,44 @@ let page = "";
         console.log("Location Button clicked");
       }
 
-      await page.click(SIGN_IN_PAGE_BUTTON);
-      console.log("SignIn Page Button Clicked!");
-
-      // this one needs more timeout, based on results from stresstest.sh
-      await page.waitForNavigation({
-        waitUntil: "networkidle0",
-        timeout: 60000,
-      });
-      console.log(await page.title());
-
       // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
-      console.log("waiting for iframe with form to be ready.");
-      await page.waitForTimeout(25000);
-      await page.waitForSelector("iframe", { timeout: 25000 });
-      console.log("iframe is ready. Loading iframe content");
+      if (!loggedInFlag) {
+        await page.click(SIGN_IN_PAGE_BUTTON);
+        console.log("SignIn Page Button Clicked!");
 
-      const signin_iframe = await page.$(SIGN_IN_IFRAME);
-      const frame = await signin_iframe.contentFrame();
+        // this one needs more timeout, based on results from stresstest.sh
+        await page.waitForNavigation({
+          waitUntil: "networkidle0",
+          timeout: 60000,
+        });
+        console.log(await page.title());
+        console.log("waiting for iframe with form to be ready.");
+        await page.waitForTimeout(25000);
+        await page.waitForSelector("iframe", { timeout: 60000 });
+        console.log("iframe is ready. Loading iframe content");
 
-      console.log("filling username in iframe");
+        const signin_iframe = await page.$(SIGN_IN_IFRAME);
+        const frame = await signin_iframe.contentFrame();
 
-      await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
+        console.log("filling username in iframe");
 
-      console.log("filling password in iframe");
-      await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
+        await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
 
-      await frame.click(LOGIN_BUTTON);
-      console.log("Login Button clicked");
+        console.log("filling password in iframe");
+        await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
+
+        await frame.click(LOGIN_BUTTON);
+        console.log("Login Button clicked");
+        loggedInFlag = true;
+      } else {
+        console.log("Already logged in, go to My Account");
+        // Go to your site
+        await page.goto("https://www.pacificpower.net/my-account.html", {
+          waitUntil: "networkidle0",
+          timeout: 25000,
+        });
+      }
 
       // this one needs more timeout, based on results from stresstest.sh
       await page.waitForNavigation({
@@ -159,7 +169,7 @@ let page = "";
           ),
       );
 
-      await page.waitForSelector(USAGE_DETAILS, { timeout: 25000 });
+      await page.waitForSelector(USAGE_DETAILS, { timeout: 60000 });
       console.log("Usage Details Link found");
 
       await page.click(USAGE_DETAILS);
