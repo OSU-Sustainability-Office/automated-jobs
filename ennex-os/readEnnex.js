@@ -61,6 +61,8 @@ const meterlist = require("./meterlist.json");
   const maxAttempts = 5;
   let attempt = 0;
 
+  let dayFlag = false;
+
   // non-unix time calc
   const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
   const localeTime = dateObj
@@ -164,19 +166,20 @@ const meterlist = require("./meterlist.json");
     let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
     console.log("\n" + PVSystem);
 
-    let abort = false;
-    let dayIterator = 2;
+    let monthFlag = false;
+    let dayIterator = 1;
 
-    while (!abort && dayIterator < 33) {
-      while (attempt < 1) {
+    while (!monthFlag && dayIterator < 33) {
+      while (!dayFlag) {
         try {
-          let lastMonth =
-            "#advanced-chart-detail-table > div > div.sma-detail-table-container.ng-star-inserted > mat-table > mat-row:nth-child(" +
-            dayIterator +
-            ")";
-          await page.waitForSelector(lastMonth, {
-            timeout: 25000,
-          });
+          await page.$x(
+            '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+              dayIterator +
+              "]",
+            {
+              timeout: 25000,
+            },
+          );
           console.log(dayIterator);
           let [lastMonthReading] = await page.$x(
             '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
@@ -218,19 +221,19 @@ const meterlist = require("./meterlist.json");
           break;
         } catch (error) {
           console.log(`Data for this day not found.`);
-          attempt++;
+          dayFlag = true;
         }
         // no point in checking multiple attempts, if the frontend state didn't load it's already too late
         // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
         // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-        if (attempt == 1) {
+        if (dayFlag) {
           console.log("Moving on to next meter (if applicable)");
-          abort = true;
+          monthFlag = true;
           break;
         }
       }
       dayIterator++;
-      attempt = 0;
+      dayFlag = false;
     }
   }
   const comboTotalYieldYesterday = (
