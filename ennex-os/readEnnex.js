@@ -165,25 +165,18 @@ const meterlist = require("./meterlist.json");
     console.log(PVSystem);
 
     let monthFlag = false;
-    let dayIterator = 1;
+    let dayCheck = parseInt(ENNEX_DATE.slice(3, 5));
 
-    while (!monthFlag && dayIterator < 32) {
-      let ENNEX_DAY_CHECK = "";
-      if (dayIterator < 10) {
-        ENNEX_DAY_CHECK = "0" + dayIterator.toString();
-      } else {
-        ENNEX_DAY_CHECK = dayIterator.toString();
-      }
-      // so we can check the date it's supposed to be if there is an error
-      let ENNEX_DATE_CHECK =
-        ENNEX_MONTH + "/" + ENNEX_DAY_CHECK + "/" + localeTime[2];
-
+    // no point in checking multiple attempts, if the frontend state didn't load it's already too late
+    // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
+    // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
+    while (!monthFlag) {
       try {
-        console.log(dayIterator);
-        console.log(`Testing for date ${ENNEX_DATE_CHECK}`);
+        console.log(dayCheck);
+        console.log(`Testing for date ${ENNEX_DATE}`);
         let [lastMonthReading] = await page.$x(
           '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-            dayIterator +
+            dayCheck +
             "]/mat-cell[2]",
           {
             timeout: 25000,
@@ -197,7 +190,7 @@ const meterlist = require("./meterlist.json");
 
         let [lastDate] = await page.$x(
           '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-            dayIterator +
+            dayCheck +
             "]/mat-cell[1]",
           {
             timeout: 25000,
@@ -214,25 +207,22 @@ const meterlist = require("./meterlist.json");
           PVSystem,
           totalYieldYesterday,
         };
-
-        // Break loop and push data when you get to yesterday's date (most recent full day's worth of data)
-        if (ENNEX_DATE === lastDate_full) {
-          console.log(`It is this day ${ENNEX_DATE_CHECK}`);
+        if (lastDate_full === ENNEX_DATE) {
+          console.log(`It is this day ${ENNEX_DATE}`);
           PV_tableData.push(PVTable);
           console.log("Moving on to next meter (if applicable)");
           monthFlag = true;
           break;
+        } else {
+          console.log("Date doesn't match");
+          throw "Date doesn't match";
         }
       } catch (error) {
-        console.log(`Data for this day ${ENNEX_DATE_CHECK} not found.`);
+        console.log(`Data for this day ${ENNEX_DATE} not found.`);
         console.log("Moving on to next meter (if applicable)");
         monthFlag = true;
         break;
       }
-      // no point in checking multiple attempts, if the frontend state didn't load it's already too late
-      // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
-      // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-      dayIterator++;
     }
   }
   const comboTotalYieldYesterday = (
