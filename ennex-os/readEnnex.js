@@ -5,7 +5,7 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
-const TIMEOUT_BUFFER = 600000; // lower to 10000 for debug
+const TIMEOUT_BUFFER = 600000; // lower to 25000 for debug
 const axios = require("axios");
 const meterlist = require("./meterlist.json");
 
@@ -45,7 +45,7 @@ const meterlist = require("./meterlist.json");
 
   await page.click(ACCEPT_COOKIES);
 
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(25000);
 
   // login to ennexOS
   const USERNAME_SELECTOR = "#mat-input-0";
@@ -60,8 +60,6 @@ const meterlist = require("./meterlist.json");
 
   const maxAttempts = 5;
   let attempt = 0;
-
-  let dayFlag = false;
 
   // non-unix time calc
   const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
@@ -88,7 +86,7 @@ const meterlist = require("./meterlist.json");
   }
 
   // Date is also shown on EnnexOS page in the format MM/DD/YYYY
-  const ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
+  let ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
   console.log(ENNEX_DATE);
 
   // unix time calc
@@ -138,7 +136,7 @@ const meterlist = require("./meterlist.json");
       },
     );
 
-    console.log(await page.title());
+    console.log("\n" + (await page.title()));
 
     await page.waitForTimeout(25000);
 
@@ -164,76 +162,77 @@ const meterlist = require("./meterlist.json");
 
     // might be redundant but it's a sanity check that the meter name is what we expect
     let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
-    console.log("\n" + PVSystem);
+    console.log(PVSystem);
 
     let monthFlag = false;
     let dayIterator = 1;
 
-    while (!monthFlag && dayIterator < 33) {
-      while (!dayFlag) {
-        try {
-          await page.$x(
-            '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-              dayIterator +
-              "]",
-            {
-              timeout: 25000,
-            },
-          );
-          console.log(dayIterator);
-          let [lastMonthReading] = await page.$x(
-            '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-              dayIterator +
-              "]/mat-cell[2]",
-          );
-          let totalYieldYesterday = await page.evaluate(
-            (el) => el.innerText,
-            lastMonthReading,
-          );
-          console.log(totalYieldYesterday);
+    while (!monthFlag && dayIterator < 32) {
+      let ENNEX_DAY_CHECK = "";
+      if (dayIterator < 10) {
+        ENNEX_DAY_CHECK = "0" + dayIterator.toString();
+      } else {
+        ENNEX_DAY_CHECK = dayIterator.toString();
+      }
+      // so we can check the date it's supposed to be if there is an error
+      let ENNEX_DATE_CHECK =
+        ENNEX_MONTH + "/" + ENNEX_DAY_CHECK + "/" + localeTime[2];
 
-          let [lastDate] = await page.$x(
-            '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-              dayIterator +
-              "]/mat-cell[1]",
-          );
-          let lastDate_full = await page.evaluate(
-            (el) => el.innerText,
-            lastDate,
-          );
-          console.log(lastDate_full);
+      try {
+        console.log(dayIterator);
+        console.log(`Testing for date ${ENNEX_DATE_CHECK}`);
+        let [lastMonthReading] = await page.$x(
+          '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+            dayIterator +
+            "]/mat-cell[2]",
+          {
+            timeout: 25000,
+          },
+        );
+        let totalYieldYesterday = await page.evaluate(
+          (el) => el.innerText,
+          lastMonthReading,
+        );
+        console.log(totalYieldYesterday);
 
-          const PVTable = {
-            meterName,
-            meterID,
-            time,
-            time_seconds,
-            PVSystem,
-            totalYieldYesterday,
-          };
+        let [lastDate] = await page.$x(
+          '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+            dayIterator +
+            "]/mat-cell[1]",
+          {
+            timeout: 25000,
+          },
+        );
+        let lastDate_full = await page.evaluate((el) => el.innerText, lastDate);
+        console.log(`Actual date ${lastDate_full}`);
 
-          // Break loop and push data when you get to yesterday's date (most recent full day's worth of data)
-          if (ENNEX_DATE === lastDate_full) {
-            console.log("it is this date");
-            PV_tableData.push(PVTable);
-          }
+        const PVTable = {
+          meterName,
+          meterID,
+          time,
+          time_seconds,
+          PVSystem,
+          totalYieldYesterday,
+        };
 
-          break;
-        } catch (error) {
-          console.log(`Data for this day not found.`);
-          dayFlag = true;
-        }
-        // no point in checking multiple attempts, if the frontend state didn't load it's already too late
-        // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
-        // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-        if (dayFlag) {
+        // Break loop and push data when you get to yesterday's date (most recent full day's worth of data)
+        if (ENNEX_DATE === lastDate_full) {
+          console.log(`It is this day ${ENNEX_DATE_CHECK}`);
+          PV_tableData.push(PVTable);
           console.log("Moving on to next meter (if applicable)");
           monthFlag = true;
           break;
         }
+      } catch (error) {
+        console.log(`Data for this day ${ENNEX_DATE_CHECK} not found.`);
+        console.log("Moving on to next meter (if applicable)");
+        monthFlag = true;
+        break;
       }
+      // no point in checking multiple attempts, if the frontend state didn't load it's already too late
+      // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
+      // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
       dayIterator++;
-      dayFlag = false;
     }
   }
   const comboTotalYieldYesterday = (
