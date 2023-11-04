@@ -19,6 +19,11 @@ whatever AWS calls them).
     - `node readPP.js`
     - `node readPP.js --save-output`
         - Saves output to `PacificPower/output.json` (note that this output.json file is in .gitignore, it is not tracked on remote)
+    - `bash stresstest.sh`
+        - Needs Unix command line, e.g. Linux, MacOS, or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) on windows
+        - Tests scraper as far as logging in, going to correct usage details page, locating table of monthly values. Stops before reading all the meters (as that would greatly lengthen testing time)
+        - Currently set to test 20 iterations
+        - Output saved in `PacificPower/logs`
 
  ## Deprecated
  - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
