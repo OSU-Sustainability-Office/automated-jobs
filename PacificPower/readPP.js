@@ -66,7 +66,7 @@ let page = "";
   // Launch the browser
   const browser = await puppeteer.launch({
     headless: "new", // set to false (no quotes) for debug. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
-    args: ["--disable-features=site-per-process, --no-sandbox"],
+    args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
   while (!continueDetailsFlag && continueDetails < maxAttempts) {
