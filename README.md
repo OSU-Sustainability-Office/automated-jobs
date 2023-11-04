@@ -24,6 +24,11 @@ whatever AWS calls them).
         - Tests scraper as far as logging in, going to correct usage details page, locating table of monthly values. Stops before reading all the meters (as that would greatly lengthen testing time)
         - Currently set to test 20 iterations
         - Output saved in `PacificPower/logs`
+    - `./stresstest.ps1`
+        - Needs Windows Powershell
+        - Tests scraper as far as logging in, going to correct usage details page, locating table of monthly values. Stops before reading all the meters (as that would greatly lengthen testing time)
+        - Currently set to test 20 iterations
+        - Output saved in `PacificPower/logs`
 
  ## Deprecated
  - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
