@@ -240,7 +240,7 @@ let page = "";
     } catch (err) {
       console.error(err);
       console.log(
-        `Unknown Error en route to Energy Usage Details Page, (Attempt ${
+        `Unknown Issue en route to Energy Usage Details Page, (Attempt ${
           continueDetails + 1
         } of ${maxAttempts}). Retrying...`,
       );
@@ -400,7 +400,7 @@ let page = "";
                     await twoYearCheck.click();
                     console.log("Two Year Option Clicked");
                   } else {
-                    console.log("Some other error");
+                    console.log("Some other issue");
                     break;
                   }
                 }
@@ -422,7 +422,7 @@ let page = "";
                     await yearCheck.click();
                     console.log("Year Option Clicked");
                   } else {
-                    console.log("Some other error");
+                    console.log("Some other issue");
                     break;
                   }
                 }
@@ -504,7 +504,7 @@ let page = "";
           console.error(error);
           console.log(
             meter_selector_num.toString() +
-              " Unknown Error, Skipping to next meter",
+              " Unknown Issue, Skipping to next meter",
           );
           meter_selector_num++;
           continueMeters++;
