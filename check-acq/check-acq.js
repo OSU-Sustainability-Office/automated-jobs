@@ -313,7 +313,7 @@ axios
                   // anything that made it to this else block is presumed to have changing and nonzero data
                   else {
                     let firstTime = parsedData[0].time;
-                    if (meterObj.point_name === "Solar") {
+                    if (meterObj.point_name === "Solar Panel") {
                       firstTime = parsedData[lastObjectIndex].time;
                     }
                     const timeDifference = moment().diff(
