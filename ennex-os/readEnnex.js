@@ -160,6 +160,23 @@ const meterlist = require("./meterlist.json");
       '//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span',
     );
 
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
+    // change month tab to previous month if necessary - Date functions are used to conver from numeric <-> string formats
+    await page.waitForSelector(".mat-select-min-line");
+
+    // get currently selected month and convert to numeric format
+    let selectedMonth = await page.evaluate(() => document.querySelector(".mat-select-min-line").innerText);
+    selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
+    console.log("Currently selected month found")
+    
+    if (selectedMonth != ENNEX_MONTH) {
+      console.log("Changing month selector to previous month")
+      await page.waitForSelector('#timeline-picker-element_' + MONTHS[ENNEX_MONTH - 1] + '\\ ' + localeTime[2])
+      await page.click('#timeline-picker-element_' + MONTHS[ENNEX_MONTH - 1] + '\\ ' + localeTime[2])
+      await page.waitForTimeout(25000);
+    }
+
     // might be redundant but it's a sanity check that the meter name is what we expect
     let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
     console.log(PVSystem);
