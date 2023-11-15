@@ -71,7 +71,10 @@ const axios = require("axios");
   while (attempt < maxAttempts) {
     try {
       await page.click(LOGIN_BUTTON);
-      await page.waitForNavigation({ waitUntil: "networkidle0" });
+      await page.waitForNavigation({
+        waitUntil: "networkidle0",
+        timeout: 25000,
+      });
       console.log("Login Button Clicked!");
       break; // Exit the loop if successful
     } catch (error) {
@@ -90,7 +93,7 @@ const axios = require("axios");
   // non-unix time calc
   const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
   // set to 2am to fix rounding error due to daylight savings
-  dateObj.setHours(2,0,0);
+  dateObj.setHours(2, 0, 0);
   const localeTime = dateObj
     .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
     .match(/\d+/g);
