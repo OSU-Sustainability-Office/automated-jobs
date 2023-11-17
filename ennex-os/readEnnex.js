@@ -63,8 +63,7 @@ const meterlist = require("./meterlist.json");
 
   // non-unix time calc
   const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-  // set to 2am to fix rounding error due to daylight savings
-  dateObj.setHours(2, 0, 0);
+
   const localeTime = dateObj
     .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
     .match(/\d+/g);
@@ -72,6 +71,9 @@ const meterlist = require("./meterlist.json");
     localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
   const END_TIME = `${DATE}T23:59:59`;
   console.log(END_TIME);
+
+  // set to 2am to fix rounding error due to daylight savings
+  dateObj.setHours(2, 0, 0);
 
   let ENNEX_MONTH = "";
   if (parseInt(localeTime[0]) < 10) {
