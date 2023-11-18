@@ -63,6 +63,8 @@ const meterlist = require("./meterlist.json");
 
   // non-unix time calc
   const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+  
+  console.log(dateObj)
 
   const localeTime = dateObj
     .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
@@ -71,9 +73,6 @@ const meterlist = require("./meterlist.json");
     localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
   const END_TIME = `${DATE}T23:59:59`;
   console.log(END_TIME);
-
-  // set to 2am to fix rounding error due to daylight savings
-  dateObj.setHours(2, 0, 0);
 
   let ENNEX_MONTH = "";
   if (parseInt(localeTime[0]) < 10) {
@@ -93,9 +92,36 @@ const meterlist = require("./meterlist.json");
   let ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
   console.log(ENNEX_DATE);
 
+  // Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
+  // https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
+const getOffset = (timeZone) => {
+  const timeZoneName = Intl.DateTimeFormat("ia", {
+    timeZoneName: "shortOffset",
+    timeZone,
+  })
+    .formatToParts()
+    .find((i) => i.type === "timeZoneName").value;
+  const offset = timeZoneName.slice(3);
+  if (!offset) return 0;
+
+  const matchData = offset.match(/([+-])(\d+)(?::(\d+))?/);
+  if (!matchData) throw `cannot parse timezone name: ${timeZoneName}`;
+
+  const [, sign, hour, minute] = matchData;
+  let result = parseInt(hour) * 60;
+  if (sign === "+") result *= -1;
+  if (minute) result += parseInt(minute);
+
+  return result;
+};
+
+console.log(getOffset("US/Pacific"));
+  const dateObjUnix = new Date(new Date().getTime() - (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000));
+  console.log(dateObjUnix)
+
   // unix time calc
-  dateObj.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+  dateObjUnix.setUTCHours(23, 59, 59, 0);
+  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
 
   console.log(END_TIME_SECONDS);
 
@@ -300,7 +326,7 @@ const meterlist = require("./meterlist.json");
 
     // Comment out the axios POST request as specified below for local development (unless making changes to upload stuff).
     // Uncomment this section before pushing to production.
-    // /* block comment starts here
+     /* block comment starts here
     await axios({
       method: "post",
       url: `${process.env.DASHBOARD_API}/upload`,
@@ -320,7 +346,7 @@ const meterlist = require("./meterlist.json");
       .catch((err) => {
         console.log(err);
       });
-    // */ //block comment ends here
+     */ //block comment ends here
   }
 
   // Close browser.
