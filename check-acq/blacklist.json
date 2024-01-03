@@ -90,6 +90,16 @@
     ]
   },
   {
+    "building_id": 40,
+    "building_name": "Agricultural & Life Sciences Building",
+    "_meter_comments": [
+      {
+        "id": 117,
+        "note": "All data has been null, probably since creation"
+      }
+    ]
+  },
+  {
     "building_id": 41,
     "building_name": "Weatherford Hall",
     "_meter_comments": [
