@@ -157,7 +157,7 @@ axios
               finalMissedBuildingTable[i].point_string
             }, Meter ID ${
               finalMissedBuildingTable[i].meter_id
-            }, Meter Group: [${
+            }, Meter Groups [${
               finalMissedBuildingTable[i].meterGroupString
             }]): ${finalMissedBuildingTable[i].meter_note}`,
           );
