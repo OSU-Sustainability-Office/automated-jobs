@@ -113,6 +113,11 @@ axios
                 );
               }
             }
+
+            // If any meters from allBuildings API call are also found in blacklist.json, there is a match
+            // There may be some meters from blacklist.json that are not in allBuildings API call, which is intended.
+            // If there is a mismatch between blacklist.json and the SQL database (from which allBuildings is derived),
+            // then the SQL database should take precedence.
             let foundMeterObj = blacklistMeterTable.find(
               (o) =>
                 o.meter_id === parseInt(buildings.meterGroups[i].meters[j].id),
@@ -122,7 +127,7 @@ axios
                 `${
                   foundMeterObj.building_name + building_hidden_text
                 } (Building ID ${foundMeterObj.building_id}, Meter ID ${
-                  blacklistMeterTable[blackListIterator].meter_id
+                  foundMeterObj.meter_id
                 }): ${foundMeterObj.meter_note}`,
               );
               blackListIterator += 1;

@@ -104,10 +104,6 @@
     "building_name": "Weatherford Hall",
     "_meter_comments": [
       {
-        "id": 119,
-        "note": "Not sure if this has ever shown valid data. Not connected to a meter group"
-      },
-      {
         "id": 120,
         "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
       }
