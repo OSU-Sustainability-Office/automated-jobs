@@ -1,6 +1,7 @@
 const fs = require("fs");
 const axios = require("axios");
-const apiUrl = "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings"
+const apiUrl =
+  "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
 
 axios
   .get(apiUrl)
@@ -11,17 +12,12 @@ axios
       console.log("Acquisuite Data Checker\n");
 
       const jsonContent = JSON.stringify(input, null, 2);
-      fs.writeFile(
-        `allBuildings.json`,
-        jsonContent,
-        "utf8",
-        function (err) {
-          if (err) {
-            return console.log(err);
-          }
-          console.log("See formatted output in allBuildings.json");
-        },
-      );
+      fs.writeFile(`allBuildings.json`, jsonContent, "utf8", function (err) {
+        if (err) {
+          return console.log(err);
+        }
+        console.log("See formatted output in allBuildings.json");
+      });
 
       // Do something with the 'requests' array if needed.
     } else {

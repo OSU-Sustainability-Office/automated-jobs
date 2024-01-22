@@ -56,7 +56,7 @@ axios
         }
         for (let i = 0; i < meterGroupLength; i++) {
           // skip buildings with null meter groups
-          if (buildings.meterGroups[i].id === 'null') {
+          if (buildings.meterGroups[i].id === "null") {
             continue;
           }
           const meterLength = buildings.meterGroups[i].meters.length;
@@ -80,9 +80,9 @@ axios
               id: parseInt(buildings.meterGroups[i].meters[j].id),
               class: buildings.meterGroups[i].meters[j].classInt,
               point: point_var,
-              meterGroupIds: [
+              meterGroupString: [
                 buildings.meterGroups[i].name +
-                  " (" +
+                  " (ID: " +
                   buildings.meterGroups[i].id +
                   ")",
               ],
@@ -105,9 +105,9 @@ axios
                 meterIdTable.push(meterObject);
               } else {
                 let foundMeterGroups = meterIdTable.find(checkDupMeter);
-                foundMeterGroups.meterGroupIds.push(
+                foundMeterGroups.meterGroupString.push(
                   buildings.meterGroups[i].name +
-                    " (" +
+                    " (ID: " +
                     buildings.meterGroups[i].id +
                     ")",
                 );
@@ -263,11 +263,11 @@ axios
                       building_name + building_hidden_text
                     } (Building ID ${buildingID}, ${
                       meterObj.point_name
-                    }, Meter Groups [${meterObj.meterGroupIds.join(
-                      ", ",
-                    )}], Meter ID ${
+                    }, Meter ID ${
                       meterObj.id
-                    }): No Change in Data (Old, At Least 6 Days)`;
+                    }, Meter Groups [${meterObj.meterGroupString.join(
+                      ", ",
+                    )}]): No Change in Data (Old, At Least 6 Days)`;
                     noChangeData.push(buildingOutput);
                   } else if (
                     firstKeyValues[
@@ -345,11 +345,11 @@ axios
                       building_name + building_hidden_text
                     } (Building ID ${buildingID}, ${
                       meterObj.point_name
-                    }, Meter Groups [${meterObj.meterGroupIds.join(
-                      ", ",
-                    )}], Meter ID ${
+                    }, Meter ID ${
                       meterObj.id
-                    }): No Change in Data (New, 4 or 5 Days)`;
+                    }, Meter Groups [${meterObj.meterGroupString.join(
+                      ", ",
+                    )}]): No Change in Data (New, 4 or 5 Days)`;
                     noChange4Or5Data.push(buildingOutput);
                   }
 
@@ -387,11 +387,11 @@ axios
                       building_name + building_hidden_text
                     } (Building ID ${buildingID}, ${
                       meterObj.point_name
-                    }, Meter Groups [${meterObj.meterGroupIds.join(
-                      ", ",
-                    )}], Meter ID ${
+                    }, Meter ID ${
                       meterObj.id
-                    }): Data within the past ${timeDifferenceText}`;
+                    }, Meter Groups [${meterObj.meterGroupString.join(
+                      ", ",
+                    )}]): Data within the past ${timeDifferenceText}`;
                     totalBuildingData.push(buildingOutput);
                   }
                 }
@@ -402,11 +402,11 @@ axios
                     building_name + building_hidden_text
                   } (Building ID ${buildingID}, ${
                     meterObj.point_name
-                  }, Meter Groups [${meterObj.meterGroupIds.join(
-                    ", ",
-                  )}], Meter ID ${
+                  }, Meter ID ${
                     meterObj.id
-                  }): No data within the past ${formattedDuration}`;
+                  }, Meter Groups [${meterObj.meterGroupString.join(
+                    ", ",
+                  )}]): No data within the past ${formattedDuration}`;
                   totalBuildingData.push(buildingOutput);
                 }
                 resolve();
