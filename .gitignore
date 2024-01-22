@@ -107,6 +107,7 @@ dist
 .env
 
 # check-acq output
+check-acq/allBuildings.json
 check-acq/output.json
 check-acq/output.txt
 
