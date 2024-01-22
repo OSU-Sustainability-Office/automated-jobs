@@ -3,8 +3,8 @@ const axios = require("axios");
 const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
 
-// refer to local ./allBuildings.json file for a template
-const allBuildings = require("./allBuildings.json");
+// refer to local ./allBuildings.json file for a template - node format-allBuildings.js
+// const allBuildings = require("./allBuildings.json");
 
 // by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
 const startDate = moment().subtract(2, "months").unix();
@@ -29,7 +29,7 @@ axios
   .get(apiUrl)
   .then((response) => {
     if (response.status === 200) {
-      //const allBuildings = response.data;
+      const allBuildings = response.data;
 
       console.log("Acquisuite Data Checker\n");
 
@@ -55,6 +55,10 @@ axios
           building_hidden_text = " (Building Hidden)";
         }
         for (let i = 0; i < meterGroupLength; i++) {
+          // skip buildings with null meter groups
+          if (buildings.meterGroups[i].id === 'null') {
+            continue;
+          }
           const meterLength = buildings.meterGroups[i].meters.length;
           meterGroupTable.push(buildings.meterGroups[i].id);
           for (let j = 0; j < meterLength; j++) {
@@ -100,8 +104,8 @@ axios
               if (!meterIdTable.some(checkDupMeter)) {
                 meterIdTable.push(meterObject);
               } else {
-                let foundMeterObj = meterIdTable.find(checkDupMeter);
-                foundMeterObj.meterGroupIds.push(
+                let foundMeterGroups = meterIdTable.find(checkDupMeter);
+                foundMeterGroups.meterGroupIds.push(
                   buildings.meterGroups[i].name +
                     " (" +
                     buildings.meterGroups[i].id +
