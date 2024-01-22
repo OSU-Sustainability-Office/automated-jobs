@@ -50,6 +50,10 @@ axios
         let meterGroupTable = [];
         const meterGroupLength = buildings.meterGroups.length;
         for (let i = 0; i < meterGroupLength; i++) {
+          // skip buildings with null meter groups
+          if (buildings.meterGroups[i].id === "null") {
+            continue;
+          }
           const meterLength = buildings.meterGroups[i].meters.length;
           meterGroupTable.push(buildings.meterGroups[i].id);
           for (let j = 0; j < meterLength; j++) {
