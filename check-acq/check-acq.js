@@ -13,7 +13,6 @@ const endDate = moment().unix();
 const duration = moment.duration(endDate - startDate, "seconds");
 const daysDuration = Math.round(duration.asDays());
 const formattedDuration = `${daysDuration} day${daysDuration !== 1 ? "s" : ""}`;
-let blackListIterator = 0;
 
 let totalBuildingData = [];
 let missedBuildings = [];
@@ -48,6 +47,8 @@ axios
       const requests = allBuildings.flatMap((buildings) => {
         let meterIdTable = [];
         let meterGroupTable = [];
+        let finalMissedBuildingTable = [];
+
         const meterGroupLength = buildings.meterGroups.length;
         const building_hidden = buildings.hidden;
         let building_hidden_text = "";
@@ -122,17 +123,44 @@ axios
               (o) =>
                 o.meter_id === parseInt(buildings.meterGroups[i].meters[j].id),
             );
-            if (!meterIdTable.some(checkDupMeter) && foundMeterObj) {
-              missedBuildings.push(
-                `${
-                  foundMeterObj.building_name + building_hidden_text
-                } (Building ID ${foundMeterObj.building_id}, Meter ID ${
-                  foundMeterObj.meter_id
-                }): ${foundMeterObj.meter_note}`,
-              );
-              blackListIterator += 1;
+            if (foundMeterObj) {
+              if (!meterIdTable.some(checkDupMeter)) {
+                foundMeterObj.meterGroupString = [
+                  buildings.meterGroups[i].name +
+                    " (ID: " +
+                    buildings.meterGroups[i].id +
+                    ")",
+                ];
+                foundMeterObj.buildingHiddenText = building_hidden_text;
+                foundMeterObj.point_string = meterObject.point_name;
+                finalMissedBuildingTable.push(foundMeterObj);
+              } else {
+                let foundBlacklistMeterGroups =
+                  finalMissedBuildingTable.find(checkDupMeter);
+                foundBlacklistMeterGroups.meterGroupString.push(
+                  buildings.meterGroups[i].name +
+                    " (ID: " +
+                    buildings.meterGroups[i].id +
+                    ")",
+                );
+              }
             }
           }
+        }
+
+        for (let i = 0; i < finalMissedBuildingTable.length; i++) {
+          missedBuildings.push(
+            `${
+              finalMissedBuildingTable[i].building_name +
+              finalMissedBuildingTable[i].buildingHiddenText
+            } (Building ID ${finalMissedBuildingTable[i].building_id}, ${
+              finalMissedBuildingTable[i].point_string
+            }, Meter ID ${
+              finalMissedBuildingTable[i].meter_id
+            }, Meter Group: [${
+              finalMissedBuildingTable[i].meterGroupString
+            }]): ${finalMissedBuildingTable[i].meter_note}`,
+          );
         }
 
         return meterIdTable.map((meterObj) => {
@@ -428,19 +456,27 @@ axios
 
       Promise.all(requests)
         .then(() => {
-          totalBuildingData.sort((a, b) => {
-            const building_ID_A = parseInt(a.match(/Building ID (\d+)/)[1]);
-            const building_ID_B = parseInt(b.match(/Building ID (\d+)/)[1]);
+          let dataArr = [
+            totalBuildingData,
+            noChangeData,
+            noChange4Or5Data,
+            missedBuildings,
+          ];
+          for (let i = 0; i < dataArr.length; i++) {
+            dataArr[i].sort((a, b) => {
+              const building_ID_A = parseInt(a.match(/Building ID (\d+)/)[1]);
+              const building_ID_B = parseInt(b.match(/Building ID (\d+)/)[1]);
 
-            const meter_A = parseInt(a.match(/Meter ID (\d+)/)[1]);
-            const meter_B = parseInt(b.match(/Meter ID (\d+)/)[1]);
+              const meter_A = parseInt(a.match(/Meter ID (\d+)/)[1]);
+              const meter_B = parseInt(b.match(/Meter ID (\d+)/)[1]);
 
-            if (building_ID_A === building_ID_B) {
-              return meter_A - meter_B;
-            } else {
-              return building_ID_A - building_ID_B;
-            }
-          });
+              if (building_ID_A === building_ID_B) {
+                return meter_A - meter_B;
+              } else {
+                return building_ID_A - building_ID_B;
+              }
+            });
+          }
 
           const noData3Or4 = [];
           const noData = [];
