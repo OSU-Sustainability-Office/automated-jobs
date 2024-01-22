@@ -4,7 +4,7 @@ const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
 
 // refer to local ./allBuildings.json file for a template
-// const allBuildings = require("./allBuildings.json");
+const allBuildings = require("./allBuildings.json");
 
 // by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
 const startDate = moment().subtract(2, "months").unix();
@@ -29,7 +29,7 @@ axios
   .get(apiUrl)
   .then((response) => {
     if (response.status === 200) {
-      const allBuildings = response.data;
+      //const allBuildings = response.data;
 
       console.log("Acquisuite Data Checker\n");
 
@@ -49,6 +49,11 @@ axios
         let meterIdTable = [];
         let meterGroupTable = [];
         const meterGroupLength = buildings.meterGroups.length;
+        const building_hidden = buildings.hidden;
+        let building_hidden_text = "";
+        if (building_hidden === true) {
+          building_hidden_text = " (Building Hidden)";
+        }
         for (let i = 0; i < meterGroupLength; i++) {
           const meterLength = buildings.meterGroups[i].meters.length;
           meterGroupTable.push(buildings.meterGroups[i].id);
@@ -71,6 +76,12 @@ axios
               id: parseInt(buildings.meterGroups[i].meters[j].id),
               class: buildings.meterGroups[i].meters[j].classInt,
               point: point_var,
+              meterGroupIds: [
+                buildings.meterGroups[i].name +
+                  " (" +
+                  buildings.meterGroups[i].id +
+                  ")",
+              ],
               point_name: buildings.meterGroups[i].meters[j].type,
             };
 
@@ -82,21 +93,33 @@ axios
             );
 
             if (
-              !meterIdTable.some(checkDupMeter) &&
               !blacklistedMeterIDs.includes(
                 parseInt(buildings.meterGroups[i].meters[j].id),
               )
             ) {
-              meterIdTable.push(meterObject);
+              if (!meterIdTable.some(checkDupMeter)) {
+                meterIdTable.push(meterObject);
+              } else {
+                let foundMeterObj = meterIdTable.find(checkDupMeter);
+                foundMeterObj.meterGroupIds.push(
+                  buildings.meterGroups[i].name +
+                    " (" +
+                    buildings.meterGroups[i].id +
+                    ")",
+                );
+              }
             }
-            if (
-              !meterIdTable.some(checkDupMeter) &&
-              blacklistedMeterIDs.includes(
-                parseInt(buildings.meterGroups[i].meters[j].id),
-              )
-            ) {
+            let foundMeterObj = blacklistMeterTable.find(
+              (o) =>
+                o.meter_id === parseInt(buildings.meterGroups[i].meters[j].id),
+            );
+            if (!meterIdTable.some(checkDupMeter) && foundMeterObj) {
               missedBuildings.push(
-                `${blacklistMeterTable[blackListIterator].building_name} (Building ID ${blacklistMeterTable[blackListIterator].building_id}, Meter ID ${blacklistMeterTable[blackListIterator].meter_id}): ${blacklistMeterTable[blackListIterator].meter_note}`,
+                `${
+                  foundMeterObj.building_name + building_hidden_text
+                } (Building ID ${foundMeterObj.building_id}, Meter ID ${
+                  blacklistMeterTable[blackListIterator].meter_id
+                }): ${foundMeterObj.meter_note}`,
               );
               blackListIterator += 1;
             }
@@ -232,7 +255,15 @@ axios
                       ] &&
                     moment().diff(moment.unix(parsedData[0].time), "days") <= 2
                   ) {
-                    buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}): No Change in Data (Old, At Least 6 Days)`;
+                    buildingOutput = `${
+                      building_name + building_hidden_text
+                    } (Building ID ${buildingID}, ${
+                      meterObj.point_name
+                    }, Meter Groups [${meterObj.meterGroupIds.join(
+                      ", ",
+                    )}], Meter ID ${
+                      meterObj.id
+                    }): No Change in Data (Old, At Least 6 Days)`;
                     noChangeData.push(buildingOutput);
                   } else if (
                     firstKeyValues[
@@ -306,7 +337,15 @@ axios
                         ]) &&
                     moment().diff(moment.unix(parsedData[0].time), "days") <= 2
                   ) {
-                    buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}): No Change in Data (New, 4 or 5 Days)`;
+                    buildingOutput = `${
+                      building_name + building_hidden_text
+                    } (Building ID ${buildingID}, ${
+                      meterObj.point_name
+                    }, Meter Groups [${meterObj.meterGroupIds.join(
+                      ", ",
+                    )}], Meter ID ${
+                      meterObj.id
+                    }): No Change in Data (New, 4 or 5 Days)`;
                     noChange4Or5Data.push(buildingOutput);
                   }
 
@@ -340,14 +379,30 @@ axios
                       const days = Math.floor(timeDifference / 86400);
                       timeDifferenceText = `${days} day${days > 1 ? "s" : ""}`;
                     }
-                    buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}): Data within the past ${timeDifferenceText}`;
+                    buildingOutput = `${
+                      building_name + building_hidden_text
+                    } (Building ID ${buildingID}, ${
+                      meterObj.point_name
+                    }, Meter Groups [${meterObj.meterGroupIds.join(
+                      ", ",
+                    )}], Meter ID ${
+                      meterObj.id
+                    }): Data within the past ${timeDifferenceText}`;
                     totalBuildingData.push(buildingOutput);
                   }
                 }
 
                 // for meters that are tracked in the database but still return no data
                 else {
-                  buildingOutput = `${building_name} (Building ID ${buildingID}, ${meterObj.point_name}, Meter ID ${meterObj.id}): No data within the past ${formattedDuration}`;
+                  buildingOutput = `${
+                    building_name + building_hidden_text
+                  } (Building ID ${buildingID}, ${
+                    meterObj.point_name
+                  }, Meter Groups [${meterObj.meterGroupIds.join(
+                    ", ",
+                  )}], Meter ID ${
+                    meterObj.id
+                  }): No data within the past ${formattedDuration}`;
                   totalBuildingData.push(buildingOutput);
                 }
                 resolve();
