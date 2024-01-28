@@ -20,6 +20,7 @@ let buildingOutput;
 let noChangeData = [];
 let noChange4Or5Data = [];
 let blacklistMeterTable = [];
+let startTime = new Date();
 
 const apiUrl =
   "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
@@ -84,6 +85,7 @@ axios
               id: parseInt(buildings.meterGroups[i].meters[j].id),
               class: buildings.meterGroups[i].meters[j].classInt,
               point: point_var,
+              points: buildings.meterGroups[i].meters[j].points,
               meterGroupString: [
                 buildings.meterGroups[i].name +
                   " (ID: " +
@@ -109,12 +111,14 @@ axios
                 meterIdTable.push(meterObject);
               } else {
                 let foundMeterGroups = meterIdTable.find(checkDupMeter);
+                /*
                 foundMeterGroups.meterGroupString.push(
                   buildings.meterGroups[i].name +
                     " (ID: " +
                     buildings.meterGroups[i].id +
                     ")",
                 );
+                */
               }
             }
 
@@ -136,7 +140,7 @@ axios
                 ];
                 foundMeterObj.buildingHiddenText = building_hidden_text;
                 foundMeterObj.point_string = meterObject.point_name;
-                finalMissedBuildingTable.push(foundMeterObj);
+                // finalMissedBuildingTable.push(foundMeterObj);
               } else {
                 let foundBlacklistMeterGroups =
                   finalMissedBuildingTable.find(checkDupMeter);
@@ -152,6 +156,7 @@ axios
         }
 
         for (let i = 0; i < finalMissedBuildingTable.length; i++) {
+          /*
           missedBuildings.push(
             `${
               finalMissedBuildingTable[i].building_name +
@@ -164,55 +169,58 @@ axios
               finalMissedBuildingTable[i].meterGroupString
             }]): ${finalMissedBuildingTable[i].meter_note}`,
           );
+          */
         }
 
         return meterIdTable.map((meterObj) => {
           return new Promise((resolve, reject) => {
-            const options = {
-              hostname: "api.sustainability.oregonstate.edu",
-              path: `/v2/energy/data?id=${meterObj.id}&startDate=${startDate}&endDate=${endDate}&point=${meterObj.point}&meterClass=${meterObj.class}`,
-              method: "GET",
-            };
-            const req = https.request(options, (res) => {
-              let data = "";
-              res.on("data", (chunk) => {
-                data += chunk;
-              });
-              res.on("end", () => {
-                const parsedData = JSON.parse(data);
-                const building_name = buildings.name;
-                const buildingID = buildings.id;
-                const lastObjectIndex = parsedData.length - 1;
+            for (let i = 0; i < meterObj.points.length; i++) {
+              const options = {
+                hostname: "api.sustainability.oregonstate.edu",
+                path: `/v2/energy/data?id=${meterObj.id}&startDate=${startDate}&endDate=${endDate}&point=${meterObj.points[i].value}&meterClass=${meterObj.class}`,
+                method: "GET",
+              };
+              console.log(options.path);
+              const req = https.request(options, (res) => {
+                let data = "";
+                res.on("data", (chunk) => {
+                  data += chunk;
+                });
+                res.on("end", () => {
+                  const parsedData = JSON.parse(data);
+                  const building_name = buildings.name;
+                  const buildingID = buildings.id;
+                  const lastObjectIndex = parsedData.length - 1;
 
-                if (parsedData.length > 0) {
-                  const timeValues = [];
+                  if (parsedData.length > 0) {
+                    const timeValues = [];
 
-                  for (const obj of parsedData) {
-                    timeValues.push(obj.time);
-                  }
+                    for (const obj of parsedData) {
+                      /// timeValues.push(obj.time);
+                    }
 
-                  const firstKeyValues = parsedData.map((obj) => {
-                    const keys = Object.keys(obj);
-                    return keys.length > 0 ? obj[keys[0]] : undefined;
-                  });
+                    const firstKeyValues = parsedData.map((obj) => {
+                      const keys = Object.keys(obj);
+                      return keys.length > 0 ? obj[keys[0]] : undefined;
+                    });
 
-                  function findClosestWithIndex(array, num) {
-                    return array.reduce(
-                      function (prev, curr, index) {
-                        const prevDiff = Math.abs(prev.value - num);
-                        const currDiff = Math.abs(curr - num);
+                    function findClosestWithIndex(array, num) {
+                      return array.reduce(
+                        function (prev, curr, index) {
+                          const prevDiff = Math.abs(prev.value - num);
+                          const currDiff = Math.abs(curr - num);
 
-                        if (currDiff < prevDiff) {
-                          return { value: curr, index: index };
-                        } else {
-                          return prev;
-                        }
-                      },
-                      { value: array[0], index: 0 },
-                    );
-                  }
+                          if (currDiff < prevDiff) {
+                            return { value: curr, index: index };
+                          } else {
+                            return prev;
+                          }
+                        },
+                        { value: array[0], index: 0 },
+                      );
+                    }
 
-                  /*
+                    /*
                   below should read as "days ago", e.g. "now === 1" means "now vs 1 day ago"
       
                   noChangeData: (now === 1 and 1 === 2 and 2 === 3 and 3 === 4 and 4 === 5 and 5 === 6)
@@ -223,202 +231,221 @@ axios
                   which may be a sign of meter errors (as seen historically for some gas meters)
                   */
 
-                  if (
-                    firstKeyValues[
-                      findClosestWithIndex(timeValues, moment().unix()).index
-                    ] ===
+                    if (
+                      firstKeyValues[
+                        findClosestWithIndex(timeValues, moment().unix()).index
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(1, "days").unix(),
+                          ).index
+                        ] &&
                       firstKeyValues[
                         findClosestWithIndex(
                           timeValues,
                           moment().subtract(1, "days").unix(),
                         ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(1, "days").unix(),
-                      ).index
-                    ] ===
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(2, "days").unix(),
+                          ).index
+                        ] &&
                       firstKeyValues[
                         findClosestWithIndex(
                           timeValues,
                           moment().subtract(2, "days").unix(),
                         ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(2, "days").unix(),
-                      ).index
-                    ] ===
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(3, "days").unix(),
+                          ).index
+                        ] &&
                       firstKeyValues[
                         findClosestWithIndex(
                           timeValues,
                           moment().subtract(3, "days").unix(),
                         ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(3, "days").unix(),
-                      ).index
-                    ] ===
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(4, "days").unix(),
+                          ).index
+                        ] &&
                       firstKeyValues[
                         findClosestWithIndex(
                           timeValues,
                           moment().subtract(4, "days").unix(),
                         ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(4, "days").unix(),
-                      ).index
-                    ] ===
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(5, "days").unix(),
+                          ).index
+                        ] &&
                       firstKeyValues[
                         findClosestWithIndex(
                           timeValues,
                           moment().subtract(5, "days").unix(),
                         ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(5, "days").unix(),
-                      ).index
-                    ] ===
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(6, "days").unix(),
-                        ).index
-                      ] &&
-                    moment().diff(moment.unix(parsedData[0].time), "days") <= 2
-                  ) {
-                    buildingOutput = `${
-                      building_name + building_hidden_text
-                    } (Building ID ${buildingID}, ${
-                      meterObj.point_name
-                    }, Meter ID ${
-                      meterObj.id
-                    }, Meter Groups [${meterObj.meterGroupString.join(
-                      ", ",
-                    )}]): No Change in Data (Old, At Least 6 Days)`;
-                    noChangeData.push(buildingOutput);
-                  } else if (
-                    firstKeyValues[
-                      findClosestWithIndex(timeValues, moment().unix()).index
-                    ] ===
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(1, "days").unix(),
-                        ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(1, "days").unix(),
-                      ).index
-                    ] ===
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(2, "days").unix(),
-                        ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(2, "days").unix(),
-                      ).index
-                    ] ===
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(3, "days").unix(),
-                        ).index
-                      ] &&
-                    firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(3, "days").unix(),
-                      ).index
-                    ] ===
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(4, "days").unix(),
-                        ).index
-                      ] &&
-                    (firstKeyValues[
-                      findClosestWithIndex(
-                        timeValues,
-                        moment().subtract(4, "days").unix(),
-                      ).index
-                    ] !==
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(5, "days").unix(),
-                        ).index
-                      ] ||
-                      firstKeyValues[
-                        findClosestWithIndex(
-                          timeValues,
-                          moment().subtract(5, "days").unix(),
-                        ).index
-                      ] !==
+                      ] ===
                         firstKeyValues[
                           findClosestWithIndex(
                             timeValues,
                             moment().subtract(6, "days").unix(),
                           ).index
-                        ]) &&
-                    moment().diff(moment.unix(parsedData[0].time), "days") <= 2
-                  ) {
-                    buildingOutput = `${
-                      building_name + building_hidden_text
-                    } (Building ID ${buildingID}, ${
-                      meterObj.point_name
-                    }, Meter ID ${
-                      meterObj.id
-                    }, Meter Groups [${meterObj.meterGroupString.join(
-                      ", ",
-                    )}]): No Change in Data (New, 4 or 5 Days)`;
-                    noChange4Or5Data.push(buildingOutput);
+                        ] &&
+                      moment().diff(moment.unix(parsedData[0].time), "days") <=
+                        2
+                    ) {
+                      buildingOutput = `${
+                        building_name + building_hidden_text
+                      } (Building ID ${buildingID}, ${
+                        meterObj.point_name
+                      }, Meter ID ${
+                        meterObj.id
+                      }, Meter Groups [${meterObj.meterGroupString.join(
+                        ", ",
+                      )}]): No Change in Data (Old, At Least 6 Days)`;
+                      // noChangeData.push(buildingOutput);
+                    } else if (
+                      firstKeyValues[
+                        findClosestWithIndex(timeValues, moment().unix()).index
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(1, "days").unix(),
+                          ).index
+                        ] &&
+                      firstKeyValues[
+                        findClosestWithIndex(
+                          timeValues,
+                          moment().subtract(1, "days").unix(),
+                        ).index
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(2, "days").unix(),
+                          ).index
+                        ] &&
+                      firstKeyValues[
+                        findClosestWithIndex(
+                          timeValues,
+                          moment().subtract(2, "days").unix(),
+                        ).index
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(3, "days").unix(),
+                          ).index
+                        ] &&
+                      firstKeyValues[
+                        findClosestWithIndex(
+                          timeValues,
+                          moment().subtract(3, "days").unix(),
+                        ).index
+                      ] ===
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(4, "days").unix(),
+                          ).index
+                        ] &&
+                      (firstKeyValues[
+                        findClosestWithIndex(
+                          timeValues,
+                          moment().subtract(4, "days").unix(),
+                        ).index
+                      ] !==
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(5, "days").unix(),
+                          ).index
+                        ] ||
+                        firstKeyValues[
+                          findClosestWithIndex(
+                            timeValues,
+                            moment().subtract(5, "days").unix(),
+                          ).index
+                        ] !==
+                          firstKeyValues[
+                            findClosestWithIndex(
+                              timeValues,
+                              moment().subtract(6, "days").unix(),
+                            ).index
+                          ]) &&
+                      moment().diff(moment.unix(parsedData[0].time), "days") <=
+                        2
+                    ) {
+                      buildingOutput = `${
+                        building_name + building_hidden_text
+                      } (Building ID ${buildingID}, ${
+                        meterObj.point_name
+                      }, Meter ID ${
+                        meterObj.id
+                      }, Meter Groups [${meterObj.meterGroupString.join(
+                        ", ",
+                      )}]): No Change in Data (New, 4 or 5 Days)`;
+                      // noChange4Or5Data.push(buildingOutput);
+                    }
+
+                    // anything that made it to this else block is presumed to have changing and nonzero data
+                    else {
+                      let firstTime = parsedData[0].time;
+                      if (meterObj.point_name === "Solar Panel") {
+                        firstTime = parsedData[lastObjectIndex].time;
+                      }
+                      const timeDifference = moment().diff(
+                        moment.unix(firstTime),
+                        "seconds",
+                      );
+
+                      let timeDifferenceText;
+
+                      if (timeDifference < 3600) {
+                        // If less than an hour, express in minutes
+                        const minutes = Math.floor(timeDifference / 60);
+                        timeDifferenceText = `${minutes} minute${
+                          minutes > 1 ? "s" : ""
+                        }`;
+                      } else if (timeDifference < 86400) {
+                        // If between 1 hour and 1 day, express in hours
+                        const hours = Math.floor(timeDifference / 3600);
+                        timeDifferenceText = `${hours} hour${
+                          hours > 1 ? "s" : ""
+                        }`;
+                      } else {
+                        // If 1 day or more, express in days
+                        const days = Math.floor(timeDifference / 86400);
+                        timeDifferenceText = `${days} day${
+                          days > 1 ? "s" : ""
+                        }`;
+                      }
+                      buildingOutput = `${
+                        building_name + building_hidden_text
+                      } (Building ID ${buildingID}, ${
+                        meterObj.point_name
+                      }, Meter ID ${
+                        meterObj.id
+                      }, Meter Groups [${meterObj.meterGroupString.join(
+                        ", ",
+                      )}]): Data within the past ${timeDifferenceText}`;
+                      // totalBuildingData.push(buildingOutput);
+                    }
                   }
 
-                  // anything that made it to this else block is presumed to have changing and nonzero data
+                  // for meters that are tracked in the database but still return no data
                   else {
-                    let firstTime = parsedData[0].time;
-                    if (meterObj.point_name === "Solar Panel") {
-                      firstTime = parsedData[lastObjectIndex].time;
-                    }
-                    const timeDifference = moment().diff(
-                      moment.unix(firstTime),
-                      "seconds",
-                    );
-
-                    let timeDifferenceText;
-
-                    if (timeDifference < 3600) {
-                      // If less than an hour, express in minutes
-                      const minutes = Math.floor(timeDifference / 60);
-                      timeDifferenceText = `${minutes} minute${
-                        minutes > 1 ? "s" : ""
-                      }`;
-                    } else if (timeDifference < 86400) {
-                      // If between 1 hour and 1 day, express in hours
-                      const hours = Math.floor(timeDifference / 3600);
-                      timeDifferenceText = `${hours} hour${
-                        hours > 1 ? "s" : ""
-                      }`;
-                    } else {
-                      // If 1 day or more, express in days
-                      const days = Math.floor(timeDifference / 86400);
-                      timeDifferenceText = `${days} day${days > 1 ? "s" : ""}`;
-                    }
                     buildingOutput = `${
                       building_name + building_hidden_text
                     } (Building ID ${buildingID}, ${
@@ -427,32 +454,18 @@ axios
                       meterObj.id
                     }, Meter Groups [${meterObj.meterGroupString.join(
                       ", ",
-                    )}]): Data within the past ${timeDifferenceText}`;
-                    totalBuildingData.push(buildingOutput);
+                    )}]): No data within the past ${formattedDuration}`;
+                    // totalBuildingData.push(buildingOutput);
                   }
-                }
-
-                // for meters that are tracked in the database but still return no data
-                else {
-                  buildingOutput = `${
-                    building_name + building_hidden_text
-                  } (Building ID ${buildingID}, ${
-                    meterObj.point_name
-                  }, Meter ID ${
-                    meterObj.id
-                  }, Meter Groups [${meterObj.meterGroupString.join(
-                    ", ",
-                  )}]): No data within the past ${formattedDuration}`;
-                  totalBuildingData.push(buildingOutput);
-                }
-                resolve();
+                  resolve();
+                });
               });
-            });
-            req.on("error", (error) => {
-              console.error(error);
-              reject(error);
-            });
-            req.end();
+              req.on("error", (error) => {
+                console.error(error);
+                reject(error);
+              });
+              req.end();
+            }
           });
         });
       });
@@ -496,32 +509,16 @@ axios
                 (unit === "days" || unit === "day") &&
                 (timeAgo === 3 || timeAgo === 4)
               ) {
-                noData3Or4.push(data);
+                // noData3Or4.push(data);
               } else if ((unit === "days" || unit === "day") && timeAgo > 4) {
-                noData.push(data);
+                // noData.push(data);
               } else {
-                hasData.push(data);
+                // hasData.push(data);
               }
             } else {
-              noData.push(data);
+              // noData.push(data);
             }
           });
-
-          if (noData3Or4.length > 0) {
-            console.log("Meter Outages 3 or 4 Days Detected\n");
-          }
-
-          if (noData.length > 0) {
-            console.log("Meter Outages Detected\n");
-          }
-
-          if (noChange4Or5Data.length > 0) {
-            console.log("Meters with Unchanging Data 4 or 5 Days Detected\n");
-          }
-
-          if (noChangeData.length > 0) {
-            console.log("Meters with Unchanging Data Detected\n");
-          }
 
           const dataObj = {
             Timestamp: moment.unix(endDate).format("MM-DD-YYYY HH:mm:ss ZZ"),
@@ -540,23 +537,43 @@ axios
           console.log(
             Object.keys(dataObj)[0] + ": " + dataObj.Timestamp + ":\n",
           );
-          console.log(Object.keys(dataObj)[1] + ":\n");
-          console.log(noData3Or4);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[2] + ":\n");
-          console.log(noData);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[3] + ":\n");
-          console.log(missedBuildings);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[4] + ":\n");
-          console.log(noChange4Or5Data);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[5] + ":\n");
-          console.log(noChangeData);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[6] + ":\n");
-          console.log(hasData);
+          if (noData3Or4.length > 0) {
+            console.log(Object.keys(dataObj)[1] + ":\n");
+            console.log(noData3Or4);
+          }
+          if (noData.length > 0) {
+            console.log("\n");
+            console.log(Object.keys(dataObj)[2] + ":\n");
+            console.log(noData);
+          }
+
+          if (missedBuildings.length > 0) {
+            console.log("\n");
+            console.log(Object.keys(dataObj)[3] + ":\n");
+            console.log(missedBuildings);
+          }
+
+          if (noChange4Or5Data.length > 0) {
+            console.log("\n");
+            console.log(Object.keys(dataObj)[4] + ":\n");
+            console.log(noChange4Or5Data);
+          }
+          if (noChangeData.length > 0) {
+            console.log("\n");
+            console.log(Object.keys(dataObj)[5] + ":\n");
+            console.log(noChangeData);
+          }
+          if (hasData.length > 0) {
+            console.log("\n");
+            console.log(Object.keys(dataObj)[6] + ":\n");
+            console.log(hasData);
+          }
+
+          let endTime = new Date();
+          let timeDiff = endTime - startTime;
+          timeDiff /= 1000;
+          let seconds = Math.round(timeDiff);
+          console.log(seconds + " seconds");
 
           // Check if a command-line argument or environment variable is set to save output
           if (
