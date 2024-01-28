@@ -64,7 +64,10 @@ axios
           meterGroupTable.push(buildings.meterGroups[i].id);
           for (let j = 0; j < meterLength; j++) {
             let point_var = "";
-
+            // skip buildings with null meters
+            if (buildings.meterGroups[i].meters[j].id === "null") {
+              continue;
+            }
             if (buildings.meterGroups[i].meters[j].type === "Electricity") {
               point_var = "accumulated_real";
             } else if (buildings.meterGroups[i].meters[j].type === "Gas") {
