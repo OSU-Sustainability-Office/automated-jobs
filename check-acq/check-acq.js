@@ -85,7 +85,10 @@ axios
               id: parseInt(buildings.meterGroups[i].meters[j].id),
               class: buildings.meterGroups[i].meters[j].classInt,
               point: point_var,
-              points: buildings.meterGroups[i].meters[j].points,
+              pointsValues: buildings.meterGroups[i].meters[j].points.reduce(
+                (obj, item) => Object.assign(obj, { [item.label]: item.value }),
+                {},
+              ),
               meterGroupString: [
                 buildings.meterGroups[i].name +
                   " (ID: " +
@@ -242,6 +245,103 @@ axios
                     );
                     */
 
+                    let timeDifference1 = "";
+                    if (firstKeyValues[0]) {
+                      timeDifference1 = moment().diff(
+                        moment.unix(
+                          timeValues[
+                            findClosestWithIndex(
+                              firstKeyValues,
+                              firstKeyValues[0],
+                            ).index
+                          ],
+                        ),
+                        "seconds",
+                      );
+                    }
+
+                    let timeDifferenceText1 = "";
+
+                    if (timeDifference1 && timeDifference1 < 3600) {
+                      // If less than an hour, express in minutes
+                      const minutes = Math.floor(timeDifference1 / 60);
+                      timeDifferenceText1 = `${minutes} minute${
+                        minutes > 1 ? "s" : ""
+                      }`;
+                    } else if (timeDifference1 < 86400) {
+                      // If between 1 hour and 1 day, express in hours
+                      const hours = Math.floor(timeDifference1 / 3600);
+                      timeDifferenceText1 = `${hours} hour${
+                        hours > 1 ? "s" : ""
+                      }`;
+                    } else {
+                      // If 1 day or more, express in days
+                      const days = Math.floor(timeDifference1 / 86400);
+                      timeDifferenceText1 = `${days} day${days > 1 ? "s" : ""}`;
+                    }
+                    console.log("\n" + meterObj.id);
+                    console.log("first value");
+                    console.log(firstKeyValues[0]);
+                    console.log(
+                      timeValues[
+                        findClosestWithIndex(firstKeyValues, firstKeyValues[0])
+                          .index
+                      ],
+                    );
+                    console.log(timeDifference1);
+                    console.log(timeDifferenceText1);
+
+                    if (timeDifference1 > 259200) {
+                      // let onevar =  {};
+                      // onevar[meterObj.point] = timeDifference1;
+                      meterObj.missingPoints = [
+                        meterObj.point +
+                          " (First data point at " +
+                          timeDifferenceText1 +
+                          ")",
+                      ];
+                      const checkDupMeter = (obj) =>
+                        obj.id === parseInt(meterObj.id);
+                      if (!finalData.some(checkDupMeter)) {
+                        finalData.push(meterObj);
+                      } else {
+                        let foundFinalData = finalData.find(checkDupMeter);
+                        foundFinalData.missingPoints.push(
+                          meterObj.point +
+                            " (First data point at " +
+                            timeDifferenceText1 +
+                            ")",
+                        );
+                      }
+                    }
+
+                    // TODO: handle solar power later by updating energy dashboard backend
+                    if (
+                      !timeDifference1 ||
+                      timeDifference1 === 0 ||
+                      timeDifference1 === ""
+                    ) {
+                      // let onevar =  {};
+                      // onevar[meterObj.point] = timeDifference1;
+                      meterObj.missingPoints = [
+                        meterObj.point +
+                          " " +
+                          `(No datapoints within the past ${formattedDuration})`,
+                      ];
+                      const checkDupMeter = (obj) =>
+                        obj.id === parseInt(meterObj.id);
+                      if (!finalData.some(checkDupMeter)) {
+                        finalData.push(meterObj);
+                      } else {
+                        let foundFinalData = finalData.find(checkDupMeter);
+                        foundFinalData.missingPoints.push(
+                          meterObj.point +
+                            " " +
+                            `(No datapoints within the past ${formattedDuration})`,
+                        );
+                      }
+                    }
+
                     let timeDifference3 = "";
                     if (
                       firstKeyValues.find(function (el) {
@@ -305,7 +405,10 @@ axios
                       // let onevar =  {};
                       // onevar[meterObj.point] = timeDifference3;
                       meterObj.negPoints = [
-                        meterObj.point + " (" + timeDifferenceText3 + ")",
+                        meterObj.point +
+                          " (First positive datapoint at " +
+                          timeDifferenceText3 +
+                          ")",
                       ];
                       const checkDupMeter = (obj) =>
                         obj.id === parseInt(meterObj.id);
@@ -314,7 +417,10 @@ axios
                       } else {
                         let foundFinalData = finalData.find(checkDupMeter);
                         foundFinalData.negPoints.push(
-                          meterObj.point + " (" + timeDifferenceText3 + ")",
+                          meterObj.point +
+                            " (First positive datapoint at " +
+                            timeDifferenceText3 +
+                            ")",
                         );
                       }
                     }
@@ -363,7 +469,7 @@ axios
                     // let timeDifference2 = "";
                     if (
                       firstKeyValues.find(function (el) {
-                        return el >= 0;
+                        return el != firstKeyValues[0];
                       })
                     ) {
                       timeDifference2 = moment().diff(
@@ -372,7 +478,7 @@ axios
                             findClosestWithIndex(
                               firstKeyValues,
                               firstKeyValues.find(function (el) {
-                                return el >= 0;
+                                return el != firstKeyValues[0];
                               }),
                             ).index
                           ],
@@ -400,10 +506,10 @@ axios
                       const days = Math.floor(timeDifference2 / 86400);
                       timeDifferenceText2 = `${days} day${days > 1 ? "s" : ""}`;
                     }
-                    console.log("positive value first time");
+                    console.log("first different value");
                     console.log(
                       firstKeyValues.find(function (el) {
-                        return el >= 0;
+                        return el != firstKeyValues[0];
                       }),
                     );
                     console.log(
@@ -411,7 +517,7 @@ axios
                         findClosestWithIndex(
                           firstKeyValues,
                           firstKeyValues.find(function (el) {
-                            return el >= 0;
+                            return el != firstKeyValues[0];
                           }),
                         ).index
                       ],
@@ -422,8 +528,11 @@ axios
                     if (timeDifference2 > 259200) {
                       // let onevar =  {};
                       // onevar[meterObj.point] = timeDifference2;
-                      meterObj.negPoints = [
-                        meterObj.point + " (" + timeDifferenceText2 + ")",
+                      meterObj.noChangePoints = [
+                        meterObj.point +
+                          " (First different datapoint at " +
+                          timeDifferenceText2 +
+                          ")",
                       ];
                       const checkDupMeter = (obj) =>
                         obj.id === parseInt(meterObj.id);
@@ -431,8 +540,11 @@ axios
                         finalData.push(meterObj);
                       } else {
                         let foundFinalData = finalData.find(checkDupMeter);
-                        foundFinalData.negPoints.push(
-                          meterObj.point + " (" + timeDifferenceText2 + ")",
+                        foundFinalData.noChangePoints.push(
+                          meterObj.point +
+                            " (First different datapoint at " +
+                            timeDifferenceText2 +
+                            ")",
                         );
                       }
                     }
@@ -445,10 +557,10 @@ axios
                     ) {
                       // let onevar =  {};
                       // onevar[meterObj.point] = timeDifference2;
-                      meterObj.negPoints = [
+                      meterObj.noChangePoints = [
                         meterObj.point +
                           " " +
-                          `(No positive datapoints within the past ${formattedDuration})`,
+                          `(No different datapoints within the past ${formattedDuration})`,
                       ];
                       const checkDupMeter = (obj) =>
                         obj.id === parseInt(meterObj.id);
@@ -456,10 +568,10 @@ axios
                         finalData.push(meterObj);
                       } else {
                         let foundFinalData = finalData.find(checkDupMeter);
-                        foundFinalData.negPoints.push(
+                        foundFinalData.noChangePoints.push(
                           meterObj.point +
                             " " +
-                            `(No positive datapoints within the past ${formattedDuration})`,
+                            `(No different datapoints within the past ${formattedDuration})`,
                         );
                       }
                     }
