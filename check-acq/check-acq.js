@@ -20,6 +20,7 @@ let buildingOutput;
 let noChangeData = [];
 let noChange4Or5Data = [];
 let blacklistMeterTable = [];
+let finalData = [];
 
 const apiUrl =
   "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
@@ -84,6 +85,7 @@ axios
               id: parseInt(buildings.meterGroups[i].meters[j].id),
               class: buildings.meterGroups[i].meters[j].classInt,
               point: point_var,
+              points: buildings.meterGroups[i].meters[j].points,
               meterGroupString: [
                 buildings.meterGroups[i].name +
                   " (ID: " +
@@ -211,7 +213,6 @@ axios
                         { value: array[0], index: 0 },
                       );
                     }
-
                     /*
                   below should read as "days ago", e.g. "now === 1" means "now vs 1 day ago"
       
@@ -223,6 +224,258 @@ axios
                   which may be a sign of meter errors (as seen historically for some gas meters)
                   */
 
+                    /*
+                    console.log(
+                      firstKeyValues.find(function (el) {
+                        return el != firstKeyValues[0];
+                      })
+                    );
+                    console.log(
+                      timeValues[
+                        findClosestWithIndex(
+                          firstKeyValues,
+                          firstKeyValues.find(function (el) {
+                            return el != firstKeyValues[0];
+                          })
+                        ).index
+                      ]
+                    );
+                    */
+
+                    let timeDifference3 = "";
+                    if (
+                      firstKeyValues.find(function (el) {
+                        return el >= 0;
+                      })
+                    ) {
+                      timeDifference3 = moment().diff(
+                        moment.unix(
+                          timeValues[
+                            findClosestWithIndex(
+                              firstKeyValues,
+                              firstKeyValues.find(function (el) {
+                                return el >= 0;
+                              }),
+                            ).index
+                          ],
+                        ),
+                        "seconds",
+                      );
+                    }
+
+                    let timeDifferenceText3 = "";
+
+                    if (timeDifference3 && timeDifference3 < 3600) {
+                      // If less than an hour, express in minutes
+                      const minutes = Math.floor(timeDifference3 / 60);
+                      timeDifferenceText3 = `${minutes} minute${
+                        minutes > 1 ? "s" : ""
+                      }`;
+                    } else if (timeDifference3 < 86400) {
+                      // If between 1 hour and 1 day, express in hours
+                      const hours = Math.floor(timeDifference3 / 3600);
+                      timeDifferenceText3 = `${hours} hour${
+                        hours > 1 ? "s" : ""
+                      }`;
+                    } else {
+                      // If 1 day or more, express in days
+                      const days = Math.floor(timeDifference3 / 86400);
+                      timeDifferenceText3 = `${days} day${days > 1 ? "s" : ""}`;
+                    }
+                    console.log("positive value first time");
+                    console.log(
+                      firstKeyValues.find(function (el) {
+                        return el >= 0;
+                      }),
+                    );
+                    console.log(
+                      timeValues[
+                        findClosestWithIndex(
+                          firstKeyValues,
+                          firstKeyValues.find(function (el) {
+                            return el >= 0;
+                          }),
+                        ).index
+                      ],
+                    );
+                    console.log(timeDifference3);
+                    console.log(timeDifferenceText3);
+
+                    if (timeDifference3 > 259200) {
+                      // let onevar =  {};
+                      // onevar[meterObj.point] = timeDifference3;
+                      meterObj.negPoints = [
+                        meterObj.point + " (" + timeDifferenceText3 + ")",
+                      ];
+                      const checkDupMeter = (obj) =>
+                        obj.id === parseInt(meterObj.id);
+                      if (!finalData.some(checkDupMeter)) {
+                        finalData.push(meterObj);
+                      } else {
+                        let foundFinalData = finalData.find(checkDupMeter);
+                        foundFinalData.negPoints.push(
+                          meterObj.point + " (" + timeDifferenceText3 + ")",
+                        );
+                      }
+                    }
+
+                    // TODO: handle solar power later by updating energy dashboard backend
+                    if (
+                      !timeDifference3 ||
+                      timeDifference3 === 0 ||
+                      timeDifference3 === ""
+                    ) {
+                      // let onevar =  {};
+                      // onevar[meterObj.point] = timeDifference3;
+                      meterObj.negPoints = [
+                        meterObj.point +
+                          " " +
+                          `(No positive datapoints within the past ${formattedDuration})`,
+                      ];
+                      const checkDupMeter = (obj) =>
+                        obj.id === parseInt(meterObj.id);
+                      if (!finalData.some(checkDupMeter)) {
+                        finalData.push(meterObj);
+                      } else {
+                        let foundFinalData = finalData.find(checkDupMeter);
+                        foundFinalData.negPoints.push(
+                          meterObj.point +
+                            " " +
+                            `(No positive datapoints within the past ${formattedDuration})`,
+                        );
+                      }
+                    }
+                    const isBelowThreshold = (currentValue) =>
+                      currentValue === firstKeyValues[0];
+                    let timeDifference2 = moment().diff(
+                      moment.unix(
+                        timeValues[
+                          findClosestWithIndex(
+                            firstKeyValues,
+                            firstKeyValues.find(function (el) {
+                              return el != firstKeyValues[0];
+                            }),
+                          ).index
+                        ],
+                      ),
+                      "seconds",
+                    );
+                    // let timeDifference2 = "";
+                    if (
+                      firstKeyValues.find(function (el) {
+                        return el >= 0;
+                      })
+                    ) {
+                      timeDifference2 = moment().diff(
+                        moment.unix(
+                          timeValues[
+                            findClosestWithIndex(
+                              firstKeyValues,
+                              firstKeyValues.find(function (el) {
+                                return el >= 0;
+                              }),
+                            ).index
+                          ],
+                        ),
+                        "seconds",
+                      );
+                    }
+
+                    let timeDifferenceText2 = "";
+
+                    if (timeDifference2 && timeDifference2 < 3600) {
+                      // If less than an hour, express in minutes
+                      const minutes = Math.floor(timeDifference2 / 60);
+                      timeDifferenceText2 = `${minutes} minute${
+                        minutes > 1 ? "s" : ""
+                      }`;
+                    } else if (timeDifference2 < 86400) {
+                      // If between 1 hour and 1 day, express in hours
+                      const hours = Math.floor(timeDifference2 / 3600);
+                      timeDifferenceText2 = `${hours} hour${
+                        hours > 1 ? "s" : ""
+                      }`;
+                    } else {
+                      // If 1 day or more, express in days
+                      const days = Math.floor(timeDifference2 / 86400);
+                      timeDifferenceText2 = `${days} day${days > 1 ? "s" : ""}`;
+                    }
+                    console.log("positive value first time");
+                    console.log(
+                      firstKeyValues.find(function (el) {
+                        return el >= 0;
+                      }),
+                    );
+                    console.log(
+                      timeValues[
+                        findClosestWithIndex(
+                          firstKeyValues,
+                          firstKeyValues.find(function (el) {
+                            return el >= 0;
+                          }),
+                        ).index
+                      ],
+                    );
+                    console.log(timeDifference2);
+                    console.log(timeDifferenceText2);
+
+                    if (timeDifference2 > 259200) {
+                      // let onevar =  {};
+                      // onevar[meterObj.point] = timeDifference2;
+                      meterObj.negPoints = [
+                        meterObj.point + " (" + timeDifferenceText2 + ")",
+                      ];
+                      const checkDupMeter = (obj) =>
+                        obj.id === parseInt(meterObj.id);
+                      if (!finalData.some(checkDupMeter)) {
+                        finalData.push(meterObj);
+                      } else {
+                        let foundFinalData = finalData.find(checkDupMeter);
+                        foundFinalData.negPoints.push(
+                          meterObj.point + " (" + timeDifferenceText2 + ")",
+                        );
+                      }
+                    }
+
+                    // TODO: handle solar power later by updating energy dashboard backend
+                    if (
+                      !timeDifference2 ||
+                      timeDifference2 === 0 ||
+                      timeDifference2 === ""
+                    ) {
+                      // let onevar =  {};
+                      // onevar[meterObj.point] = timeDifference2;
+                      meterObj.negPoints = [
+                        meterObj.point +
+                          " " +
+                          `(No positive datapoints within the past ${formattedDuration})`,
+                      ];
+                      const checkDupMeter = (obj) =>
+                        obj.id === parseInt(meterObj.id);
+                      if (!finalData.some(checkDupMeter)) {
+                        finalData.push(meterObj);
+                      } else {
+                        let foundFinalData = finalData.find(checkDupMeter);
+                        foundFinalData.negPoints.push(
+                          meterObj.point +
+                            " " +
+                            `(No positive datapoints within the past ${formattedDuration})`,
+                        );
+                      }
+                    }
+                    if (firstKeyValues.every(isBelowThreshold)) {
+                      buildingOutput = `${
+                        building_name + building_hidden_text
+                      } (Building ID ${buildingID}, ${
+                        meterObj.point_name
+                      }, Meter ID ${
+                        meterObj.id
+                      }, Meter Groups [${meterObj.meterGroupString.join(
+                        ", ",
+                      )}]): No Change in Data (Old, At Least 6 Days)`;
+                      noChangeData.push(buildingOutput);
+                    }
+                    /*
                     if (
                       firstKeyValues[
                         findClosestWithIndex(timeValues, moment().unix()).index
@@ -390,6 +643,7 @@ axios
                       )}]): No Change in Data (New, 4 or 5 Days)`;
                       noChange4Or5Data.push(buildingOutput);
                     }
+                    */
 
                     // anything that made it to this else block is presumed to have changing and nonzero data
                     else {
@@ -448,6 +702,15 @@ axios
                       ", ",
                     )}]): No data within the past ${formattedDuration}`;
                     totalBuildingData.push(buildingOutput);
+                    meterObj.missingPoints = [meterObj.point];
+                    const checkDupMeter = (obj) =>
+                      obj.id === parseInt(meterObj.id);
+                    if (!finalData.some(checkDupMeter)) {
+                      finalData.push(meterObj);
+                    } else {
+                      let foundFinalData = finalData.find(checkDupMeter);
+                      foundFinalData.missingPoints.push(meterObj.point);
+                    }
                   }
                   resolve();
                 });
@@ -464,6 +727,7 @@ axios
 
       Promise.all(requests)
         .then(() => {
+          console.log(finalData);
           let dataArr = [
             totalBuildingData,
             noChangeData,
