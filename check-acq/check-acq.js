@@ -172,6 +172,7 @@ axios
         }
         if (meterIdTable.length > 0) {
           return meterIdTable.map((meterObj) => {
+            //for (let i = 0; i < meterGroupTable.length; i++) {
             return new Promise((resolve, reject) => {
               const options = {
                 hostname: "api.sustainability.oregonstate.edu",
