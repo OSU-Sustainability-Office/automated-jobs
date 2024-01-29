@@ -840,6 +840,7 @@ axios
       Promise.all(requests)
         .then(() => {
           console.log(finalData);
+          /*
           let dataArr = [
             totalBuildingData,
             noChangeData,
@@ -948,6 +949,7 @@ axios
             saveOutputToFile(dataObj, "output.json", "json");
             saveOutputToFile(dataObj, "output.txt", "json");
           }
+          */
         })
         .catch((error) => {
           console.error("Error:", error);
