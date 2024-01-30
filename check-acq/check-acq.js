@@ -4,13 +4,18 @@ const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
 const endIteratorConst = 100;
 let timeOut = 10000;
+let finalData = [];
+let mergedFinalData = [];
 
-var isQuit = false;
+let isQuit = false;
 const readline = require("readline");
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
 process.stdin.on("keypress", (str, key) => {
   if (key.name === "q") {
+    // console.log(finalData)
+    cleanUp();
+    console.log(mergedFinalData);
     isQuit = true;
     process.exit();
   }
@@ -19,8 +24,59 @@ process.stdin.on("keypress", (str, key) => {
 // refer to local ./allBuildings.json file for a template - node format-allBuildings.js
 // const allBuildings = require("./allBuildings.json");
 
+function cleanUp() {
+  for (let i = 0; i < finalData.length; i++) {
+    const checkDupMeter = (obj) => obj.id === parseInt(finalData[i].id);
+    // mergedFinalData.push(finalData[i])
+    // (obj.currentPoint === meterObj.currentPoint)
+
+    if (!mergedFinalData.some(checkDupMeter)) {
+      delete finalData[i].currentPoint;
+      mergedFinalData.push(finalData[i]);
+    } else {
+      // console.log(mergedFinalData)
+      let foundMeterGroups = mergedFinalData.find(checkDupMeter);
+      // console.log("found meter groups")
+      // console.log(foundMeterGroups)
+
+      if (foundMeterGroups.negPoints) {
+        if (finalData[i].negPoints) {
+          let mergedNegPoints = foundMeterGroups.negPoints.concat(
+            finalData[i].negPoints,
+          );
+          // might be overkill but last check for duplicates - https://stackoverflow.com/a/15868720
+          foundMeterGroups.negPoints = [...new Set(mergedNegPoints)];
+        } else {
+          foundMeterGroups.negPoints = finalData[i].negPoints;
+        }
+      }
+      if (foundMeterGroups.missingPoints) {
+        if (finalData[i].missingPoints) {
+          let mergedmissingPoints = foundMeterGroups.missingPoints.concat(
+            finalData[i].missingPoints,
+          );
+          foundMeterGroups.missingPoints = [...new Set(mergedmissingPoints)];
+        } else {
+          foundMeterGroups.missingPoints = finalData[i].missingPoints;
+        }
+      }
+      if (foundMeterGroups.noChangePoints) {
+        if (finalData[i].noChangePoints) {
+          let mergednoChangePoints = foundMeterGroups.noChangePoints.concat(
+            finalData[i].noChangePoints,
+          );
+          foundMeterGroups.noChangePoints = [...new Set(mergednoChangePoints)];
+        } else {
+          foundMeterGroups.noChangePoints = finalData[i].noChangePoints;
+        }
+      }
+    }
+  }
+  // console.log(mergedFinalData)
+}
+
 function longForLoop() {
-  let finalData = [];
+  // let finalData = [];
   let requestNum = 0;
   let startIterator = 0;
   let endIterator = endIteratorConst;
@@ -544,6 +600,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           days > 1 ? "s" : ""
                         }`;
                       }
+                      /*
                       console.log("\n" + meterObj.id);
                       console.log("first value");
                       console.log(firstKeyValues[0]);
@@ -557,6 +614,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       );
                       console.log(timeDifference1);
                       console.log(timeDifferenceText1);
+                      */
 
                       if (timeDifference1 > 259200) {
                         // let onevar =  {};
@@ -567,7 +625,6 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             timeDifferenceText1 +
                             ")",
                         ];
-                        // finalData.push(meterObj);
 
                         const checkDupMeter = (obj) =>
                           obj.id === parseInt(meterObj.id) &&
@@ -598,7 +655,6 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             " " +
                             `(No datapoints within the past ${formattedDuration})`,
                         ];
-                        // finalData.push(meterObj);
 
                         const checkDupMeter = (obj) =>
                           obj.id === parseInt(meterObj.id) &&
@@ -665,6 +721,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           days > 1 ? "s" : ""
                         }`;
                       }
+                      /*
                       console.log("positive value first time");
                       console.log(
                         firstKeyValues.find(function (el) {
@@ -683,6 +740,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       );
                       console.log(timeDifference3);
                       console.log(timeDifferenceText3);
+                      */
 
                       if (timeDifference3 > 259200) {
                         // let onevar =  {};
@@ -693,7 +751,6 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             timeDifferenceText3 +
                             ")",
                         ];
-                        // finalData.push(meterObj);
 
                         const checkDupMeter = (obj) =>
                           obj.id === parseInt(meterObj.id) &&
@@ -724,7 +781,6 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             " " +
                             `(No positive datapoints within the past ${formattedDuration})`,
                         ];
-                        // finalData.push(meterObj);
 
                         const checkDupMeter = (obj) =>
                           obj.id === parseInt(meterObj.id) &&
@@ -805,6 +861,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           days > 1 ? "s" : ""
                         }`;
                       }
+                      /*
                       console.log("first different value");
                       console.log(
                         firstKeyValues.find(function (el) {
@@ -823,6 +880,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       );
                       console.log(timeDifference2);
                       console.log(timeDifferenceText2);
+                      */
 
                       if (timeDifference2 > 259200) {
                         // let onevar =  {};
@@ -833,7 +891,6 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             timeDifferenceText2 +
                             ")",
                         ];
-                        // finalData.push(meterObj);
 
                         const checkDupMeter = (obj) =>
                           obj.id === parseInt(meterObj.id) &&
@@ -864,7 +921,6 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             " " +
                             `(No different datapoints within the past ${formattedDuration})`,
                         ];
-                        // finalData.push(meterObj);
 
                         const checkDupMeter = (obj) =>
                           obj.id === parseInt(meterObj.id) &&
@@ -1124,7 +1180,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       )}]): No data within the past ${formattedDuration}`;
                       totalBuildingData.push(buildingOutput);
                       meterObj.missingPoints = [meterObj.currentPoint];
-                      // finalData.push(meterObj);
+
 
                       const checkDupMeter = (obj) =>
                         obj.id === parseInt(meterObj.id) &&
@@ -1157,7 +1213,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
 
         Promise.all(requests)
           .then(() => {
-            console.log(finalData);
+            // console.log(finalData);
             /*
           let dataArr = [
             totalBuildingData,
