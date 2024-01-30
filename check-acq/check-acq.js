@@ -2,9 +2,46 @@ const https = require("https");
 const axios = require("axios");
 const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
+const endIteratorConst = 10;
+
+var isQuit = false;
+const readline = require('readline');
+readline.emitKeypressEvents(process.stdin);
+process.stdin.setRawMode(true);
+process.stdin.on('keypress', (str, key) => {
+  if (key.name === 'q') {
+    isQuit = true;
+    process.exit();
+  }
+});
 
 // refer to local ./allBuildings.json file for a template - node format-allBuildings.js
 // const allBuildings = require("./allBuildings.json");
+
+function longForLoop(limit) {
+  let finalData = [];
+let requestNum = 0;
+let startIterator = 0;
+let endIterator = endIteratorConst;
+let i = 0;
+let handle = setInterval(function(){
+  console.log("This is a long for loop. We are at " + ++i + ". Press q to quit.");
+    if (i == limit) {
+      isQuit = true;
+      process.exit();
+    }
+  if (isQuit) {
+    clearInterval(handle);
+  } else {
+    test(requestNum, startIterator, endIterator, finalData);
+  }
+  requestNum += endIteratorConst;
+  startIterator += endIteratorConst;
+  endIterator += endIteratorConst;
+}, 5000);
+}
+longForLoop(9);
+function test(requestNum, startIterator, endIterator, finalData) {
 
 // by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
 const startDate = moment().subtract(2, "months").unix();
@@ -20,7 +57,6 @@ let buildingOutput;
 let noChangeData = [];
 let noChange4Or5Data = [];
 let blacklistMeterTable = [];
-let finalData = [];
 
 const apiUrl =
   "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
@@ -45,7 +81,9 @@ axios
         }
       }
 
-      const requests = allBuildings.flatMap((buildings) => {
+      let someBuildings = allBuildings.slice(startIterator, endIterator);
+
+      const requests = someBuildings.flatMap((buildings) => {
         let meterIdTable = [];
         let meterGroupTable = [];
         let finalMissedBuildingTable = [];
@@ -173,6 +211,11 @@ axios
         if (meterIdTable.length > 0) {
           return meterIdTable.map((meterObj) => {
             //for (let i = 0; i < meterGroupTable.length; i++) {
+              requestNum += 1;
+              // console.log(requestNum)
+              // console.log(startIterator)
+              // console.log(endIterator)
+              while (requestNum > startIterator && requestNum < endIterator) {
             return new Promise((resolve, reject) => {
               const options = {
                 hostname: "api.sustainability.oregonstate.edu",
@@ -185,6 +228,10 @@ axios
                   data += chunk;
                 });
                 res.on("end", () => {
+                  if (res.statusCode !== 200) {
+                    console.log(res.statusCode)
+                    console.log("Try lowering endIterator")
+                    }
                   const parsedData = JSON.parse(data);
                   const building_name = buildings.name;
                   const buildingID = buildings.id;
@@ -833,7 +880,7 @@ axios
                 reject(error);
               });
               req.end();
-            });
+            });}
           });
         }
       });
@@ -964,3 +1011,4 @@ axios
   .catch((error) => {
     console.error("An error occurred while fetching data:", error);
   });
+}
