@@ -27,8 +27,6 @@ process.stdin.on("keypress", (str, key) => {
 function cleanUp() {
   for (let i = 0; i < finalData.length; i++) {
     const checkDupMeter = (obj) => obj.id === parseInt(finalData[i].id);
-    // mergedFinalData.push(finalData[i])
-    // (obj.currentPoint === meterObj.currentPoint)
 
     if (!mergedFinalData.some(checkDupMeter)) {
       delete finalData[i].currentPoint;
@@ -72,7 +70,6 @@ function cleanUp() {
       }
     }
   }
-  // console.log(mergedFinalData)
 }
 
 function longForLoop() {
@@ -631,7 +628,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.currentPoint === meterObj.currentPoint;
                         // (obj.currentPoint === meterObj.currentPoint)
                         if (!finalData.some(checkDupMeter)) {
-                          finalData.push(meterObj);
+                          // finalData.push(meterObj);
                         }
                         /*
                           else {
@@ -661,7 +658,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.currentPoint === meterObj.currentPoint;
                         // (obj.currentPoint === meterObj.currentPoint)
                         if (!finalData.some(checkDupMeter)) {
-                          finalData.push(meterObj);
+                          // finalData.push(meterObj);
                         }
                         /*
                           else {
@@ -897,7 +894,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.currentPoint === meterObj.currentPoint;
                         // (obj.currentPoint === meterObj.currentPoint)
                         if (!finalData.some(checkDupMeter)) {
-                          finalData.push(meterObj);
+                          // finalData.push(meterObj);
                         }
                         /*
                           else {
@@ -927,7 +924,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.currentPoint === meterObj.currentPoint;
                         // (obj.currentPoint === meterObj.currentPoint)
                         if (!finalData.some(checkDupMeter)) {
-                          finalData.push(meterObj);
+                          // finalData.push(meterObj);
                         }
                         /*
                           else {
@@ -1181,13 +1178,12 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       totalBuildingData.push(buildingOutput);
                       meterObj.missingPoints = [meterObj.currentPoint];
 
-
                       const checkDupMeter = (obj) =>
                         obj.id === parseInt(meterObj.id) &&
                         obj.currentPoint === meterObj.currentPoint;
                       // (obj.currentPoint === meterObj.currentPoint)
                       if (!finalData.some(checkDupMeter)) {
-                        finalData.push(meterObj);
+                        // finalData.push(meterObj);
                       }
                       /*
                         else {
