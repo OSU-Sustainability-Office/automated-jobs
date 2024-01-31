@@ -2,7 +2,7 @@ const https = require("https");
 const axios = require("axios");
 const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
-const endIteratorConst = 100;
+const endIteratorConst = 50;
 let timeOut = 10000;
 let finalData = [];
 let mergedFinalData = [];
@@ -710,7 +710,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference1;
                         meterObj.missingPoints = [
-                          meterObj.currentPointLabel +
+                          meterObj.currentPoint +
+                            " (" +
+                            meterObj.currentPointLabel +
+                            ") " +
                             " (First data point at: " +
                             timeDifferenceText1,
                         ];
@@ -742,7 +745,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           // let onevar =  {};
                           // onevar[meterObj.point] = timeDifference1;
                           meterObj.missingPoints = [
-                            meterObj.currentPointLabel +
+                            meterObj.currentPoint +
+                              " (" +
+                              meterObj.currentPointLabel +
+                              ") " +
                               `: No datapoints within the past ${formattedDuration}`,
                           ];
 
@@ -869,7 +875,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference3;
                         meterObj.negPoints = [
-                          meterObj.currentPointLabel +
+                          meterObj.currentPoint +
+                            " (" +
+                            meterObj.currentPointLabel +
+                            ") " +
                             ": First positive datapoint at " +
                             timeDifferenceText3,
                         ];
@@ -899,15 +908,49 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           */
 
                       // TODO: handle solar power later by updating energy dashboard backend
+                      if (meterObj.id === 72 || meterObj.id === 31) {
+                        console.log("\n" + meterObj.id);
+                        console.log(meterObj.point_name);
+                        console.log(meterObj.currentPoint);
+                        console.log("positive value first time");
+                        console.log(
+                          firstKeyValues.find(function (el) {
+                            return el >= 0;
+                          }),
+                        );
+                        console.log(
+                          findClosestWithIndex(
+                            firstKeyValues,
+                            firstKeyValues.find(function (el) {
+                              return el >= 0;
+                            }),
+                          ).index,
+                        );
+                        console.log(
+                          timeValues[
+                            findClosestWithIndex(
+                              firstKeyValues,
+                              firstKeyValues.find(function (el) {
+                                return el >= 0;
+                              }),
+                            ).index
+                          ],
+                        );
+                        console.log(timeDifference3);
+                        console.log(timeDifferenceText3);
+                      }
                       if (
-                        !firstKeyValues.find(function (el) {
+                        firstKeyValues.find(function (el) {
                           return el >= 0;
-                        })
+                        }) === undefined
                       ) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference3;
                         meterObj.negPoints = [
-                          meterObj.currentPointLabel +
+                          meterObj.currentPoint +
+                            " (" +
+                            meterObj.currentPointLabel +
+                            ") " +
                             `: No positive datapoints within the past ${formattedDuration}`,
                         ];
 
@@ -1003,7 +1046,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference2;
                         meterObj.noChangePoints = [
-                          meterObj.currentPointLabel +
+                          meterObj.currentPoint +
+                            " (" +
+                            meterObj.currentPointLabel +
+                            ") " +
                             ": First different datapoint at " +
                             timeDifferenceText2,
                         ];
@@ -1034,14 +1080,17 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       // TODO: handle solar power later by updating energy dashboard backend
                       // todo: check if this actually works for timedifference2
                       if (
-                        !firstKeyValues.find(function (el) {
+                        firstKeyValues.find(function (el) {
                           return el != firstKeyValues[0];
-                        })
+                        }) === undefined
                       ) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference2;
                         meterObj.noChangePoints = [
-                          meterObj.currentPointLabel +
+                          meterObj.currentPoint +
+                            " (" +
+                            meterObj.currentPointLabel +
+                            ") " +
                             `: No different datapoints within the past ${formattedDuration}`,
                         ];
 
@@ -1309,7 +1358,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       )}]): No data within the past ${formattedDuration}`;
                       totalBuildingData.push(buildingOutput);
                       meterObj.missingPoints = [
-                        meterObj.currentPointLabel +
+                        meterObj.currentPoint +
+                          " (" +
+                          meterObj.currentPointLabel +
+                          ") " +
                           `: No datapoints within the past ${formattedDuration}`,
                       ];
 
