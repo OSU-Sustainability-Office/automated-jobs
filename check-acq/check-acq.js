@@ -592,46 +592,46 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           ]
                         );
                         */
+                      if (process.argv.includes("--all-params")) {
+                        let timeDifference1 = "";
+                        if (firstKeyValues[0] || firstKeyValues[0] === 0) {
+                          timeDifference1 = moment().diff(
+                            moment.unix(
+                              timeValues[
+                                findClosestWithIndex(
+                                  firstKeyValues,
+                                  firstKeyValues[0],
+                                ).index
+                              ],
+                            ),
+                            "seconds",
+                          );
+                        }
 
-                      let timeDifference1 = "";
-                      if (firstKeyValues[0] || firstKeyValues[0] === 0) {
-                        timeDifference1 = moment().diff(
-                          moment.unix(
-                            timeValues[
-                              findClosestWithIndex(
-                                firstKeyValues,
-                                firstKeyValues[0],
-                              ).index
-                            ],
-                          ),
-                          "seconds",
-                        );
-                      }
+                        let timeDifferenceText1 = "";
 
-                      let timeDifferenceText1 = "";
+                        if (timeDifference1 && timeDifference1 < 3600) {
+                          // If less than an hour, express in minutes
+                          const minutes = Math.floor(timeDifference1 / 60);
+                          timeDifferenceText1 = `${minutes} minute${
+                            minutes > 1 ? "s" : ""
+                          }`;
+                        } else if (timeDifference1 < 86400) {
+                          // If between 1 hour and 1 day, express in hours
+                          const hours = Math.floor(timeDifference1 / 3600);
+                          timeDifferenceText1 = `${hours} hour${
+                            hours > 1 ? "s" : ""
+                          }`;
+                        } else {
+                          // If 1 day or more, express in days
+                          const days = Math.floor(timeDifference1 / 86400);
+                          timeDifferenceText1 = `${days} day${
+                            days > 1 ? "s" : ""
+                          }`;
+                        }
 
-                      if (timeDifference1 && timeDifference1 < 3600) {
-                        // If less than an hour, express in minutes
-                        const minutes = Math.floor(timeDifference1 / 60);
-                        timeDifferenceText1 = `${minutes} minute${
-                          minutes > 1 ? "s" : ""
-                        }`;
-                      } else if (timeDifference1 < 86400) {
-                        // If between 1 hour and 1 day, express in hours
-                        const hours = Math.floor(timeDifference1 / 3600);
-                        timeDifferenceText1 = `${hours} hour${
-                          hours > 1 ? "s" : ""
-                        }`;
-                      } else {
-                        // If 1 day or more, express in days
-                        const days = Math.floor(timeDifference1 / 86400);
-                        timeDifferenceText1 = `${days} day${
-                          days > 1 ? "s" : ""
-                        }`;
-                      }
-
-                      // uncomment for debug
-                      /*
+                        // uncomment for debug
+                        /*
                       console.log("\n" + meterObj.id);
                       console.log("first value");
                       console.log(firstKeyValues[0]);
@@ -647,28 +647,26 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       console.log(timeDifferenceText1);
                       */
 
-                      if (timeDifference1 > 259200) {
-                        // let onevar =  {};
-                        // onevar[meterObj.point] = timeDifference1;
-                        meterObj.missingPoints = [
-                          meterObj.currentPointLabel +
-                            " (First data point at: " +
-                            timeDifferenceText1,
-                        ];
+                        if (timeDifference1 > 259200) {
+                          // let onevar =  {};
+                          // onevar[meterObj.point] = timeDifference1;
+                          meterObj.missingPoints = [
+                            meterObj.currentPointLabel +
+                              " (First data point at: " +
+                              timeDifferenceText1,
+                          ];
 
-                        const checkDupMeter = (obj) =>
-                          obj.id === parseInt(meterObj.id) &&
-                          obj.currentPoint === meterObj.currentPoint;
-                        // (obj.currentPoint === meterObj.currentPoint)
-                        if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObj.point_name !== "Solar Panel"
-                        ) {
-                          if (process.argv.includes("--all-params")) {
+                          const checkDupMeter = (obj) =>
+                            obj.id === parseInt(meterObj.id) &&
+                            obj.currentPoint === meterObj.currentPoint;
+                          // (obj.currentPoint === meterObj.currentPoint)
+                          if (
+                            !finalData.some(checkDupMeter) &&
+                            meterObj.point_name !== "Solar Panel"
+                          ) {
                             finalData.push(meterObj);
                           }
-                        }
-                        /*
+                          /*
                           else {
                             let foundFinalData = finalData.find(checkDupMeter);
                             foundFinalData.missingPoints.push(
@@ -679,30 +677,28 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             );
                           }
                           */
-                      }
+                        }
 
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (!timeDifference1 || timeDifference1 === "") {
-                        // let onevar =  {};
-                        // onevar[meterObj.point] = timeDifference1;
-                        meterObj.missingPoints = [
-                          meterObj.currentPointLabel +
-                            `: No datapoints within the past ${formattedDuration}`,
-                        ];
+                        // TODO: handle solar power later by updating energy dashboard backend
+                        if (!timeDifference1 || timeDifference1 === "") {
+                          // let onevar =  {};
+                          // onevar[meterObj.point] = timeDifference1;
+                          meterObj.missingPoints = [
+                            meterObj.currentPointLabel +
+                              `: No datapoints within the past ${formattedDuration}`,
+                          ];
 
-                        const checkDupMeter = (obj) =>
-                          obj.id === parseInt(meterObj.id) &&
-                          obj.currentPoint === meterObj.currentPoint;
-                        // (obj.currentPoint === meterObj.currentPoint)
-                        if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObj.point_name !== "Solar Panel"
-                        ) {
-                          if (process.argv.includes("--all-params")) {
+                          const checkDupMeter = (obj) =>
+                            obj.id === parseInt(meterObj.id) &&
+                            obj.currentPoint === meterObj.currentPoint;
+                          // (obj.currentPoint === meterObj.currentPoint)
+                          if (
+                            !finalData.some(checkDupMeter) &&
+                            meterObj.point_name !== "Solar Panel"
+                          ) {
                             finalData.push(meterObj);
                           }
-                        }
-                        /*
+                          /*
                           else {
                             let foundFinalData = finalData.find(checkDupMeter);
                             foundFinalData.missingPoints.push(
@@ -712,6 +708,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             );
                           }
                           */
+                        }
                       }
 
                       let timeDifference3 = "";
@@ -883,45 +880,46 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       const isBelowThreshold = (currentValue) =>
                         currentValue === firstKeyValues[0];
                         */
-                      let timeDifference2 = "";
-                      timeDifference2 = moment().diff(
-                        moment.unix(
-                          timeValues[
-                            findClosestWithIndex(
-                              firstKeyValues,
-                              firstKeyValues.find(function (el) {
-                                return el != firstKeyValues[0];
-                              }),
-                            ).index
-                          ],
-                        ),
-                        "seconds",
-                      );
+                      if (process.argv.includes("--all-params")) {
+                        let timeDifference2 = "";
+                        timeDifference2 = moment().diff(
+                          moment.unix(
+                            timeValues[
+                              findClosestWithIndex(
+                                firstKeyValues,
+                                firstKeyValues.find(function (el) {
+                                  return el != firstKeyValues[0];
+                                }),
+                              ).index
+                            ],
+                          ),
+                          "seconds",
+                        );
 
-                      let timeDifferenceText2 = "";
+                        let timeDifferenceText2 = "";
 
-                      if (timeDifference2 && timeDifference2 < 3600) {
-                        // If less than an hour, express in minutes
-                        const minutes = Math.floor(timeDifference2 / 60);
-                        timeDifferenceText2 = `${minutes} minute${
-                          minutes > 1 ? "s" : ""
-                        }`;
-                      } else if (timeDifference2 < 86400) {
-                        // If between 1 hour and 1 day, express in hours
-                        const hours = Math.floor(timeDifference2 / 3600);
-                        timeDifferenceText2 = `${hours} hour${
-                          hours > 1 ? "s" : ""
-                        }`;
-                      } else {
-                        // If 1 day or more, express in days
-                        const days = Math.floor(timeDifference2 / 86400);
-                        timeDifferenceText2 = `${days} day${
-                          days > 1 ? "s" : ""
-                        }`;
-                      }
+                        if (timeDifference2 && timeDifference2 < 3600) {
+                          // If less than an hour, express in minutes
+                          const minutes = Math.floor(timeDifference2 / 60);
+                          timeDifferenceText2 = `${minutes} minute${
+                            minutes > 1 ? "s" : ""
+                          }`;
+                        } else if (timeDifference2 < 86400) {
+                          // If between 1 hour and 1 day, express in hours
+                          const hours = Math.floor(timeDifference2 / 3600);
+                          timeDifferenceText2 = `${hours} hour${
+                            hours > 1 ? "s" : ""
+                          }`;
+                        } else {
+                          // If 1 day or more, express in days
+                          const days = Math.floor(timeDifference2 / 86400);
+                          timeDifferenceText2 = `${days} day${
+                            days > 1 ? "s" : ""
+                          }`;
+                        }
 
-                      // uncomment for debug
-                      /*
+                        // uncomment for debug
+                        /*
                       console.log("\n" + meterObj.id);
                       console.log("first different value");
                       console.log(
@@ -943,28 +941,26 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       console.log(timeDifferenceText2);
                       */
 
-                      if (timeDifference2 > 259200) {
-                        // let onevar =  {};
-                        // onevar[meterObj.point] = timeDifference2;
-                        meterObj.noChangePoints = [
-                          meterObj.currentPointLabel +
-                            ": First different datapoint at " +
-                            timeDifferenceText2,
-                        ];
+                        if (timeDifference2 > 259200) {
+                          // let onevar =  {};
+                          // onevar[meterObj.point] = timeDifference2;
+                          meterObj.noChangePoints = [
+                            meterObj.currentPointLabel +
+                              ": First different datapoint at " +
+                              timeDifferenceText2,
+                          ];
 
-                        const checkDupMeter = (obj) =>
-                          obj.id === parseInt(meterObj.id) &&
-                          obj.currentPoint === meterObj.currentPoint;
-                        // (obj.currentPoint === meterObj.currentPoint)
-                        if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObj.point_name !== "Solar Panel"
-                        ) {
-                          if (process.argv.includes("--all-params")) {
+                          const checkDupMeter = (obj) =>
+                            obj.id === parseInt(meterObj.id) &&
+                            obj.currentPoint === meterObj.currentPoint;
+                          // (obj.currentPoint === meterObj.currentPoint)
+                          if (
+                            !finalData.some(checkDupMeter) &&
+                            meterObj.point_name !== "Solar Panel"
+                          ) {
                             finalData.push(meterObj);
                           }
-                        }
-                        /*
+                          /*
                           else {
                             let foundFinalData = finalData.find(checkDupMeter);
                             foundFinalData.noChangePoints.push(
@@ -975,34 +971,32 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             );
                           }
                           */
-                      }
+                        }
 
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !firstKeyValues.find(function (el) {
-                          return el != firstKeyValues[0];
-                        })
-                      ) {
-                        // let onevar =  {};
-                        // onevar[meterObj.point] = timeDifference2;
-                        meterObj.noChangePoints = [
-                          meterObj.currentPointLabel +
-                            `: No different datapoints within the past ${formattedDuration}`,
-                        ];
-
-                        const checkDupMeter = (obj) =>
-                          obj.id === parseInt(meterObj.id) &&
-                          obj.currentPoint === meterObj.currentPoint;
-                        // (obj.currentPoint === meterObj.currentPoint)
+                        // TODO: handle solar power later by updating energy dashboard backend
                         if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObj.point_name !== "Solar Panel"
+                          !firstKeyValues.find(function (el) {
+                            return el != firstKeyValues[0];
+                          })
                         ) {
-                          if (process.argv.includes("--all-params")) {
+                          // let onevar =  {};
+                          // onevar[meterObj.point] = timeDifference2;
+                          meterObj.noChangePoints = [
+                            meterObj.currentPointLabel +
+                              `: No different datapoints within the past ${formattedDuration}`,
+                          ];
+
+                          const checkDupMeter = (obj) =>
+                            obj.id === parseInt(meterObj.id) &&
+                            obj.currentPoint === meterObj.currentPoint;
+                          // (obj.currentPoint === meterObj.currentPoint)
+                          if (
+                            !finalData.some(checkDupMeter) &&
+                            meterObj.point_name !== "Solar Panel"
+                          ) {
                             finalData.push(meterObj);
                           }
-                        }
-                        /*
+                          /*
                           else {
                             let foundFinalData = finalData.find(checkDupMeter);
                             foundFinalData.noChangePoints.push(
@@ -1012,6 +1006,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             );
                           }
                           */
+                        }
                       }
                       /*
                       if (firstKeyValues.every(isBelowThreshold)) {
