@@ -110,6 +110,10 @@ dist
 check-acq/allBuildings.json
 check-acq/output.json
 check-acq/output.txt
+check-acq/mergedFinalDataoutput.json
+check-acq/mergedFinalDataoutput.txt
+check-acq/mergedFinalDataoutput-All.json
+check-acq/mergedFinalDataoutput-All.txt
 
 # PacificPower output
 pacificpower/output.json
