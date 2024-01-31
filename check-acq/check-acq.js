@@ -2,10 +2,16 @@ const https = require("https");
 const axios = require("axios");
 const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
-const endIteratorConst = 50;
+const endIteratorConst = 80;
 let timeOut = 10000;
 let finalData = [];
 let mergedFinalData = [];
+
+// global variable, so used var not let
+var not200Counter = 0;
+
+// how many non-200 status codes before quitting
+const not200Limit = 100;
 
 let isQuit = false;
 const readline = require("readline");
@@ -586,9 +592,21 @@ function test(requestNum, startIterator, endIterator, finalData) {
                     console.log("Error code " + res.statusCode);
                     console.log(options.path);
                     console.log(
-                      "Try lowering endIterator or increasing timeout",
+                      "Press q to quit (if at local terminal), and try lowering endIteratorConst or increasing timeout",
                     );
+                    not200Counter += 1;
                     delay200 = timeOut;
+                    if (not200Counter > not200Limit) {
+                      console.log(
+                        `Quitting due to having more than ${not200Limit} errors of status code ${res.statusCode}`,
+                      );
+                      isQuit = true;
+                    }
+                    const error = new Error(
+                      `Request failed with status code ${res.statusCode}`,
+                    );
+                    error.statusCode = res.statusCode;
+                    reject();
                   }
                   setTimeout(() => {
                     const parsedData = JSON.parse(data);
@@ -655,14 +673,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       let timeDifference1 = "";
                       if (firstKeyValues[0] || firstKeyValues[0] === 0) {
                         timeDifference1 = moment().diff(
-                          moment.unix(
-                            timeValues[
-                              findClosestWithIndex(
-                                firstKeyValues,
-                                firstKeyValues[0],
-                              ).index
-                            ],
-                          ),
+                          moment.unix(timeValues[0]),
                           "seconds",
                         );
                       }
@@ -797,6 +808,9 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         "seconds",
                       );
 
+                      // console.log('\n' + meterObj.id)
+                      // console.log(timeDifference3)
+
                       if (!timeDifference3 && firstKeyValues[0] >= 0) {
                         timeDifference3 = moment().diff(
                           moment.unix(
@@ -815,6 +829,17 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       }
 
                       // }
+                      /*
+                      console.log(
+
+                        moment().diff(
+                          moment.unix(
+                            timeValues[0]
+                          ),
+                          "seconds",
+                        )
+                      )
+                      */
 
                       let timeDifferenceText3 = "";
 
@@ -871,7 +896,9 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         console.log(timeDifferenceText3);
                         */
 
-                      if (timeDifference3 > 259200) {
+                      if (timeDifference3 > timeDifference1) {
+                        // console.log(timeDifference3)
+                        // console.log(timeDifference1)
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference3;
                         meterObj.negPoints = [
