@@ -13,7 +13,6 @@ readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
 process.stdin.on("keypress", (str, key) => {
   if (key.name === "q") {
-    // console.log(finalData)
     cleanUp();
     console.log(mergedFinalData);
     isQuit = true;
@@ -24,12 +23,13 @@ process.stdin.on("keypress", (str, key) => {
 // refer to local ./allBuildings.json file for a template - node format-allBuildings.js
 // const allBuildings = require("./allBuildings.json");
 
-function cleanUp() {
+async function cleanUp() {
   for (let i = 0; i < finalData.length; i++) {
     const checkDupMeter = (obj) => obj.id === parseInt(finalData[i].id);
 
     if (!mergedFinalData.some(checkDupMeter)) {
       delete finalData[i].currentPoint;
+      delete finalData[i].pointsValues;
       mergedFinalData.push(finalData[i]);
     } else {
       // console.log(mergedFinalData)
@@ -70,6 +70,14 @@ function cleanUp() {
       }
     }
   }
+  if (
+    process.argv.includes("--save-output") ||
+    process.env.SAVE_OUTPUT === "true"
+  ) {
+    const { saveOutputToFile } = require("./save-output");
+    saveOutputToFile(mergedFinalData, "mergedFinalDataOutput.json", "json");
+    saveOutputToFile(mergedFinalData, "mergedFinalDataOutput.txt", "json");
+  }
 }
 
 function longForLoop() {
@@ -85,12 +93,6 @@ function longForLoop() {
         endIterator +
         ". Press q to quit.",
     );
-    /*
-    if (i == limit) {
-      isQuit = true;
-      process.exit();
-    }
-    */
     if (isQuit) {
       clearInterval(handle);
     } else {
@@ -294,6 +296,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
               buildingName: meterIdTable[i].buildingName,
               buildingHiddenText: meterIdTable[i].buildingHiddenText,
               currentPoint: Object.values(meterIdTable[i].pointsValues)[j],
+              currentPointLabel: Object.keys(meterIdTable[i].pointsValues)[j],
             };
             /*
             if (finalMeterObj.buildingHiddenText === true) {
@@ -317,6 +320,8 @@ function test(requestNum, startIterator, endIterator, finalData) {
         // console.log(finalMeterIdTable)
 
         if (startIterator > finalMeterIdTable.length) {
+          cleanUp();
+          console.log(mergedFinalData);
           isQuit = true;
           process.exit();
         }
@@ -325,7 +330,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
           endIterator,
         );
         // console.log(someMeterIdTable)
-
+        /*
         if (
           process.argv.includes("--save-output") ||
           process.env.SAVE_OUTPUT === "true"
@@ -342,7 +347,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
             "json",
           );
         }
-
+*/
         const requests = someMeterIdTable.map((meterObj) => {
           /*
         let meterIdTable = [];
@@ -617,7 +622,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference1;
                         meterObj.missingPoints = [
-                          meterObj.currentPoint +
+                          meterObj.currentPointLabel +
+                            " (" +
+                            meterObj.currentPoint +
+                            ") " +
                             " (First data point at " +
                             timeDifferenceText1 +
                             ")",
@@ -648,7 +656,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference1;
                         meterObj.missingPoints = [
-                          meterObj.currentPoint +
+                          meterObj.currentPointLabel +
+                            " (" +
+                            meterObj.currentPoint +
+                            ") " +
                             " " +
                             `(No datapoints within the past ${formattedDuration})`,
                         ];
@@ -743,7 +754,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference3;
                         meterObj.negPoints = [
-                          meterObj.currentPoint +
+                          meterObj.currentPointLabel +
+                            " (" +
+                            meterObj.currentPoint +
+                            ") " +
                             " (First positive datapoint at " +
                             timeDifferenceText3 +
                             ")",
@@ -753,7 +767,11 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.id === parseInt(meterObj.id) &&
                           obj.currentPoint === meterObj.currentPoint;
                         // (obj.currentPoint === meterObj.currentPoint)
-                        if (!finalData.some(checkDupMeter)) {
+                        // TODO: Fix solar panel logic on backend
+                        if (
+                          !finalData.some(checkDupMeter) &&
+                          meterObj.point_name !== "Solar Panel"
+                        ) {
                           finalData.push(meterObj);
                         }
                         /*
@@ -774,7 +792,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference3;
                         meterObj.negPoints = [
-                          meterObj.currentPoint +
+                          meterObj.currentPointLabel +
+                            " (" +
+                            meterObj.currentPoint +
+                            ") " +
                             " " +
                             `(No positive datapoints within the past ${formattedDuration})`,
                         ];
@@ -784,7 +805,11 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.currentPoint === meterObj.currentPoint;
 
                         // (obj.currentPoint === meterObj.currentPoint)
-                        if (!finalData.some(checkDupMeter)) {
+                        // TODO: Fix solar panel logic on backend
+                        if (
+                          !finalData.some(checkDupMeter) &&
+                          meterObj.point_name !== "Solar Panel"
+                        ) {
                           finalData.push(meterObj);
                         }
                         /*
@@ -883,7 +908,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference2;
                         meterObj.noChangePoints = [
-                          meterObj.currentPoint +
+                          meterObj.currentPointLabel +
+                            " (" +
+                            meterObj.currentPoint +
+                            ") " +
                             " (First different datapoint at " +
                             timeDifferenceText2 +
                             ")",
@@ -914,7 +942,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         // let onevar =  {};
                         // onevar[meterObj.point] = timeDifference2;
                         meterObj.noChangePoints = [
-                          meterObj.currentPoint +
+                          meterObj.currentPointLabel +
+                            " (" +
+                            meterObj.currentPoint +
+                            ") " +
                             " " +
                             `(No different datapoints within the past ${formattedDuration})`,
                         ];
@@ -1209,6 +1240,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
 
         Promise.all(requests)
           .then(() => {
+            // uncomment for debug
             // console.log(finalData);
             /*
           let dataArr = [
