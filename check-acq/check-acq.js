@@ -30,6 +30,7 @@ async function cleanUp() {
     if (!mergedFinalData.some(checkDupMeter)) {
       delete finalData[i].currentPoint;
       delete finalData[i].pointsValues;
+      delete finalData[i].point;
       mergedFinalData.push(finalData[i]);
     } else {
       // console.log(mergedFinalData)
