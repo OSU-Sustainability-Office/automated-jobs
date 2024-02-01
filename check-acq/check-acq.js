@@ -68,7 +68,7 @@ async function cleanUp() {
             );
             // console.log(mergedNegPoints)
             // might be overkill but last check for duplicates - https://stackoverflow.com/a/15868720
-            foundMeterGroups.negPoints = [...new Set(mergedNegPoints)];
+            foundMeterGroups.negPoints = [...new Set(mergedNegPoints)].sort();
           } else {
             foundMeterGroups.negPoints = finalData[i].negPoints;
           }
@@ -78,7 +78,9 @@ async function cleanUp() {
             let mergedmissingPoints = foundMeterGroups.missingPoints.concat(
               finalData[i].missingPoints,
             );
-            foundMeterGroups.missingPoints = [...new Set(mergedmissingPoints)];
+            foundMeterGroups.missingPoints = [
+              ...new Set(mergedmissingPoints),
+            ].sort();
           } else {
             foundMeterGroups.missingPoints = finalData[i].missingPoints;
           }
@@ -90,11 +92,60 @@ async function cleanUp() {
             );
             foundMeterGroups.noChangePoints = [
               ...new Set(mergednoChangePoints),
-            ];
+            ].sort();
           } else {
             foundMeterGroups.noChangePoints = finalData[i].noChangePoints;
           }
         }
+      }
+    }
+  }
+  for (let i = 0; i < mergedFinalData.length; i++) {
+    let real_power_count = 0;
+    let reactive_power_count = 0;
+    let apparent_power_count = 0;
+    for (let j = 0; j < mergedFinalData[i].negPoints.length; j++) {
+      if (
+        mergedFinalData[i].negPoints[j].match(/^(.*?)real_a/) ||
+        mergedFinalData[i].negPoints[j].match(/^(.*?)real_b/) ||
+        mergedFinalData[i].negPoints[j].match(/^(.*?)real_c/)
+      ) {
+        real_power_count += 1;
+      }
+      if (
+        mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_a/) ||
+        mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_b/) ||
+        mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_c/)
+      ) {
+        reactive_power_count += 1;
+      }
+      if (
+        mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_a/) ||
+        mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_b/) ||
+        mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_c/)
+      ) {
+        apparent_power_count += 1;
+      }
+    }
+    if (real_power_count > 0 && real_power_count < 3) {
+      if (mergedFinalData[i].somePhasesNegative) {
+        mergedFinalData[i].somePhasesNegative.push("real power");
+      } else {
+        mergedFinalData[i].somePhasesNegative = ["real power"];
+      }
+    }
+    if (reactive_power_count > 0 && reactive_power_count < 3) {
+      if (mergedFinalData[i].somePhasesNegative) {
+        mergedFinalData[i].somePhasesNegative.push("reactive power");
+      } else {
+        mergedFinalData[i].somePhasesNegative = ["reactive power"];
+      }
+    }
+    if (apparent_power_count > 0 && apparent_power_count < 3) {
+      if (mergedFinalData[i].somePhasesNegative) {
+        mergedFinalData[i].somePhasesNegative.push("apparent power");
+      } else {
+        mergedFinalData[i].somePhasesNegative = ["apparent power"];
       }
     }
   }
