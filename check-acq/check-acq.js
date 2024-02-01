@@ -19,14 +19,18 @@ var not200Counter = 0;
 const not200Limit = 100;
 
 let isQuit = false;
-const readline = require("readline");
-readline.emitKeypressEvents(process.stdin);
-process.stdin.setRawMode(true);
-process.stdin.on("keypress", (str, key) => {
-  if (key.name === "q") {
-    isQuit = true;
-  }
-});
+
+// rawMode (for quit based on keyboard inputs) doesn't work in aws ecs, based on error message. Reference: https://stackoverflow.com/a/53050098
+if (process.stdin.isTTY) {
+  const readline = require("readline");
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  process.stdin.on("keypress", (str, key) => {
+    if (key.name === "q") {
+      isQuit = true;
+    }
+  });
+}
 
 async function cleanUp() {
   let totalNoDataPoints = [];
@@ -328,13 +332,23 @@ function batchAllRequests() {
       !process.argv.includes("--update-blacklist") &&
       !process.argv.includes("--all-meters")
     ) {
-      console.log(
-        "Checking for meters from " +
-          startIterator +
-          " to " +
-          endIterator +
-          ". Press q to quit (on next iteration).",
-      );
+      if (process.stdin.isTTY) {
+        console.log(
+          "Checking for meters from " +
+            startIterator +
+            " to " +
+            endIterator +
+            ". Press q to quit (on next iteration).",
+        );
+      } else {
+        console.log(
+          "Checking for meters from " +
+            startIterator +
+            " to " +
+            endIterator +
+            ".",
+        );
+      }
     }
     if (isQuit) {
       cleanUp();
@@ -557,7 +571,7 @@ function batchRequest(
           }
         }
 
-        if (startIterator > allExpandedMeters.length) {
+        if (startIterator > 100) {
           isQuit = true;
         }
         let batchedExpandedMeters = allExpandedMeters.slice(
@@ -595,9 +609,15 @@ function batchRequest(
                   if (res.statusCode !== 200) {
                     console.log("Return status code " + res.statusCode);
                     console.log(options.path);
-                    console.log(
-                      "Press q to quit (if at local terminal), and try lowering stepSize or increasing timeout (especially if status code 502)",
-                    );
+                    if (process.stdin.isTTY) {
+                      console.log(
+                        "Press q to quit, and try lowering stepSize or increasing timeout (especially if status code 502)",
+                      );
+                    } else {
+                      console.log(
+                        "Try lowering stepSize or increasing timeout (especially if status code 502)",
+                      );
+                    }
                     not200Counter += 1;
 
                     // Add a timeout (same as default timeout bettween iterations) so there's time to see what's happening, for local terminal use
@@ -922,10 +942,8 @@ function batchRequest(
                           nonMergedFinalData.push(batchedMeterObject);
                         }
                       }
-                    }
-
-                    // for meters that are tracked in the database but still return no data
-                    else {
+                    } else {
+                      // for meters that are tracked in the database but still return no data
                       batchedMeterObject.noDataPoints = [
                         batchedMeterObject.currentPointLabel +
                           " (DB value: " +
