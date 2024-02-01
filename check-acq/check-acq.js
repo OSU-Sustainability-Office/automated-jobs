@@ -98,6 +98,13 @@ async function cleanUp() {
       }
     }
   }
+  mergedFinalData.sort((a, b) => {
+    if (a.building_id === b.building_id) {
+      return a.meter_id - b.meter_id;
+    } else {
+      return a.building_id - b.building_id;
+    }
+  });
   if (process.argv.includes("--save-output")) {
     const { saveOutputToFile } = require("./save-output");
     if (
@@ -249,10 +256,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
               }
 
               let meterObjectect = {
+                building_id: parseInt(buildings.id),
+                building_name: buildings.name,
                 meter_id: parseInt(buildings.meterGroups[i].meters[j].id),
                 meter_name: buildings.meterGroups[i].meters[j].name,
-                class: buildings.meterGroups[i].meters[j].classInt,
-                points: buildings.meterGroups[i].meters[j].points,
                 meterGroups: [
                   buildings.meterGroups[i].name +
                     " (Meter Group ID: " +
@@ -260,8 +267,8 @@ function test(requestNum, startIterator, endIterator, finalData) {
                     ")",
                 ],
                 energy_type: buildings.meterGroups[i].meters[j].type,
-                building_name: buildings.name,
-                building_id: parseInt(buildings.id),
+                class: buildings.meterGroups[i].meters[j].classInt,
+                points: buildings.meterGroups[i].meters[j].points,
                 buildingHidden: buildings.hidden,
               };
 
@@ -364,13 +371,13 @@ function test(requestNum, startIterator, endIterator, finalData) {
             }
 
             let finalmeterObject = {
+              building_id: meterIdTable[i].building_id,
+              building_name: meterIdTable[i].building_name,
               meter_id: parseInt(meterIdTable[i].meter_id),
               meter_name: meterIdTable[i].meter_name,
-              class: meterIdTable[i].class,
               meterGroups: meterIdTable[i].meterGroups,
               energy_type: meterIdTable[i].energy_type,
-              building_name: meterIdTable[i].building_name,
-              building_id: meterIdTable[i].building_id,
+              class: meterIdTable[i].class,
               buildingHidden: meterIdTable[i].buildingHidden,
               currentPoint: meterIdTable[i].points[j].value,
               currentPointLabel: meterIdTable[i].points[j].label,
@@ -779,10 +786,11 @@ function test(requestNum, startIterator, endIterator, finalData) {
 
                       // real debug
                       /*
-                      console.log(firstKeyValues.findIndex(function (el) {
-                        return el < 0;
-                      }))
-                      console.log(timeDifference3)
+                        console.log("\n" + meterObject.meter_id)
+                        console.log(firstKeyValues.findIndex(function (el) {
+                          return el !== firstKeyValues[0];
+                        }))
+                        console.log(timeDifference3)
                       */
 
                       if (
@@ -928,17 +936,21 @@ function test(requestNum, startIterator, endIterator, finalData) {
 
                       // real debug
                       /*
-                        console.log(firstKeyValues.findIndex(function (el) {
-                          return el < 0;
-                        }))
-                        console.log(timeDifference2)
-                        */
-                      if (timeDifference2 > 259200) {
-                        if (
-                          firstKeyValues.findIndex(function (el) {
-                            return el !== firstKeyValues[0];
-                          }) !== -1
-                        ) {
+                      console.log("\n" + meterObject.meter_id);
+                      console.log(
+                        firstKeyValues.findIndex(function (el) {
+                          return el !== firstKeyValues[0];
+                        }),
+                      );
+                      console.log(timeDifference2);
+                      */
+
+                      if (
+                        firstKeyValues.findIndex(function (el) {
+                          return el !== firstKeyValues[0];
+                        }) !== -1
+                      ) {
+                        if (timeDifference2 > 259200) {
                           let timeDifferenceText2 = "";
 
                           if (timeDifference2 && timeDifference2 < 3600) {
@@ -979,25 +991,25 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           ) {
                             finalData.push(meterObject);
                           }
-                        } else {
-                          meterObject.noChangePoints = [
-                            meterObject.currentPoint +
-                              " (" +
-                              meterObject.currentPointLabel +
-                              ") " +
-                              `: No different datapoints within the past ${formattedDuration}`,
-                          ];
+                        }
+                      } else {
+                        meterObject.noChangePoints = [
+                          meterObject.currentPoint +
+                            " (" +
+                            meterObject.currentPointLabel +
+                            ") " +
+                            `: No different datapoints within the past ${formattedDuration}`,
+                        ];
 
-                          const checkDupMeter = (obj) =>
-                            obj.meter_id === parseInt(meterObject.meter_id) &&
-                            obj.currentPoint === meterObject.currentPoint;
-                          // (obj.currentPoint === meterObject.currentPoint)
-                          if (
-                            !finalData.some(checkDupMeter) &&
-                            meterObject.energy_type !== "Solar Panel"
-                          ) {
-                            finalData.push(meterObject);
-                          }
+                        const checkDupMeter = (obj) =>
+                          obj.meter_id === parseInt(meterObject.meter_id) &&
+                          obj.currentPoint === meterObject.currentPoint;
+                        // (obj.currentPoint === meterObject.currentPoint)
+                        if (
+                          !finalData.some(checkDupMeter) &&
+                          meterObject.energy_type !== "Solar Panel"
+                        ) {
+                          finalData.push(meterObject);
                         }
                       }
 
