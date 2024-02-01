@@ -602,7 +602,7 @@ function batchRequest(
 
                     // Add a timeout (same as default timeout bettween iterations) so there's time to see what's happening, for local terminal use
                     delay200 = timeOut;
-                    if (not200Counter > not200Limit) {
+                    if (not200Counter >= not200Limit) {
                       console.log(
                         `Quitting due to having more than ${not200Limit} errors of status code ${res.statusCode}`,
                       );
