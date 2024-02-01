@@ -10,3 +10,6 @@ mergedFinalDataOutputNoData.json
 mergedFinalDataOutputNoData.txt
 mergedFinalDataOutputNoChange.json
 mergedFinalDataOutputNoChange.txt
+blacklist.json
+docker-compose.yml
+allMeters.json

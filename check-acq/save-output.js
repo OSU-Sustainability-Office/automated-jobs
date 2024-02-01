@@ -9,6 +9,7 @@ function saveOutputToFile(dataObj, outputPath, outputFormat) {
     if (err) {
       console.error("Error writing file:", err);
     } else {
+      // I'm not sure this console.log works anymore after changing it from writeFile to writeFileSync (due to async issues with writefile)
       console.log(`Data saved to ${outputPath}`);
     }
   });

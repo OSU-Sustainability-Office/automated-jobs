@@ -1,12 +1,16 @@
 const https = require("https");
 const axios = require("axios");
 const moment = require("moment-timezone");
-const blacklist = require("./blacklist.json");
-const endIteratorConst = 80;
+const blacklistMeters = require("./blacklist.json");
+const stepSize = 50;
 const firstEndDate = moment().unix();
 let timeOut = 10000;
-let finalData = [];
+let nonMergedFinalData = [];
 let mergedFinalData = [];
+
+// refer to local ./allBuildings.json file for a template of incoming data
+// Get allBuildings.json file with "node format-allBuildings.js" in terminal
+// const allBuildings = require("./allBuildings.json");
 
 // global variable, so used var not let
 var not200Counter = 0;
@@ -24,94 +28,88 @@ process.stdin.on("keypress", (str, key) => {
   }
 });
 
-// refer to local ./allBuildings.json file for a template - node format-allBuildings.js
-// const allBuildings = require("./allBuildings.json");
-
 async function cleanUp() {
-  let totalMissingPoints = [];
-  let totalMissingPoints3or4Days = [];
+  let totalNoDataPoints = [];
+  let totalNoDataPoints3or4Days = [];
   let totalNoChangePoints = [];
   let totalNegPoints = [];
   let totalSomePhasesNegative = [];
-  for (let i = 0; i < finalData.length; i++) {
+  for (let i = 0; i < nonMergedFinalData.length; i++) {
     const checkDupMeter = (obj) =>
-      obj.meter_id === parseInt(finalData[i].meter_id);
+      obj.meter_id === parseInt(nonMergedFinalData[i].meter_id);
+
     if (
-      process.argv.includes("--negate") &&
+      process.argv.includes("--negative") &&
       !process.argv.includes("--nodata") &&
       !process.argv.includes("--nochange") &&
-      (finalData[i].missingPoints || finalData[i].noChangePoints)
+      (nonMergedFinalData[i].noDataPoints ||
+        nonMergedFinalData[i].noChangePoints)
     ) {
       continue;
     } else if (
       process.argv.includes("--nodata") &&
-      !process.argv.includes("--negate") &&
+      !process.argv.includes("--negative") &&
       !process.argv.includes("--nochange") &&
-      (finalData[i].negPoints || finalData[i].noChangePoints)
+      (nonMergedFinalData[i].negPoints || nonMergedFinalData[i].noChangePoints)
     ) {
       continue;
     } else if (
       process.argv.includes("--nochange") &&
       !process.argv.includes("--nodata") &&
       !process.argv.includes("--negeate") &&
-      (finalData[i].missingPoints || finalData[i].negPoints)
+      (nonMergedFinalData[i].noDataPoints || nonMergedFinalData[i].negPoints)
     ) {
       continue;
     } else {
       if (!mergedFinalData.some(checkDupMeter)) {
-        delete finalData[i].currentPoint;
-        delete finalData[i].currentPointLabel;
-        mergedFinalData.push(finalData[i]);
+        delete nonMergedFinalData[i].currentPoint;
+        delete nonMergedFinalData[i].currentPointLabel;
+        mergedFinalData.push(nonMergedFinalData[i]);
       } else {
-        // console.log(mergedFinalData)
-        let foundMeterGroups = mergedFinalData.find(checkDupMeter);
-        // console.log("found meter groups")
-        // console.log(foundMeterGroups)
-        if (finalData[i].negPoints) {
-          if (foundMeterGroups.negPoints) {
-            let mergedNegPoints = foundMeterGroups.negPoints.concat(
-              finalData[i].negPoints,
+        let foundMeter = mergedFinalData.find(checkDupMeter);
+        if (nonMergedFinalData[i].negPoints) {
+          if (foundMeter.negPoints) {
+            let mergedNegPoints = foundMeter.negPoints.concat(
+              nonMergedFinalData[i].negPoints,
             );
-            // console.log(mergedNegPoints)
             // might be overkill but last check for duplicates - https://stackoverflow.com/a/15868720
-            foundMeterGroups.negPoints = [...new Set(mergedNegPoints)].sort();
+            foundMeter.negPoints = [...new Set(mergedNegPoints)].sort();
           } else {
-            foundMeterGroups.negPoints = finalData[i].negPoints;
+            foundMeter.negPoints = nonMergedFinalData[i].negPoints;
           }
         }
-        if (finalData[i].missingPoints) {
-          if (foundMeterGroups.missingPoints) {
-            let mergedmissingPoints = foundMeterGroups.missingPoints.concat(
-              finalData[i].missingPoints,
+        if (nonMergedFinalData[i].noDataPoints) {
+          if (foundMeter.noDataPoints) {
+            let mergednoDataPoints = foundMeter.noDataPoints.concat(
+              nonMergedFinalData[i].noDataPoints,
             );
-            foundMeterGroups.missingPoints = [
-              ...new Set(mergedmissingPoints),
-            ].sort();
+            foundMeter.noDataPoints = [...new Set(mergednoDataPoints)].sort();
           } else {
-            foundMeterGroups.missingPoints = finalData[i].missingPoints;
+            foundMeter.noDataPoints = nonMergedFinalData[i].noDataPoints;
           }
         }
-        if (finalData[i].missingPoints3or4Days) {
-          if (!foundMeterGroups.missingPoints3or4Days) {
-            foundMeterGroups.missingPoints3or4Days =
-              finalData[i].missingPoints3or4Days;
+        if (nonMergedFinalData[i].noDataPoints3or4Days) {
+          if (!foundMeter.noDataPoints3or4Days) {
+            foundMeter.noDataPoints3or4Days =
+              nonMergedFinalData[i].noDataPoints3or4Days;
           }
         }
-        if (finalData[i].noChangePoints) {
-          if (foundMeterGroups.noChangePoints) {
-            let mergednoChangePoints = foundMeterGroups.noChangePoints.concat(
-              finalData[i].noChangePoints,
+        if (nonMergedFinalData[i].noChangePoints) {
+          if (foundMeter.noChangePoints) {
+            let mergednoChangePoints = foundMeter.noChangePoints.concat(
+              nonMergedFinalData[i].noChangePoints,
             );
-            foundMeterGroups.noChangePoints = [
+            foundMeter.noChangePoints = [
               ...new Set(mergednoChangePoints),
             ].sort();
           } else {
-            foundMeterGroups.noChangePoints = finalData[i].noChangePoints;
+            foundMeter.noChangePoints = nonMergedFinalData[i].noChangePoints;
           }
         }
       }
     }
   }
+  // Sort by meter id
   mergedFinalData.sort((a, b) => {
     return a.meter_id - b.meter_id;
   });
@@ -121,17 +119,17 @@ async function cleanUp() {
     let apparent_power_count = 0;
 
     // reordering elements in array of objects for consistency
-    if (mergedFinalData[i].missingPoints) {
-      let tempMissingPoints = mergedFinalData[i].missingPoints;
-      delete mergedFinalData[i].missingPoints;
-      mergedFinalData[i].missingPoints = tempMissingPoints;
-      totalMissingPoints.push(mergedFinalData[i].meter_id);
+    if (mergedFinalData[i].noDataPoints) {
+      let tempnoDataPoints = mergedFinalData[i].noDataPoints;
+      delete mergedFinalData[i].noDataPoints;
+      mergedFinalData[i].noDataPoints = tempnoDataPoints;
+      totalNoDataPoints.push(mergedFinalData[i].meter_id);
     }
-    if (mergedFinalData[i].missingPoints3or4Days) {
-      let tempmissingPoints3or4Days = mergedFinalData[i].missingPoints3or4Days;
-      delete mergedFinalData[i].missingPoints3or4Days;
-      mergedFinalData[i].missingPoints3or4Days = tempmissingPoints3or4Days;
-      totalMissingPoints3or4Days.push(mergedFinalData[i].meter_id);
+    if (mergedFinalData[i].noDataPoints3or4Days) {
+      let tempnoDataPoints3or4Days = mergedFinalData[i].noDataPoints3or4Days;
+      delete mergedFinalData[i].noDataPoints3or4Days;
+      mergedFinalData[i].noDataPoints3or4Days = tempnoDataPoints3or4Days;
+      totalNoDataPoints3or4Days.push(mergedFinalData[i].meter_id);
     }
     if (mergedFinalData[i].noChangePoints) {
       let tempNoChangePoints = mergedFinalData[i].noChangePoints;
@@ -202,26 +200,28 @@ async function cleanUp() {
       " PST",
   );
   if (
-    totalMissingPoints.length > 0 ||
-    totalMissingPoints3or4Days.length > 0 ||
-    totalMissingPoints3or4Days.length > 0 ||
+    totalNoDataPoints.length > 0 ||
+    totalNoDataPoints3or4Days.length > 0 ||
+    totalNoDataPoints3or4Days.length > 0 ||
     totalNegPoints.length > 0 ||
     totalSomePhasesNegative.length > 0
   ) {
     mergedFinalData.push(
-      "The lines below are just a summary, refer to corresponding meter_id values in data above for details:",
+      "The lines below are just a summary, refer to corresponding meter_id values in data above for details.",
     );
-    mergedFinalData.push("Data above is sorted by meter_id for convenience.");
-  }
-  if (totalMissingPoints.length > 0) {
     mergedFinalData.push(
-      "Meters with missing data: " + totalMissingPoints.join(", "),
+      "Data above is sorted by meter_id from lowest to highest.",
     );
   }
-  if (totalMissingPoints3or4Days.length > 0) {
+  if (totalNoDataPoints.length > 0) {
     mergedFinalData.push(
-      "Meters with missing data for 3 or 4 days: " +
-        totalMissingPoints3or4Days.join(", "),
+      "Meters with no data: " + totalNoDataPoints.join(", "),
+    );
+  }
+  if (totalNoDataPoints3or4Days.length > 0) {
+    mergedFinalData.push(
+      "Meters with no data for 3 or 4 days: " +
+        totalNoDataPoints3or4Days.join(", "),
     );
   }
   if (totalNoChangePoints.length > 0) {
@@ -243,23 +243,26 @@ async function cleanUp() {
   if (process.argv.includes("--save-output")) {
     const { saveOutputToFile } = require("./save-output");
     if (
-      process.argv.includes("--negate") &&
+      process.argv.includes("--negative") &&
       !process.argv.includes("--nodata") &&
       !process.argv.includes("--nochange")
     ) {
       saveOutputToFile(
         mergedFinalData,
-        "mergedFinalDataOutputNegate.json",
+        "mergedFinalDataOutputNegative.json",
         "json",
       );
       saveOutputToFile(
         mergedFinalData,
-        "mergedFinalDataOutputNegate.txt",
+        "mergedFinalDataOutputNegative.txt",
         "json",
+      );
+      console.log(
+        "output saved to mergedFinalDataOutputnegative.json and mergedFinalDataOutputnegative.txt",
       );
     } else if (
       process.argv.includes("--nodata") &&
-      !process.argv.includes("--negate") &&
+      !process.argv.includes("--negative") &&
       !process.argv.includes("--nochange")
     ) {
       saveOutputToFile(
@@ -272,10 +275,13 @@ async function cleanUp() {
         "mergedFinalDataOutputNoData.txt",
         "json",
       );
+      console.log(
+        "output saved to mergedFinalDataOutputNoData.json and mergedFinalDataOutputNoData.txt",
+      );
     } else if (
       process.argv.includes("--nochange") &&
       !process.argv.includes("--nodata") &&
-      !process.argv.includes("--negate")
+      !process.argv.includes("--negative")
     ) {
       saveOutputToFile(
         mergedFinalData,
@@ -287,6 +293,9 @@ async function cleanUp() {
         "mergedFinalDataOutputNoChange.txt",
         "json",
       );
+      console.log(
+        "output saved to mergedFinalDataOutputNoChange.json and mergedFinalDataOutputNoChange.txt",
+      );
     } else {
       saveOutputToFile(mergedFinalData, "mergedFinalDataOutput.json", "json");
       saveOutputToFile(mergedFinalData, "mergedFinalDataOutput.txt", "json");
@@ -294,55 +303,68 @@ async function cleanUp() {
   }
 }
 
-function longForLoop() {
-  // let finalData = [];
+function batchAllRequests() {
   let requestNum = 0;
   let startIterator = 0;
-  let endIterator = endIteratorConst;
-  if (startIterator < endIteratorConst) {
+  let endIterator = stepSize;
+  if (startIterator < stepSize) {
     console.log("Acquisuite Data Checker\n");
   }
 
-  let handle = setInterval(function () {
-    console.log(
-      "Checking for meters from " +
-        startIterator +
-        " to " +
-        endIterator +
-        ". Press q to quit (on next iteration).",
-    );
+  // I used setInterval as it seemed the most straightforward way to asynchronously wait for each batch of API
+  // requests to complete, in addition to adding a 10 second wait between each batch starting, and also to allow
+  // for manually ending the loop early with keyboard press (on "q" in this case) if needed
+  // This might be over-engineered, and setTimeouts might be good enough
+
+  // References:
+  // setInterval with keyboard input to end loop: https://stackoverflow.com/a/55735588
+  // setInterval with for loop and delay: https://stackoverflow.com/a/46680284
+
+  let handleRequests = setInterval(function () {
+    if (
+      !process.argv.includes("--update-blacklist") &&
+      !process.argv.includes("--all-meters")
+    ) {
+      console.log(
+        "Checking for meters from " +
+          startIterator +
+          " to " +
+          endIterator +
+          ". Press q to quit (on next iteration).",
+      );
+    }
     if (isQuit) {
       cleanUp();
       console.log(mergedFinalData);
-      clearInterval(handle);
+      clearInterval(handleRequests);
       process.exit();
     } else {
-      test(requestNum, startIterator, endIterator, finalData);
+      batchRequest(requestNum, startIterator, endIterator, nonMergedFinalData);
     }
-    requestNum += endIteratorConst;
-    startIterator += endIteratorConst;
-    endIterator += endIteratorConst;
+    requestNum += stepSize;
+    startIterator += stepSize;
+    endIterator += stepSize;
   }, timeOut);
 }
-longForLoop();
-function test(requestNum, startIterator, endIterator, finalData) {
+batchAllRequests();
+function batchRequest(
+  requestNum,
+  startIterator,
+  endIterator,
+  nonMergedFinalData,
+) {
   // by default, the requests sent to our API use a 2 month timeframe for energy graphs, so I emulated it here
   const startDate = moment().subtract(2, "months").unix();
   //const endDate = moment().subtract(2, "days").unix();
   const endDate = moment().unix();
   const duration = moment.duration(endDate - startDate, "seconds");
   const daysDuration = Math.round(duration.asDays());
-  const formattedDuration = `${daysDuration} day${
+  const formattedTotalDuration = `${daysDuration} day${
     daysDuration !== 1 ? "s" : ""
   }`;
 
-  let totalBuildingData = [];
-  let missedBuildings = [];
-  let buildingOutput;
-  let noChangeData = [];
-  let noChange4Or5Data = [];
-  let blacklistMeterTable = [];
-  let finalMeterIdTable = [];
+  let allExpandedMeters = [];
+  let finalBlacklistMeters = [];
 
   const apiUrl =
     "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
@@ -353,44 +375,25 @@ function test(requestNum, startIterator, endIterator, finalData) {
       if (response.status === 200) {
         const allBuildings = response.data;
 
-        for (let i = 0; i < blacklist.length; i++) {
-          for (let j = 0; j < blacklist[i]._meter_comments.length; j++) {
-            let blacklistmeterObjectect = {
-              building_id: blacklist[i].building_id,
-              building_name: blacklist[i].building_name,
-              meter_id: blacklist[i]._meter_comments[j].id,
-              meter_note: blacklist[i]._meter_comments[j].note,
-            };
-            blacklistMeterTable.push(blacklistmeterObjectect);
-          }
-        }
-        let meterIdTable = [];
+        let allMeters = [];
         for (let i = 0; i < allBuildings.length; i++) {
           let buildings = allBuildings[i];
 
-          let meterGroupTable = [];
-          let finalMissedBuildingTable = [];
-
           const meterGroupLength = buildings.meterGroups.length;
-          const building_hidden = buildings.hidden;
-          let building_hidden_text = "";
-          if (building_hidden === true) {
-            building_hidden_text = " (Building Hidden)";
-          }
           for (let i = 0; i < meterGroupLength; i++) {
             // skip buildings with null meter groups
             if (buildings.meterGroups[i].id === "null") {
               continue;
             }
             const meterLength = buildings.meterGroups[i].meters.length;
-            meterGroupTable.push(buildings.meterGroups[i].id);
+
             for (let j = 0; j < meterLength; j++) {
               // skip buildings with null meters
               if (buildings.meterGroups[i].meters[j].id === "null") {
                 continue;
               }
 
-              let meterObjectect = {
+              let meterObject = {
                 meter_id: parseInt(buildings.meterGroups[i].meters[j].id),
                 meter_name: buildings.meterGroups[i].meters[j].name,
                 building_id: parseInt(buildings.id),
@@ -401,30 +404,28 @@ function test(requestNum, startIterator, endIterator, finalData) {
                     buildings.meterGroups[i].id +
                     ")",
                 ],
-                energy_type: buildings.meterGroups[i].meters[j].type,
+                type: buildings.meterGroups[i].meters[j].type,
                 class: buildings.meterGroups[i].meters[j].classInt,
                 points: buildings.meterGroups[i].meters[j].points,
-                buildingHidden: buildings.hidden,
+                building_hidden: buildings.hidden,
               };
 
               const checkDupMeter = (obj) =>
                 obj.meter_id ===
                 parseInt(buildings.meterGroups[i].meters[j].id);
 
-              let blacklistedMeterIDs = blacklistMeterTable.map(
-                (a) => a.meter_id,
-              );
+              let blacklistMeterIDs = blacklistMeters.map((a) => a.meter_id);
 
               if (
-                !blacklistedMeterIDs.includes(
+                !blacklistMeterIDs.includes(
                   parseInt(buildings.meterGroups[i].meters[j].id),
                 )
               ) {
-                if (!meterIdTable.some(checkDupMeter)) {
-                  meterIdTable.push(meterObjectect);
+                if (!allMeters.some(checkDupMeter)) {
+                  allMeters.push(meterObject);
                 } else {
-                  let foundMeterGroups = meterIdTable.find(checkDupMeter);
-                  foundMeterGroups.meterGroups.push(
+                  let foundMeter = allMeters.find(checkDupMeter);
+                  foundMeter.meterGroups.push(
                     buildings.meterGroups[i].name +
                       " (Meter Group ID: " +
                       buildings.meterGroups[i].id +
@@ -437,25 +438,37 @@ function test(requestNum, startIterator, endIterator, finalData) {
               // There may be some meters from blacklist.json that are not in allBuildings API call, which is intended.
               // If there is a mismatch between blacklist.json and the SQL database (from which allBuildings is derived),
               // then the SQL database should take precedence.
-              let foundmeterObject = blacklistMeterTable.find(
+              let foundBlacklistMeter = blacklistMeters.find(
                 (o) =>
                   o.meter_id ===
                   parseInt(buildings.meterGroups[i].meters[j].id),
               );
-              if (foundmeterObject) {
-                if (!meterIdTable.some(checkDupMeter)) {
-                  foundmeterObject.meterGroups = [
+              if (foundBlacklistMeter) {
+                if (!allMeters.some(checkDupMeter)) {
+                  delete foundBlacklistMeter.meter_name;
+                  foundBlacklistMeter.meter_name = meterObject.meter_name;
+                  delete foundBlacklistMeter.building_id;
+                  foundBlacklistMeter.building_id = meterObject.building_id;
+                  delete foundBlacklistMeter.building_name;
+                  foundBlacklistMeter.building_name = meterObject.building_name;
+                  delete foundBlacklistMeter.meterGroups;
+                  foundBlacklistMeter.meterGroups = [
                     buildings.meterGroups[i].name +
                       " (Meter Group ID: " +
                       buildings.meterGroups[i].id +
                       ")",
                   ];
-                  foundmeterObject.buildingHidden = building_hidden_text;
-                  foundmeterObject.point_string = meterObjectect.energy_type;
-                  finalMissedBuildingTable.push(foundmeterObject);
+                  delete foundBlacklistMeter.type;
+                  foundBlacklistMeter.type = meterObject.type;
+                  delete foundBlacklistMeter.class;
+                  foundBlacklistMeter.class = meterObject.class;
+                  delete foundBlacklistMeter.building_hidden;
+                  foundBlacklistMeter.building_hidden =
+                    meterObject.building_hidden;
+                  finalBlacklistMeters.push(foundBlacklistMeter);
                 } else {
                   let foundBlacklistMeterGroups =
-                    finalMissedBuildingTable.find(checkDupMeter);
+                    finalBlacklistMeters.find(checkDupMeter);
                   foundBlacklistMeterGroups.meterGroups.push(
                     buildings.meterGroups[i].name +
                       " (Meter Group ID: " +
@@ -466,235 +479,95 @@ function test(requestNum, startIterator, endIterator, finalData) {
               }
             }
           }
-
-          for (let i = 0; i < finalMissedBuildingTable.length; i++) {
-            missedBuildings.push(
-              `${
-                finalMissedBuildingTable[i].building_name +
-                finalMissedBuildingTable[i].buildingHidden
-              } (Building ID ${finalMissedBuildingTable[i].building_id}, ${
-                finalMissedBuildingTable[i].point_string
-              }, Meter ID ${
-                finalMissedBuildingTable[i].meter_id
-              }, Meter Groups [${finalMissedBuildingTable[i].meterGroups}]): ${
-                finalMissedBuildingTable[i].meter_note
-              }`,
-            );
-          }
         }
-        for (let i = 0; i < meterIdTable.length; i++) {
-          for (let j = 0; j < meterIdTable[i].points.length; j++) {
-            // TODO: fix in backend meter classes
-            // console.log(meterIdTable[i].points[j])
-            if (meterIdTable[i].points[j].value === "instant") {
-              // console.log('helloo')
-              meterIdTable[i].points[j] = {
+        // Sort by building id, then meter id
+        finalBlacklistMeters.sort((a, b) => {
+          if (a.building_id === b.building_id) {
+            return a.meter_id - b.meter_id;
+          } else {
+            return a.building_id - b.building_id;
+          }
+        });
+        if (process.argv.includes("--update-blacklist")) {
+          console.log(finalBlacklistMeters);
+          let { saveOutputToFile } = require("./save-output");
+          saveOutputToFile(finalBlacklistMeters, "blacklist.json", "json");
+          console.log("Saved to blacklist.json");
+          clearInterval();
+          process.exit();
+        }
+        // Sort by building id, then meter id
+        allMeters.sort((a, b) => {
+          if (a.building_id === b.building_id) {
+            return a.meter_id - b.meter_id;
+          } else {
+            return a.building_id - b.building_id;
+          }
+        });
+        if (process.argv.includes("--all-meters")) {
+          console.log(allMeters);
+          let { saveOutputToFile } = require("./save-output");
+          saveOutputToFile(allMeters, "allMeters.json", "json");
+          console.log("Saved to allMeters.json");
+          clearInterval();
+          process.exit();
+        }
+        for (let i = 0; i < allMeters.length; i++) {
+          for (let j = 0; j < allMeters[i].points.length; j++) {
+            // TODO: fix in backend meter classes ("instant" for Gas energy type)
+            if (allMeters[i].points[j].value === "instant") {
+              allMeters[i].points[j] = {
                 label: "Instant",
                 value: "instant",
               };
-              //  console.log(meterIdTable[i].points[j])
             }
-            if (meterIdTable[i].energy_type !== "Electricity") {
-              // console.log(meterIdTable[i].points[j].label)
-              // console.log(meterIdTable[i].points[j].value)
+            if (allMeters[i].type !== "Electricity") {
             }
-            if (meterIdTable[i].points[j] === undefined) {
+            if (allMeters[i].points[j] === undefined) {
               console.log("undefined point");
               console.log(j);
-              console.log(meterIdTable[i]);
+              console.log(allMeters[i]);
               continue;
             }
 
-            let finalmeterObject = {
-              meter_id: parseInt(meterIdTable[i].meter_id),
-              meter_name: meterIdTable[i].meter_name,
-              building_id: meterIdTable[i].building_id,
-              building_name: meterIdTable[i].building_name,
-              meterGroups: meterIdTable[i].meterGroups,
-              energy_type: meterIdTable[i].energy_type,
-              class: meterIdTable[i].class,
-              buildingHidden: meterIdTable[i].buildingHidden,
-              currentPoint: meterIdTable[i].points[j].value,
-              currentPointLabel: meterIdTable[i].points[j].label,
+            let expandedMeterObject = {
+              meter_id: parseInt(allMeters[i].meter_id),
+              meter_name: allMeters[i].meter_name,
+              building_id: allMeters[i].building_id,
+              building_name: allMeters[i].building_name,
+              meterGroups: allMeters[i].meterGroups,
+              type: allMeters[i].type,
+              class: allMeters[i].class,
+              building_hidden: allMeters[i].building_hidden,
+              currentPoint: allMeters[i].points[j].value,
+              currentPointLabel: allMeters[i].points[j].label,
             };
-            /*
-            if (finalmeterObject.buildingHidden === true) {
-              continue;
-            }
-            */
+
             // TODO: fix solar panel logic on backend
             if (
-              finalmeterObject.energy_type === "Solar Panel" &&
-              finalmeterObject.currentPoint !== "energy_change"
+              expandedMeterObject.type === "Solar Panel" &&
+              expandedMeterObject.currentPoint !== "energy_change"
             ) {
               continue;
             }
-            finalMeterIdTable.push(finalmeterObject);
+            allExpandedMeters.push(expandedMeterObject);
           }
         }
 
-        // console.log(finalMeterIdTable)
-
-        if (startIterator > finalMeterIdTable.length) {
+        if (startIterator > allExpandedMeters.length) {
           isQuit = true;
         }
-        let someMeterIdTable = finalMeterIdTable.slice(
+        let batchedExpandedMeters = allExpandedMeters.slice(
           startIterator,
           endIterator,
         );
-        // console.log(someMeterIdTable)
-        /*
-        if (
-          process.argv.includes("--save-output")
-        ) {
-          const { saveOutputToFile } = require("./save-output");
-          saveOutputToFile(
-            finalMeterIdTable,
-            "finalmetertableoutput.json",
-            "json",
-          );
-          saveOutputToFile(
-            finalMeterIdTable,
-            "finalmetertableoutput.txt",
-            "json",
-          );
-        }
-*/
-        const requests = someMeterIdTable.map((meterObject) => {
-          /*
-        let meterIdTable = [];
-        let meterGroupTable = [];
-        let finalMissedBuildingTable = [];
-
-        const meterGroupLength = buildings.meterGroups.length;
-        const building_hidden = buildings.hidden;
-        let building_hidden_text = "";
-        if (building_hidden === true) {
-          building_hidden_text = " (Building Hidden)";
-        }
-        for (let i = 0; i < meterGroupLength; i++) {
-          // skip buildings with null meter groups
-          if (buildings.meterGroups[i].id === "null") {
-            continue;
-          }
-          const meterLength = buildings.meterGroups[i].meters.length;
-          meterGroupTable.push(buildings.meterGroups[i].id);
-          for (let j = 0; j < meterLength; j++) {
-            let point_var = "";
-            // skip buildings with null meters
-            if (buildings.meterGroups[i].meters[j].id === "null") {
-              continue;
-            }
-            if (buildings.meterGroups[i].meters[j].type === "Electricity") {
-              point_var = "accumulated_real";
-            } else if (buildings.meterGroups[i].meters[j].type === "Gas") {
-              point_var = "cubic_feet";
-            } else if (buildings.meterGroups[i].meters[j].type === "Steam") {
-              point_var = "total";
-            } else if (
-              buildings.meterGroups[i].meters[j].type === "Solar Panel"
-            ) {
-              point_var = "energy_change";
-            }
-
-            let meterObjectect = {
-              id: parseInt(buildings.meterGroups[i].meters[j].id),
-              class: buildings.meterGroups[i].meters[j].classInt,
-              point: point_var,
-              meterGroups: [
-                buildings.meterGroups[i].name +
-                  " (Meter Group ID: " +
-                  buildings.meterGroups[i].id +
-                  ")",
-              ],
-              energy_type: buildings.meterGroups[i].meters[j].type,
-            };
-
-            const checkDupMeter = (obj) =>
-              obj.id === parseInt(buildings.meterGroups[i].meters[j].id);
-
-            let blacklistedMeterIDs = blacklistMeterTable.map(
-              (a) => a.meter_id,
-            );
-
-            if (
-              !blacklistedMeterIDs.includes(
-                parseInt(buildings.meterGroups[i].meters[j].id),
-              )
-            ) {
-              if (!meterIdTable.some(checkDupMeter)) {
-                meterIdTable.push(meterObjectect);
-              } else {
-                let foundMeterGroups = meterIdTable.find(checkDupMeter);
-                foundMeterGroups.meterGroups.push(
-                  buildings.meterGroups[i].name +
-                    " (Meter Group ID: " +
-                    buildings.meterGroups[i].id +
-                    ")",
-                );
-              }
-            }
-
-            // If any meters from allBuildings API call are also found in blacklist.json, there is a match
-            // There may be some meters from blacklist.json that are not in allBuildings API call, which is intended.
-            // If there is a mismatch between blacklist.json and the SQL database (from which allBuildings is derived),
-            // then the SQL database should take precedence.
-            let foundmeterObject = blacklistMeterTable.find(
-              (o) =>
-                o.meter_id === parseInt(buildings.meterGroups[i].meters[j].id),
-            );
-            if (foundmeterObject) {
-              if (!meterIdTable.some(checkDupMeter)) {
-                foundmeterObject.meterGroups = [
-                  buildings.meterGroups[i].name +
-                    " (Meter Group ID: " +
-                    buildings.meterGroups[i].id +
-                    ")",
-                ];
-                foundmeterObject.buildingHidden = building_hidden_text;
-                foundmeterObject.point_string = meterObjectect.energy_type;
-                finalMissedBuildingTable.push(foundmeterObject);
-              } else {
-                let foundBlacklistMeterGroups =
-                  finalMissedBuildingTable.find(checkDupMeter);
-                foundBlacklistMeterGroups.meterGroups.push(
-                  buildings.meterGroups[i].name +
-                    " (Meter Group ID: " +
-                    buildings.meterGroups[i].id +
-                    ")",
-                );
-              }
-            }
-          }
-        }
-
-        for (let i = 0; i < finalMissedBuildingTable.length; i++) {
-          missedBuildings.push(
-            `${
-              finalMissedBuildingTable[i].building_name +
-              finalMissedBuildingTable[i].buildingHidden
-            } (Building ID ${finalMissedBuildingTable[i].building_id}, ${
-              finalMissedBuildingTable[i].point_string
-            }, Meter ID ${
-              finalMissedBuildingTable[i].meter_id
-            }, Meter Groups [${
-              finalMissedBuildingTable[i].meterGroups
-            }]): ${finalMissedBuildingTable[i].meter_note}`,
-          );
-        }
-        */
-          // if (meterIdTable.length > 0) {
-          // return meterIdTable.map((meterObject) => {
-          //for (let i = 0; i < meterGroupTable.length; i++) {
+        const requests = batchedExpandedMeters.map((batchedMeterObject) => {
           requestNum += 1;
-          // console.log(requestNum)
-          // console.log(startIterator)
-          // console.log(endIterator)
           while (requestNum > startIterator && requestNum < endIterator) {
             return new Promise((resolve, reject) => {
               const options = {
                 hostname: "api.sustainability.oregonstate.edu",
-                path: `/v2/energy/data?id=${meterObject.meter_id}&startDate=${startDate}&endDate=${endDate}&point=${meterObject.currentPoint}&meterClass=${meterObject.class}`,
+                path: `/v2/energy/data?id=${batchedMeterObject.meter_id}&startDate=${startDate}&endDate=${endDate}&point=${batchedMeterObject.currentPoint}&meterClass=${batchedMeterObject.class}`,
                 method: "GET",
               };
               const req = https.request(options, (res) => {
@@ -704,13 +577,27 @@ function test(requestNum, startIterator, endIterator, finalData) {
                 });
                 res.on("end", () => {
                   let delay200 = 0;
+                  // See not200Limit for how many errors will cause script to quit.
+                  // See AWS lambda / API gateway documentation, there is default throttling for too many requests that can
+                  // cause 502 return code.
+
+                  // I'm not sure how the cooldown on the throttling works, but either lower stepSize or increase
+                  // timeout (both variables at top of file), until there are few / no errors. Continuing to ping the API
+                  // if there are errors can lead to worse throttling.
+                  // Or just wait a few hours when throttling has reduced, and try again.
+
+                  // For now this just skips the meter / point combination if it returns a non-200 status code (see reject below).
+                  // Could set up something to retry the request or lower the endIterationConst at some point in the future.
+
                   if (res.statusCode !== 200) {
-                    console.log("Error code " + res.statusCode);
+                    console.log("Return status code " + res.statusCode);
                     console.log(options.path);
                     console.log(
-                      "Press q to quit (if at local terminal), and try lowering endIteratorConst or increasing timeout",
+                      "Press q to quit (if at local terminal), and try lowering stepSize or increasing timeout (especially if status code 502)",
                     );
                     not200Counter += 1;
+
+                    // Add a timeout (same as default timeout bettween iterations) so there's time to see what's happening, for local terminal use
                     delay200 = timeOut;
                     if (not200Counter > not200Limit) {
                       console.log(
@@ -722,13 +609,13 @@ function test(requestNum, startIterator, endIterator, finalData) {
                       `Request failed with status code ${res.statusCode}`,
                     );
                     error.statusCode = res.statusCode;
-                    reject();
+
+                    // Due to rejecting the request on non-200 status code, whatever comes back from the API will not
+                    // make it into the final output (otherwise there may be false negatives for missing data points).
+                    reject(error);
                   }
                   setTimeout(() => {
                     const parsedData = JSON.parse(data);
-                    // const building_name = buildings.name;
-                    // const building_id = buildings.id;
-
                     if (parsedData.length > 0) {
                       const timeValues = [];
 
@@ -736,195 +623,122 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         timeValues.push(obj.time);
                       }
 
-                      const firstKeyValues = parsedData.map((obj) => {
+                      const dataValues = parsedData.map((obj) => {
                         const keys = Object.keys(obj);
                         return keys.length > 0 ? obj[keys[0]] : undefined;
                       });
 
-                      function findClosestWithIndex(array, num) {
-                        return array.reduce(
-                          function (prev, curr, index) {
-                            const prevDiff = Math.abs(prev.value - num);
-                            const currDiff = Math.abs(curr - num);
-
-                            if (currDiff < prevDiff) {
-                              return { value: curr, index: index };
-                            } else {
-                              return prev;
-                            }
-                          },
-                          { value: array[0], index: 0 },
-                        );
-                      }
                       /*
-                      below should read as "days ago", e.g. "now === 1" means "now vs 1 day ago"
-          
-                      noChangeData: (now === 1 and 1 === 2 and 2 === 3 and 3 === 4 and 4 === 5 and 5 === 6)
-          
-                      noChange4or5Data: (now === 1 and 1 === 2 and 2 === 3 and 3 === 4 and 4 !== 5 or 5 !== 6)
-          
-                      Overall purpose of the if and else if code block below is to track buildings with no change in data,
-                      which may be a sign of meter errors (as seen historically for some gas meters)
+                      the first data point and its timestamp is checked. If the first data point is older than 3 days, it is
+                      considered "missing", and anything between 3 and 4 days (259200 to 345600 seconds) is also flagged as
+                      "recent" missing data
                       */
-
-                      /*
-                        console.log(
-                          firstKeyValues.find(function (el) {
-                            return el != firstKeyValues[0];
-                          })
-                        );
-                        console.log(
-                          timeValues[
-                            findClosestWithIndex(
-                              firstKeyValues,
-                              firstKeyValues.find(function (el) {
-                                return el != firstKeyValues[0];
-                              })
-                            ).index
-                          ]
-                        );
-                        */
-
-                      let timeDifference1 = "";
-                      if (firstKeyValues[0] || firstKeyValues[0] === 0) {
-                        timeDifference1 = moment().diff(
+                      let timeDifferenceNoData = "";
+                      if (dataValues[0] || dataValues[0] === 0) {
+                        timeDifferenceNoData = moment().diff(
                           moment.unix(timeValues[0]),
                           "seconds",
                         );
                       }
-                      // debug
+                      // uncomment for debug (test no data value slightly over 3 days, vs over 4 days)
                       /*
-                      if (meterObject.meter_id === 1) {
-                        timeDifference1 = 269200;
+                      if (batchedMeterObject.meter_id === 1) {
+                        timeDifferenceNoData = 269200;
                       } else {
-                        timeDifference1 = 400000;
+                        timeDifferenceNoData = 400000;
                       }
                       */
-                      if (timeDifference1 > 259200) {
-                        let timeDifferenceText1 = "";
+                      if (timeDifferenceNoData > 259200) {
+                        let timeDifferenceNoDataText = "";
 
-                        if (timeDifference1 && timeDifference1 < 3600) {
+                        if (
+                          timeDifferenceNoData &&
+                          timeDifferenceNoData < 3600
+                        ) {
                           // If less than an hour, express in minutes
-                          const minutes = Math.floor(timeDifference1 / 60);
-                          timeDifferenceText1 = `${minutes} minute${
+                          const minutes = Math.floor(timeDifferenceNoData / 60);
+                          timeDifferenceNoDataText = `${minutes} minute${
                             minutes > 1 ? "s" : ""
                           }`;
-                        } else if (timeDifference1 < 86400) {
+                        } else if (timeDifferenceNoData < 86400) {
                           // If between 1 hour and 1 day, express in hours
-                          const hours = Math.floor(timeDifference1 / 3600);
-                          timeDifferenceText1 = `${hours} hour${
+                          const hours = Math.floor(timeDifferenceNoData / 3600);
+                          timeDifferenceNoDataText = `${hours} hour${
                             hours > 1 ? "s" : ""
                           }`;
                         } else {
                           // If 1 day or more, express in days
-                          const days = Math.floor(timeDifference1 / 86400);
-                          timeDifferenceText1 = `${days} day${
+                          const days = Math.floor(timeDifferenceNoData / 86400);
+                          timeDifferenceNoDataText = `${days} day${
                             days > 1 ? "s" : ""
                           }`;
                         }
-
                         // uncomment for debug
                         /*
-                      console.log("\n" + meterObject.meter_id);
-                      console.log("first value");
-                      console.log(firstKeyValues[0]);
-                      console.log(
-                        timeValues[
-                          findClosestWithIndex(
-                            firstKeyValues,
-                            firstKeyValues[0],
-                          ).index
-                        ],
-                      );
-                      console.log(timeDifference1);
-                      console.log(timeDifferenceText1);
-                      */
-
-                        // let onevar =  {};
-                        // onevar[meterObject.point] = timeDifference1;
-                        meterObject.missingPoints = [
-                          meterObject.currentPoint +
-                            " (" +
-                            meterObject.currentPointLabel +
+                        console.log("\n" + batchedMeterObject.meter_id)
+                        console.log(dataValues.findIndex(function (el) {
+                          return el === dataValues[0];
+                        }))
+                        console.log(timeDifferenceNoData)
+                        */
+                        batchedMeterObject.noDataPoints = [
+                          batchedMeterObject.currentPointLabel +
+                            " (DB value: " +
+                            batchedMeterObject.currentPoint +
                             ")" +
                             " (First data point at " +
-                            timeDifferenceText1,
+                            timeDifferenceNoDataText,
                         ];
 
-                        const checkDupMeter = (obj) =>
-                          obj.meter_id === parseInt(meterObject.meter_id) &&
-                          obj.currentPoint === meterObject.currentPoint;
-                        // (obj.currentPoint === meterObject.currentPoint)
+                        const checkDupMeterAndPoints = (obj) =>
+                          obj.meter_id ===
+                            parseInt(batchedMeterObject.meter_id) &&
+                          obj.currentPoint === batchedMeterObject.currentPoint;
 
-                        if (timeDifference1 <= 345600) {
-                          meterObject.missingPoints3or4Days = true;
+                        if (timeDifferenceNoData <= 345600) {
+                          batchedMeterObject.noDataPoints3or4Days = true;
                         }
-
+                        // TODO: handle solar power later by updating energy dashboard backend
                         if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObject.energy_type !== "Solar Panel"
+                          !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                          batchedMeterObject.type !== "Solar Panel"
                         ) {
-                          finalData.push(meterObject);
+                          nonMergedFinalData.push(batchedMeterObject);
                         }
-                        /*
-                          else {
-                            let foundFinalData = finalData.find(checkDupMeter);
-                            foundFinalData.missingPoints.push(
-                              meterObject.currentPoint +
-                                " (First data point at " +
-                                timeDifferenceText1 +
-                                ")",
-                            );
-                          }
-                          */
                       }
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (!timeDifference1) {
-                        // let onevar =  {};
-                        // onevar[meterObject.point] = timeDifference1;
-                        meterObject.missingPoints = [
-                          meterObject.currentPoint +
-                            " (" +
-                            meterObject.currentPointLabel +
-                            ") " +
-                            `: No datapoints within the past ${formattedDuration}`,
+
+                      if (!timeDifferenceNoData) {
+                        batchedMeterObject.noDataPoints = [
+                          batchedMeterObject.currentPointLabel +
+                            " (DB value: " +
+                            batchedMeterObject.currentPoint +
+                            ")" +
+                            `: No datapoints within the past ${formattedTotalDuration}`,
                         ];
 
-                        const checkDupMeter = (obj) =>
-                          obj.meter_id === parseInt(meterObject.meter_id) &&
-                          obj.currentPoint === meterObject.currentPoint;
-                        // (obj.currentPoint === meterObject.currentPoint)
+                        const checkDupMeterAndPoints = (obj) =>
+                          obj.meter_id ===
+                            parseInt(batchedMeterObject.meter_id) &&
+                          obj.currentPoint === batchedMeterObject.currentPoint;
+                        // TODO: handle solar power later by updating energy dashboard backend
                         if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObject.energy_type !== "Solar Panel"
+                          !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                          batchedMeterObject.type !== "Solar Panel"
                         ) {
-                          finalData.push(meterObject);
+                          nonMergedFinalData.push(batchedMeterObject);
                         }
-                        /*
-                        else {
-                          let foundFinalData = finalData.find(checkDupMeter);
-                          foundFinalData.missingPoints.push(
-                          meterObject.currentPoint +
-                          " " +
-                          `(No datapoints within the past ${formattedDuration})`,
-                          );
-                        }
-                        */
                       }
 
-                      let timeDifference3 = "";
                       /*
-                      if (
-                        firstKeyValues.find(function (el) {
-                          return el >= 0;
-                        })
-                      ) {
-                        */
+                      The first negative data value (no matter how recent) is counted. If no negative values are found, the 
+                      meter is assumed to be all values of 0 or greater for the total time period of the previous 2 months
+                      */
+                      let timeDifferenceNegative = "";
 
-                      timeDifference3 = moment().diff(
+                      timeDifferenceNegative = moment().diff(
                         moment.unix(
                           timeValues[
-                            firstKeyValues.findIndex(function (el) {
+                            dataValues.findIndex(function (el) {
                               return el < 0;
                             })
                           ],
@@ -932,482 +746,202 @@ function test(requestNum, startIterator, endIterator, finalData) {
                         "seconds",
                       );
 
-                      // real debug
+                      // uncomment for debug
                       /*
-                        console.log("\n" + meterObject.meter_id)
-                        console.log(firstKeyValues.findIndex(function (el) {
-                          return el !== firstKeyValues[0];
+                        console.log("\n" + batchedMeterObject.meter_id)
+                        console.log(dataValues.findIndex(function (el) {
+                          return el !== dataValues[0];
                         }))
-                        console.log(timeDifference3)
+                        console.log(timeDifferenceNegative)
                       */
 
                       if (
-                        firstKeyValues.findIndex(function (el) {
+                        dataValues.findIndex(function (el) {
                           return el < 0;
                         }) !== -1
                       ) {
-                        let timeDifferenceText3 = "";
+                        let timeDifferenceNegativeText = "";
 
-                        if (timeDifference3 && timeDifference3 < 3600) {
+                        if (
+                          timeDifferenceNegative &&
+                          timeDifferenceNegative < 3600
+                        ) {
                           // If less than an hour, express in minutes
-                          const minutes = Math.floor(timeDifference3 / 60);
-                          timeDifferenceText3 = `${minutes} minute${
+                          const minutes = Math.floor(
+                            timeDifferenceNegative / 60,
+                          );
+                          timeDifferenceNegativeText = `${minutes} minute${
                             minutes > 1 ? "s" : ""
                           }`;
-                        } else if (timeDifference3 < 86400) {
+                        } else if (timeDifferenceNegative < 86400) {
                           // If between 1 hour and 1 day, express in hours
-                          const hours = Math.floor(timeDifference3 / 3600);
-                          timeDifferenceText3 = `${hours} hour${
+                          const hours = Math.floor(
+                            timeDifferenceNegative / 3600,
+                          );
+                          timeDifferenceNegativeText = `${hours} hour${
                             hours > 1 ? "s" : ""
                           }`;
                         } else {
                           // If 1 day or more, express in days
-                          const days = Math.floor(timeDifference3 / 86400);
-                          timeDifferenceText3 = `${days} day${
+                          const days = Math.floor(
+                            timeDifferenceNegative / 86400,
+                          );
+                          timeDifferenceNegativeText = `${days} day${
                             days > 1 ? "s" : ""
                           }`;
                         }
-                        meterObject.negPoints = [
-                          meterObject.currentPoint +
-                            " (" +
-                            meterObject.currentPointLabel +
+                        batchedMeterObject.negPoints = [
+                          batchedMeterObject.currentPointLabel +
+                            " (DB value: " +
+                            batchedMeterObject.currentPoint +
                             ")" +
                             ": First negative datapoint at " +
-                            timeDifferenceText3,
+                            timeDifferenceNegativeText,
                         ];
-                        const checkDupMeter = (obj) =>
-                          obj.meter_id === parseInt(meterObject.meter_id) &&
-                          obj.currentPoint === meterObject.currentPoint;
+                        const checkDupMeterAndPoints = (obj) =>
+                          obj.meter_id ===
+                            parseInt(batchedMeterObject.meter_id) &&
+                          obj.currentPoint === batchedMeterObject.currentPoint;
+                        // TODO: handle solar power later by updating energy dashboard backend
                         if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObject.energy_type !== "Solar Panel"
+                          !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                          batchedMeterObject.type !== "Solar Panel"
                         ) {
-                          finalData.push(meterObject);
+                          nonMergedFinalData.push(batchedMeterObject);
                         }
                       }
-                      // console.log('\n' + meterObject.meter_id)
-                      // console.log(timeDifference3)
-
-                      // }
-                      /*
-                      console.log(
-
-                        moment().diff(
-                          moment.unix(
-                            timeValues[0]
-                          ),
-                          "seconds",
-                        )
-                      )
+                      /* 
+                      the first data point with a measurement different from the first datapoint is checked. If the timestamp
+                      is older than 3 days, it is considered "non-changing". If no data values different from the first
+                      datapoint are found, it is assumed the data is identical for the total time period of the previous 2 months
                       */
+                      let timeDifferenceNoChange = "";
 
-                      //uncomment for debug
-                      /*
-                        console.log("\n" + meterObject.meter_id);
-                        console.log(meterObject.energy_type);
-                        console.log(meterObject.currentPoint);
-                        console.log("positive value first time");
-                        console.log(
-                          firstKeyValues.find(function (el) {
-                            return el >= 0;
-                          }),
-                        );
-                        console.log(
-                          findClosestWithIndex(
-                            firstKeyValues,
-                            firstKeyValues.find(function (el) {
-                              return el >= 0;
-                            }),
-                          ).index,
-                        );
-                        console.log(
-                          timeValues[
-                            findClosestWithIndex(
-                              firstKeyValues,
-                              firstKeyValues.find(function (el) {
-                                return el >= 0;
-                              }),
-                            ).index
-                          ],
-                        );
-                        console.log(timeDifference3);
-                        console.log(timeDifferenceText3);
-                        */
-
-                      // if (timeDifference3 > timeDifference1) {
-                      // console.log(timeDifference3)
-                      // console.log(timeDifference1)
-                      // let onevar =  {};
-                      // onevar[meterObject.point] = timeDifference3;
-
-                      // (obj.currentPoint === meterObject.currentPoint)
-                      // TODO: Fix solar panel logic on backend
-                      //}
-                      /*
-                          else {
-                            let foundFinalData = finalData.find(checkDupMeter);
-                            foundFinalData.negPoints.push(
-                              meterObject.currentPoint +
-                                " (First negative datapoint at " +
-                                timeDifferenceText3 +
-                                ")",
-                            );
-                          }
-                          */
-
-                      // TODO: handle solar power later by updating energy dashboard backend
-
-                      /*
-                      const isBelowThreshold = (currentValue) =>
-                        currentValue === firstKeyValues[0];
-                        */
-
-                      let timeDifference2 = "";
-                      /*
-                        if (
-                          firstKeyValues.find(function (el) {
-                            return el >= 0;
-                          })
-                        ) {
-                          */
-
-                      timeDifference2 = moment().diff(
+                      timeDifferenceNoChange = moment().diff(
                         moment.unix(
                           timeValues[
-                            firstKeyValues.findIndex(function (el) {
-                              return el !== firstKeyValues[0];
+                            dataValues.findIndex(function (el) {
+                              return el !== dataValues[0];
                             })
                           ],
                         ),
                         "seconds",
                       );
 
-                      // real debug
+                      // uncomment for debug
                       /*
-                      console.log("\n" + meterObject.meter_id);
+                      console.log("\n" + batchedMeterObject.meter_id);
                       console.log(
-                        firstKeyValues.findIndex(function (el) {
-                          return el !== firstKeyValues[0];
+                        dataValues.findIndex(function (el) {
+                          return el !== dataValues[0];
                         }),
                       );
-                      console.log(timeDifference2);
+                      console.log(timeDifferenceNoChange);
                       */
 
                       if (
-                        firstKeyValues.findIndex(function (el) {
-                          return el !== firstKeyValues[0];
+                        dataValues.findIndex(function (el) {
+                          return el !== dataValues[0];
                         }) !== -1
                       ) {
-                        if (timeDifference2 > 259200) {
-                          let timeDifferenceText2 = "";
+                        if (timeDifferenceNoChange > 259200) {
+                          let timeDifferenceNoChangeText = "";
 
-                          if (timeDifference2 && timeDifference2 < 3600) {
+                          if (
+                            timeDifferenceNoChange &&
+                            timeDifferenceNoChange < 3600
+                          ) {
                             // If less than an hour, express in minutes
-                            const minutes = Math.floor(timeDifference2 / 60);
-                            timeDifferenceText2 = `${minutes} minute${
+                            const minutes = Math.floor(
+                              timeDifferenceNoChange / 60,
+                            );
+                            timeDifferenceNoChangeText = `${minutes} minute${
                               minutes > 1 ? "s" : ""
                             }`;
-                          } else if (timeDifference2 < 86400) {
+                          } else if (timeDifferenceNoChange < 86400) {
                             // If between 1 hour and 1 day, express in hours
-                            const hours = Math.floor(timeDifference2 / 3600);
-                            timeDifferenceText2 = `${hours} hour${
+                            const hours = Math.floor(
+                              timeDifferenceNoChange / 3600,
+                            );
+                            timeDifferenceNoChangeText = `${hours} hour${
                               hours > 1 ? "s" : ""
                             }`;
                           } else {
                             // If 1 day or more, express in days
-                            const days = Math.floor(timeDifference2 / 86400);
-                            timeDifferenceText2 = `${days} day${
+                            const days = Math.floor(
+                              timeDifferenceNoChange / 86400,
+                            );
+                            timeDifferenceNoChangeText = `${days} day${
                               days > 1 ? "s" : ""
                             }`;
                           }
 
-                          meterObject.noChangePoints = [
-                            meterObject.currentPoint +
-                              " (" +
-                              meterObject.currentPointLabel +
+                          batchedMeterObject.noChangePoints = [
+                            batchedMeterObject.currentPointLabel +
+                              " (DB value: " +
+                              batchedMeterObject.currentPoint +
                               ")" +
                               ": First different datapoint at " +
-                              timeDifferenceText2,
+                              timeDifferenceNoChangeText,
                           ];
 
-                          const checkDupMeter = (obj) =>
-                            obj.meter_id === parseInt(meterObject.meter_id) &&
-                            obj.currentPoint === meterObject.currentPoint;
+                          const checkDupMeterAndPoints = (obj) =>
+                            obj.meter_id ===
+                              parseInt(batchedMeterObject.meter_id) &&
+                            obj.currentPoint ===
+                              batchedMeterObject.currentPoint;
+                          // TODO: handle solar power later by updating energy dashboard backend
                           if (
-                            !finalData.some(checkDupMeter) &&
-                            meterObject.energy_type !== "Solar Panel"
+                            !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                            batchedMeterObject.type !== "Solar Panel"
                           ) {
-                            finalData.push(meterObject);
+                            nonMergedFinalData.push(batchedMeterObject);
                           }
                         }
                       } else {
-                        meterObject.noChangePoints = [
-                          meterObject.currentPoint +
-                            " (" +
-                            meterObject.currentPointLabel +
-                            ") " +
-                            `: No different datapoints within the past ${formattedDuration}`,
+                        batchedMeterObject.noChangePoints = [
+                          batchedMeterObject.currentPointLabel +
+                            " (DB value: " +
+                            batchedMeterObject.currentPoint +
+                            ")" +
+                            `: No different datapoints within the past ${formattedTotalDuration}`,
                         ];
 
-                        const checkDupMeter = (obj) =>
-                          obj.meter_id === parseInt(meterObject.meter_id) &&
-                          obj.currentPoint === meterObject.currentPoint;
-                        // (obj.currentPoint === meterObject.currentPoint)
+                        const checkDupMeterAndPoints = (obj) =>
+                          obj.meter_id ===
+                            parseInt(batchedMeterObject.meter_id) &&
+                          obj.currentPoint === batchedMeterObject.currentPoint;
+                        // TODO: handle solar power later by updating energy dashboard backend
                         if (
-                          !finalData.some(checkDupMeter) &&
-                          meterObject.energy_type !== "Solar Panel"
+                          !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                          batchedMeterObject.type !== "Solar Panel"
                         ) {
-                          finalData.push(meterObject);
+                          nonMergedFinalData.push(batchedMeterObject);
                         }
                       }
-
-                      // uncomment for debug
-                      /*
-                      console.log("\n" + meterObject.meter_id);
-                      console.log("first different value");
-                      console.log(
-                        firstKeyValues.find(function (el) {
-                          return el != firstKeyValues[0];
-                        }),
-                      );
-                      console.log(
-                        timeValues[
-                          findClosestWithIndex(
-                            firstKeyValues,
-                            firstKeyValues.find(function (el) {
-                              return el != firstKeyValues[0];
-                            }),
-                          ).index
-                        ],
-                      );
-                      console.log(timeDifference2);
-                      console.log(timeDifferenceText2);
-                      */
-
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      // todo: check if this actually works for timedifference2
-
-                      /*
-                      if (firstKeyValues.every(isBelowThreshold)) {
-                        buildingOutput = `${
-                          meterObject.building_name + meterObject.buildingHidden
-                        } (Building ID ${meterObject.building_id}, ${
-                          meterObject.energy_type
-                        }, Meter ID ${
-                          meterObject.meter_id
-                        }, Meter Groups [${meterObject.meterGroups.join(
-                          ", ",
-                        )}]): No Change in Data (Old, At Least 6 Days)`;
-                        noChangeData.push(buildingOutput);
-                      }
-                      */
-                      /*
-                        if (
-                          firstKeyValues[
-                            findClosestWithIndex(timeValues, moment().unix()).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(1, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(1, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(2, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(2, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(3, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(3, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(4, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(4, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(5, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(5, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(6, "days").unix(),
-                              ).index
-                            ] &&
-                          moment().diff(moment.unix(parsedData[0].time), "days") <=
-                            2
-                        ) {
-                          buildingOutput = `${
-                            building_name + building_hidden_text
-                          } (Building ID ${building_id}, ${
-                            meterObject.energy_type
-                          }, Meter ID ${
-                            meterObject.meter_id
-                          }, Meter Groups [${meterObject.meterGroups.join(
-                            ", ",
-                          )}]): No Change in Data (Old, At Least 6 Days)`;
-                          noChangeData.push(buildingOutput);
-                        } else if (
-                          firstKeyValues[
-                            findClosestWithIndex(timeValues, moment().unix()).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(1, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(1, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(2, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(2, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(3, "days").unix(),
-                              ).index
-                            ] &&
-                          firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(3, "days").unix(),
-                            ).index
-                          ] ===
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(4, "days").unix(),
-                              ).index
-                            ] &&
-                          (firstKeyValues[
-                            findClosestWithIndex(
-                              timeValues,
-                              moment().subtract(4, "days").unix(),
-                            ).index
-                          ] !==
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(5, "days").unix(),
-                              ).index
-                            ] ||
-                            firstKeyValues[
-                              findClosestWithIndex(
-                                timeValues,
-                                moment().subtract(5, "days").unix(),
-                              ).index
-                            ] !==
-                              firstKeyValues[
-                                findClosestWithIndex(
-                                  timeValues,
-                                  moment().subtract(6, "days").unix(),
-                                ).index
-                              ]) &&
-                          moment().diff(moment.unix(parsedData[0].time), "days") <=
-                            2
-                        ) {
-                          buildingOutput = `${
-                            building_name + building_hidden_text
-                          } (Building ID ${building_id}, ${
-                            meterObject.energy_type
-                          }, Meter ID ${
-                            meterObject.meter_id
-                          }, Meter Groups [${meterObject.meterGroups.join(
-                            ", ",
-                          )}]): No Change in Data (New, 4 or 5 Days)`;
-                          noChange4Or5Data.push(buildingOutput);
-                        }
-                        */
                     }
 
                     // for meters that are tracked in the database but still return no data
                     else {
-                      buildingOutput = `${
-                        meterObject.building_name + meterObject.buildingHidden
-                      } (Building ID ${meterObject.building_id}, ${
-                        meterObject.energy_type
-                      }, Meter ID ${
-                        meterObject.meter_id
-                      }, Meter Groups [${meterObject.meterGroups.join(
-                        ", ",
-                      )}]): No data within the past ${formattedDuration}`;
-                      totalBuildingData.push(buildingOutput);
-                      meterObject.missingPoints = [
-                        meterObject.currentPoint +
-                          " (" +
-                          meterObject.currentPointLabel +
-                          ") " +
-                          `: No datapoints within the past ${formattedDuration}`,
+                      batchedMeterObject.noDataPoints = [
+                        batchedMeterObject.currentPointLabel +
+                          " (DB value: " +
+                          batchedMeterObject.currentPoint +
+                          ")" +
+                          `: No datapoints within the past ${formattedTotalDuration}`,
                       ];
 
-                      const checkDupMeter = (obj) =>
-                        obj.meter_id === parseInt(meterObject.meter_id) &&
-                        obj.currentPoint === meterObject.currentPoint;
-                      // (obj.currentPoint === meterObject.currentPoint)
+                      const checkDupMeterAndPoints = (obj) =>
+                        obj.meter_id ===
+                          parseInt(batchedMeterObject.meter_id) &&
+                        obj.currentPoint === batchedMeterObject.currentPoint;
+                      // TODO: handle solar power later by updating energy dashboard backend
                       if (
-                        !finalData.some(checkDupMeter) &&
-                        meterObject.energy_type !== "Solar Panel"
+                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                        batchedMeterObject.type !== "Solar Panel"
                       ) {
-                        finalData.push(meterObject);
+                        nonMergedFinalData.push(batchedMeterObject);
                       }
-                      /*
-                        else {
-                          let foundFinalData = finalData.find(checkDupMeter);
-                          foundFinalData.missingPoints.push(meterObject.currentPoint);
-                        }
-                        */
                     }
                     resolve();
                   }, delay200);
@@ -1420,123 +954,12 @@ function test(requestNum, startIterator, endIterator, finalData) {
               req.end();
             });
           }
-          // });
-          // }
         });
 
         Promise.all(requests)
           .then(() => {
             // uncomment for debug
-            // console.log(finalData);
-            /*
-          let dataArr = [
-            totalBuildingData,
-            noChangeData,
-            noChange4Or5Data,
-            missedBuildings,
-          ];
-          for (let i = 0; i < dataArr.length; i++) {
-            dataArr[i].sort((a, b) => {
-              const building_ID_A = parseInt(a.match(/Building ID (\d+)/)[1]);
-              const building_ID_B = parseInt(b.match(/Building ID (\d+)/)[1]);
-
-              const meter_A = parseInt(a.match(/Meter ID (\d+)/)[1]);
-              const meter_B = parseInt(b.match(/Meter ID (\d+)/)[1]);
-
-              if (building_ID_A === building_ID_B) {
-                return meter_A - meter_B;
-              } else {
-                return building_ID_A - building_ID_B;
-              }
-            });
-          }
-
-          const noData3Or4 = [];
-          const noData = [];
-          const hasData = [];
-          const regex =
-            /within the past (\d+) (second|minute|hour|day|seconds|minutes|hours|days)?/;
-
-          totalBuildingData.forEach((data) => {
-            const match = data.match(regex);
-            if (match) {
-              const unit = match[2];
-              const timeAgo = parseInt(match[1]);
-              if (
-                (unit === "days" || unit === "day") &&
-                (timeAgo === 3 || timeAgo === 4)
-              ) {
-                noData3Or4.push(data);
-              } else if ((unit === "days" || unit === "day") && timeAgo > 4) {
-                noData.push(data);
-              } else {
-                hasData.push(data);
-              }
-            } else {
-              noData.push(data);
-            }
-          });
-
-          if (noData3Or4.length > 0) {
-            console.log("Meter Outages 3 or 4 Days Detected\n");
-          }
-
-          if (noData.length > 0) {
-            console.log("Meter Outages Detected\n");
-          }
-
-          if (noChange4Or5Data.length > 0) {
-            console.log("Meters with Unchanging Data 4 or 5 Days Detected\n");
-          }
-
-          if (noChangeData.length > 0) {
-            console.log("Meters with Unchanging Data Detected\n");
-          }
-
-          const dataObj = {
-            Timestamp: moment.unix(endDate).format("MM-DD-YYYY HH:mm:ss ZZ"),
-            "New Buildings with Missing Data (3 or 4 Days)": noData3Or4,
-            "Buildings with Missing Data (For a Long Time)": noData,
-            "Buildings Currently Not Tracked (Manual Override)":
-              missedBuildings,
-            "Buildings with No Change in Data (New, 4 or 5 Days)":
-              noChange4Or5Data,
-            "Buildings with No Change in Data (Old, At Least 6 Days)":
-              noChangeData,
-            "Buildings with Valid Data": hasData,
-          };
-
-          console.log("===============\n");
-          console.log(
-            Object.keys(dataObj)[0] + ": " + dataObj.Timestamp + ":\n",
-          );
-          console.log(Object.keys(dataObj)[1] + ":\n");
-          console.log(noData3Or4);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[2] + ":\n");
-          console.log(noData);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[3] + ":\n");
-          console.log(missedBuildings);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[4] + ":\n");
-          console.log(noChange4Or5Data);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[5] + ":\n");
-          console.log(noChangeData);
-          console.log("\n");
-          console.log(Object.keys(dataObj)[6] + ":\n");
-          console.log(hasData);
-
-          // Check if a command-line argument or environment variable is set to save output
-          if (
-            process.argv.includes("--save-output")
-          ) {
-            const { saveOutputToFile } = require("./save-output");
-            saveOutputToFile(dataObj, "output.json", "json");
-            saveOutputToFile(dataObj, "output.txt", "json");
-          }
-          */
+            // console.log(nonMergedFinalData);
           })
           .catch((error) => {
             console.error("Error:", error);
