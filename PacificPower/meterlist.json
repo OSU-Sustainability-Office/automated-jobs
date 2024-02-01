@@ -1,0 +1,107 @@
+[
+    {
+        "meterID": 129,
+        "meterName": "Radiation Lab Main Building Electricity",
+        "pacificPowerMeterID": 75456009
+    },
+    {
+        "meterID": 132,
+        "meterName": "Gilbert Hall Electricity",
+        "pacificPowerMeterID": 74364232
+    },
+    {
+        "meterID": 133,
+        "meterName": "Dearborn Hall Electricity",
+        "pacificPowerMeterID": 74364148
+    },
+    {
+        "meterID": 134,
+        "meterName": "Tanguay Lab Electricity",
+        "pacificPowerMeterID": 74364444
+    },
+    {
+        "meterID": 135,
+        "meterName": "OSUsed Store Electricity",
+        "pacificPowerMeterID": 78831422
+    },
+    {
+        "meterID": 136,
+        "meterName": "Lasells Stewart Center Electricity",
+        "pacificPowerMeterID": 75455962
+    },
+    {
+        "meterID": 139,
+        "meterName": "Radiation Lab Reactor Room Electricity",
+        "pacificPowerMeterID": 75455959
+    },
+    {
+        "meterID": 140,
+        "meterName": "Owen Hall Electricity",
+        "pacificPowerMeterID": 74364573
+    },
+    {
+        "meterID": 142,
+        "meterName": "Lewis-Brown Farm Electricity Meter #1",
+        "pacificPowerMeterID": 80808413
+    },
+    {
+        "meterID": 145,
+        "meterName": "Center for the Humanities Electricity",
+        "pacificPowerMeterID": 77437241
+    },
+    {
+        "meterID": 147,
+        "meterName": "Kearney Hall Electricity",
+        "pacificPowerMeterID": 74364682
+    },
+    {
+        "meterID": 148,
+        "meterName": "Radiation Center Electricity",
+        "pacificPowerMeterID": 80808368
+    },
+    {
+        "meterID": 149,
+        "meterName": "Hallie Ford Center Electricity",
+        "pacificPowerMeterID": 74263872
+    },
+    {
+        "meterID": 150,
+        "meterName": "Centro Cultural César Chávez Electricity",
+        "pacificPowerMeterID": 70185498
+    },
+    {
+        "meterID": 151,
+        "meterName": "Valley Football Center Electricity",
+        "pacificPowerMeterID": 70185499
+    },
+    {
+        "meterID": 153,
+        "meterName": "Graf Hall Electricity",
+        "pacificPowerMeterID": 70185732
+    },
+    {
+        "meterID": 154,
+        "meterName": "Research Way Laboratory Electricity Meter #1",
+        "pacificPowerMeterID": 74264319
+    },
+    {
+        "meterID": 155,
+        "meterName": "Research Way Laboratory Electricity Meter #2",
+        "pacificPowerMeterID": 74364233
+    },
+    {
+        "meterID": 156,
+        "meterName": "Lewis-Brown Farm Electricity Meter #2",
+        "pacificPowerMeterID": 77293640
+    },
+    {
+        "meterID": 157,
+        "meterName": "Merryfield Hall Electricity",
+        "pacificPowerMeterID": 78980174
+    },
+    {
+        "meterID": 158,
+        "meterName": "Hyslop Crop Science Field Research Laboratory Electricity",
+        "pacificPowerMeterID": 78412145
+    }
+]

@@ -8,6 +8,8 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
+const meterlist = require("./meterlist.json");
+
 const TIMEOUT_BUFFER = 7200000; // Currently set for 2 hours (7,200,000 ms), based on 42 minutes actual result as noted above
 const axios = require("axios");
 const fs = require("fs");
@@ -61,6 +63,21 @@ let continueMeters = 0;
 let continueVarLoading = 0;
 let continueVarMonthly = 0;
 let page = "";
+
+// get yesterday's date and unix time for upload
+const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+const localeTime = dateObj
+  .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+  .match(/\d+/g);
+const DATE =
+  localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
+const END_TIME = `${DATE}T23:59:59`;
+console.log("Time is " + END_TIME);
+
+// unix time calc
+dateObj.setUTCHours(23, 59, 59, 0);
+const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+console.log("Unix time is " + END_TIME_SECONDS);
 
 (async () => {
   // Launch the browser
@@ -478,10 +495,21 @@ let page = "";
           );
           console.log(usage_kwh);
 
+          // check if meter is in meterlist.json to pull db_meter_id
+          let db_meter_id = null;
+          const meterData = meterlist.find((meter) => meter.pacificPowerMeterID === pp_meter_id);
+
+          if (meterData) {
+            db_meter_id = meterData.meterID;
+          }
+
           const PPTable = {
             meter_selector_num,
             pp_meter_id,
             usage_kwh,
+            db_meter_id,
+            time: END_TIME,
+            time_seconds: END_TIME_SECONDS
           };
 
           PPArray.push(PPTable);
@@ -525,6 +553,37 @@ let page = "";
         });
       }
     }
+  }
+
+  const pacificPowerMeters = "pacific_power_data";
+
+  for (let i = 0; i < PPArray.length; i++) {
+    console.log(PPArray[i]);
+
+    // Comment out the axios POST request as specified below for local development (unless making changes to upload stuff).
+    // Uncomment this section before pushing to production.
+    // /* block comment starts here
+    await axios({
+      method: "post",
+      url: `${process.env.DASHBOARD_API}/upload`,
+      data: {
+        id: pacificPowerMeters,
+        body: PPArray[i],
+        pwd: process.env.API_PWD,
+        type: "pacific_power",
+      },
+    })
+      .then((res) => {
+        console.log(
+          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+        );
+        console.log(`uploaded ${pacificPowerMeters} data to API`);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+    // */ //block comment ends here
+
   }
 
   // Close browser.
