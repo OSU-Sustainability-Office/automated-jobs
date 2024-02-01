@@ -104,48 +104,65 @@ async function cleanUp() {
     let real_power_count = 0;
     let reactive_power_count = 0;
     let apparent_power_count = 0;
-    for (let j = 0; j < mergedFinalData[i].negPoints.length; j++) {
-      if (
-        mergedFinalData[i].negPoints[j].match(/^(.*?)real_a/) ||
-        mergedFinalData[i].negPoints[j].match(/^(.*?)real_b/) ||
-        mergedFinalData[i].negPoints[j].match(/^(.*?)real_c/)
-      ) {
-        real_power_count += 1;
-      }
-      if (
-        mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_a/) ||
-        mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_b/) ||
-        mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_c/)
-      ) {
-        reactive_power_count += 1;
-      }
-      if (
-        mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_a/) ||
-        mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_b/) ||
-        mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_c/)
-      ) {
-        apparent_power_count += 1;
-      }
+
+    // reordering elements in array of objects for consistency
+    if (mergedFinalData[i].missingPoints) {
+      let tempMissingPoints = mergedFinalData[i].missingPoints;
+      delete mergedFinalData[i].missingPoints;
+      mergedFinalData[i].missingPoints = tempMissingPoints;
     }
-    if (real_power_count > 0 && real_power_count < 3) {
-      if (mergedFinalData[i].somePhasesNegative) {
-        mergedFinalData[i].somePhasesNegative.push("real power");
-      } else {
-        mergedFinalData[i].somePhasesNegative = ["real power"];
-      }
+    if (mergedFinalData[i].noChangePoints) {
+      let tempNoChangePoints = mergedFinalData[i].noChangePoints;
+      delete mergedFinalData[i].noChangePoints;
+      mergedFinalData[i].noChangePoints = tempNoChangePoints;
     }
-    if (reactive_power_count > 0 && reactive_power_count < 3) {
-      if (mergedFinalData[i].somePhasesNegative) {
-        mergedFinalData[i].somePhasesNegative.push("reactive power");
-      } else {
-        mergedFinalData[i].somePhasesNegative = ["reactive power"];
+    if (mergedFinalData[i].negPoints) {
+      let tempNegPoints = mergedFinalData[i].negPoints;
+      delete mergedFinalData[i].negPoints;
+      mergedFinalData[i].negPoints = tempNegPoints;
+      for (let j = 0; j < mergedFinalData[i].negPoints.length; j++) {
+        if (
+          mergedFinalData[i].negPoints[j].match(/^(.*?)real_a/) ||
+          mergedFinalData[i].negPoints[j].match(/^(.*?)real_b/) ||
+          mergedFinalData[i].negPoints[j].match(/^(.*?)real_c/)
+        ) {
+          real_power_count += 1;
+        }
+        if (
+          mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_a/) ||
+          mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_b/) ||
+          mergedFinalData[i].negPoints[j].match(/^(.*?)reactive_c/)
+        ) {
+          reactive_power_count += 1;
+        }
+        if (
+          mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_a/) ||
+          mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_b/) ||
+          mergedFinalData[i].negPoints[j].match(/^(.*?)apparent_c/)
+        ) {
+          apparent_power_count += 1;
+        }
       }
-    }
-    if (apparent_power_count > 0 && apparent_power_count < 3) {
-      if (mergedFinalData[i].somePhasesNegative) {
-        mergedFinalData[i].somePhasesNegative.push("apparent power");
-      } else {
-        mergedFinalData[i].somePhasesNegative = ["apparent power"];
+      if (real_power_count > 0 && real_power_count < 3) {
+        if (mergedFinalData[i].somePhasesNegative) {
+          mergedFinalData[i].somePhasesNegative.push("real power");
+        } else {
+          mergedFinalData[i].somePhasesNegative = ["real power"];
+        }
+      }
+      if (reactive_power_count > 0 && reactive_power_count < 3) {
+        if (mergedFinalData[i].somePhasesNegative) {
+          mergedFinalData[i].somePhasesNegative.push("reactive power");
+        } else {
+          mergedFinalData[i].somePhasesNegative = ["reactive power"];
+        }
+      }
+      if (apparent_power_count > 0 && apparent_power_count < 3) {
+        if (mergedFinalData[i].somePhasesNegative) {
+          mergedFinalData[i].somePhasesNegative.push("apparent power");
+        } else {
+          mergedFinalData[i].somePhasesNegative = ["apparent power"];
+        }
       }
     }
   }
