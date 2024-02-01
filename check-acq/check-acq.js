@@ -257,7 +257,7 @@ async function cleanUp() {
         "mergedFinalDataOutputNegative.txt",
         "json",
       );
-      console.log(
+      mergedFinalData.push(
         "output saved to mergedFinalDataOutputnegative.json and mergedFinalDataOutputnegative.txt",
       );
     } else if (
@@ -275,7 +275,7 @@ async function cleanUp() {
         "mergedFinalDataOutputNoData.txt",
         "json",
       );
-      console.log(
+      mergedFinalData.push(
         "output saved to mergedFinalDataOutputNoData.json and mergedFinalDataOutputNoData.txt",
       );
     } else if (
@@ -293,12 +293,15 @@ async function cleanUp() {
         "mergedFinalDataOutputNoChange.txt",
         "json",
       );
-      console.log(
+      mergedFinalData.push(
         "output saved to mergedFinalDataOutputNoChange.json and mergedFinalDataOutputNoChange.txt",
       );
     } else {
       saveOutputToFile(mergedFinalData, "mergedFinalDataOutput.json", "json");
       saveOutputToFile(mergedFinalData, "mergedFinalDataOutput.txt", "json");
+      mergedFinalData.push(
+        "output saved to mergedFinalDataOutput.json and mergedFinalDataOutput.txt",
+      );
     }
   }
 }

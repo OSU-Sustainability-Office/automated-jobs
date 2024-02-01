@@ -4,8 +4,8 @@ output.json
 allBuildings.json
 mergedFinalDataOutput.json
 mergedFinalDataOutput.txt
-mergedFinalDataOutputNegate.json
-mergedFinalDataOutputNegate.txt
+mergedFinalDataOutputNegative.json
+mergedFinalDataOutputNegative.txt
 mergedFinalDataOutputNoData.json
 mergedFinalDataOutputNoData.txt
 mergedFinalDataOutputNoChange.json
