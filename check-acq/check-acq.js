@@ -168,11 +168,7 @@ async function cleanUp() {
     }
   }
   mergedFinalData.sort((a, b) => {
-    if (a.building_id === b.building_id) {
-      return a.meter_id - b.meter_id;
-    } else {
-      return a.building_id - b.building_id;
-    }
+    return a.meter_id - b.meter_id;
   });
   mergedFinalData.unshift(
     "Timestamp (approximate): " +
@@ -333,10 +329,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
               }
 
               let meterObjectect = {
-                building_id: parseInt(buildings.id),
-                building_name: buildings.name,
                 meter_id: parseInt(buildings.meterGroups[i].meters[j].id),
                 meter_name: buildings.meterGroups[i].meters[j].name,
+                building_id: parseInt(buildings.id),
+                building_name: buildings.name,
                 meterGroups: [
                   buildings.meterGroups[i].name +
                     " (Meter Group ID: " +
@@ -448,10 +444,10 @@ function test(requestNum, startIterator, endIterator, finalData) {
             }
 
             let finalmeterObject = {
-              building_id: meterIdTable[i].building_id,
-              building_name: meterIdTable[i].building_name,
               meter_id: parseInt(meterIdTable[i].meter_id),
               meter_name: meterIdTable[i].meter_name,
+              building_id: meterIdTable[i].building_id,
+              building_name: meterIdTable[i].building_name,
               meterGroups: meterIdTable[i].meterGroups,
               energy_type: meterIdTable[i].energy_type,
               class: meterIdTable[i].class,
