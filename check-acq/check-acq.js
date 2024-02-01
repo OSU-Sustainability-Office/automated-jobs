@@ -28,6 +28,11 @@ process.stdin.on("keypress", (str, key) => {
 // const allBuildings = require("./allBuildings.json");
 
 async function cleanUp() {
+  let totalMissingPoints = [];
+  let totalMissingPoints3or4Days = [];
+  let totalNoChangePoints = [];
+  let totalNegPoints = [];
+  let totalSomePhasesNegative = [];
   for (let i = 0; i < finalData.length; i++) {
     const checkDupMeter = (obj) =>
       obj.meter_id === parseInt(finalData[i].meter_id);
@@ -86,6 +91,12 @@ async function cleanUp() {
             foundMeterGroups.missingPoints = finalData[i].missingPoints;
           }
         }
+        if (finalData[i].missingPoints3or4Days) {
+          if (!foundMeterGroups.missingPoints3or4Days) {
+            foundMeterGroups.missingPoints3or4Days =
+              finalData[i].missingPoints3or4Days;
+          }
+        }
         if (finalData[i].noChangePoints) {
           if (foundMeterGroups.noChangePoints) {
             let mergednoChangePoints = foundMeterGroups.noChangePoints.concat(
@@ -101,6 +112,9 @@ async function cleanUp() {
       }
     }
   }
+  mergedFinalData.sort((a, b) => {
+    return a.meter_id - b.meter_id;
+  });
   for (let i = 0; i < mergedFinalData.length; i++) {
     let real_power_count = 0;
     let reactive_power_count = 0;
@@ -111,16 +125,25 @@ async function cleanUp() {
       let tempMissingPoints = mergedFinalData[i].missingPoints;
       delete mergedFinalData[i].missingPoints;
       mergedFinalData[i].missingPoints = tempMissingPoints;
+      totalMissingPoints.push(mergedFinalData[i].meter_id);
+    }
+    if (mergedFinalData[i].missingPoints3or4Days) {
+      let tempmissingPoints3or4Days = mergedFinalData[i].missingPoints3or4Days;
+      delete mergedFinalData[i].missingPoints3or4Days;
+      mergedFinalData[i].missingPoints3or4Days = tempmissingPoints3or4Days;
+      totalMissingPoints3or4Days.push(mergedFinalData[i].meter_id);
     }
     if (mergedFinalData[i].noChangePoints) {
       let tempNoChangePoints = mergedFinalData[i].noChangePoints;
       delete mergedFinalData[i].noChangePoints;
       mergedFinalData[i].noChangePoints = tempNoChangePoints;
+      totalNoChangePoints.push(mergedFinalData[i].meter_id);
     }
     if (mergedFinalData[i].negPoints) {
       let tempNegPoints = mergedFinalData[i].negPoints;
       delete mergedFinalData[i].negPoints;
       mergedFinalData[i].negPoints = tempNegPoints;
+      totalNegPoints.push(mergedFinalData[i].meter_id);
       for (let j = 0; j < mergedFinalData[i].negPoints.length; j++) {
         if (
           mergedFinalData[i].negPoints[j].match(/^(.*?)real_a/) ||
@@ -149,6 +172,7 @@ async function cleanUp() {
           mergedFinalData[i].somePhasesNegative.push("real power");
         } else {
           mergedFinalData[i].somePhasesNegative = ["real power"];
+          totalSomePhasesNegative.push(mergedFinalData[i].meter_id);
         }
       }
       if (reactive_power_count > 0 && reactive_power_count < 3) {
@@ -156,6 +180,7 @@ async function cleanUp() {
           mergedFinalData[i].somePhasesNegative.push("reactive power");
         } else {
           mergedFinalData[i].somePhasesNegative = ["reactive power"];
+          totalSomePhasesNegative.push(mergedFinalData[i].meter_id);
         }
       }
       if (apparent_power_count > 0 && apparent_power_count < 3) {
@@ -163,14 +188,12 @@ async function cleanUp() {
           mergedFinalData[i].somePhasesNegative.push("apparent power");
         } else {
           mergedFinalData[i].somePhasesNegative = ["apparent power"];
+          totalSomePhasesNegative.push(mergedFinalData[i].meter_id);
         }
       }
     }
   }
-  mergedFinalData.sort((a, b) => {
-    return a.meter_id - b.meter_id;
-  });
-  mergedFinalData.unshift(
+  mergedFinalData.push(
     "Timestamp (approximate): " +
       moment
         .unix(firstEndDate)
@@ -178,6 +201,45 @@ async function cleanUp() {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
+  if (
+    totalMissingPoints.length > 0 ||
+    totalMissingPoints3or4Days.length > 0 ||
+    totalMissingPoints3or4Days.length > 0 ||
+    totalNegPoints.length > 0 ||
+    totalSomePhasesNegative.length > 0
+  ) {
+    mergedFinalData.push(
+      "The lines below are just a summary, refer to corresponding meter_id values in data above for details:",
+    );
+    mergedFinalData.push("Data above is sorted by meter_id for convenience.");
+  }
+  if (totalMissingPoints.length > 0) {
+    mergedFinalData.push(
+      "Meters with missing data: " + totalMissingPoints.join(", "),
+    );
+  }
+  if (totalMissingPoints3or4Days.length > 0) {
+    mergedFinalData.push(
+      "Meters with missing data for 3 or 4 days: " +
+        totalMissingPoints3or4Days.join(", "),
+    );
+  }
+  if (totalNoChangePoints.length > 0) {
+    mergedFinalData.push(
+      "Meters with non-changing data: " + totalNoChangePoints.join(", "),
+    );
+  }
+  if (totalNegPoints.length > 0) {
+    mergedFinalData.push(
+      "Meters with negative data: " + totalNegPoints.join(", "),
+    );
+  }
+  if (totalSomePhasesNegative.length > 0) {
+    mergedFinalData.push(
+      "Meters with partially negative phase data (real power, reactive power, or apparent power): " +
+        totalSomePhasesNegative.join(", "),
+    );
+  }
   if (process.argv.includes("--save-output")) {
     const { saveOutputToFile } = require("./save-output");
     if (
@@ -730,6 +792,14 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           "seconds",
                         );
                       }
+                      // debug
+                      /*
+                      if (meterObject.meter_id === 1) {
+                        timeDifference1 = 269200;
+                      } else {
+                        timeDifference1 = 400000;
+                      }
+                      */
                       if (timeDifference1 > 259200) {
                         let timeDifferenceText1 = "";
 
@@ -776,8 +846,8 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           meterObject.currentPoint +
                             " (" +
                             meterObject.currentPointLabel +
-                            ") " +
-                            " (First data point at: " +
+                            ")" +
+                            " (First data point at " +
                             timeDifferenceText1,
                         ];
 
@@ -785,6 +855,11 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           obj.meter_id === parseInt(meterObject.meter_id) &&
                           obj.currentPoint === meterObject.currentPoint;
                         // (obj.currentPoint === meterObject.currentPoint)
+
+                        if (timeDifference1 <= 345600) {
+                          meterObject.missingPoints3or4Days = true;
+                        }
+
                         if (
                           !finalData.some(checkDupMeter) &&
                           meterObject.energy_type !== "Solar Panel"
@@ -896,7 +971,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                           meterObject.currentPoint +
                             " (" +
                             meterObject.currentPointLabel +
-                            ") " +
+                            ")" +
                             ": First negative datapoint at " +
                             timeDifferenceText3,
                         ];
@@ -1050,7 +1125,7 @@ function test(requestNum, startIterator, endIterator, finalData) {
                             meterObject.currentPoint +
                               " (" +
                               meterObject.currentPointLabel +
-                              ") " +
+                              ")" +
                               ": First different datapoint at " +
                               timeDifferenceText2,
                           ];
