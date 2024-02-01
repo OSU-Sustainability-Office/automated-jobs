@@ -3,6 +3,7 @@ const axios = require("axios");
 const moment = require("moment-timezone");
 const blacklist = require("./blacklist.json");
 const endIteratorConst = 80;
+const firstEndDate = moment().unix();
 let timeOut = 10000;
 let finalData = [];
 let mergedFinalData = [];
@@ -173,6 +174,14 @@ async function cleanUp() {
       return a.building_id - b.building_id;
     }
   });
+  mergedFinalData.unshift(
+    "Timestamp (approximate): " +
+      moment
+        .unix(firstEndDate)
+        .tz("America/Los_Angeles")
+        .format("MM-DD-YYYY hh:mm a") +
+      " PST",
+  );
   if (process.argv.includes("--save-output")) {
     const { saveOutputToFile } = require("./save-output");
     if (
