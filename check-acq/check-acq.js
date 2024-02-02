@@ -900,6 +900,7 @@ function cleanUp() {
     }
   }
 }
+// handle Ctrl C - https://stackoverflow.com/questions/22594723/how-does-catching-ctrl-c-works-in-node
 process.on("SIGINT", function () {
   cleanUp();
   console.log(mergedFinalData);
