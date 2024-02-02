@@ -20,7 +20,7 @@ var not200Counter = 0;
 // how many non-200 status codes before quitting
 const not200Limit = 100;
 
-if (batchIterator === 0) {
+if (batchIterations === 0) {
   console.log("Acquisuite Data Checker\n");
 }
 
@@ -909,3 +909,8 @@ function cleanUp() {
     }
   }
 }
+process.on ("SIGINT", function(){
+  cleanUp()
+  console.log(mergedFinalData);
+  process.exit();
+});
