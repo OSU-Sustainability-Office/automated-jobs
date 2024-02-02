@@ -221,6 +221,7 @@ axios
         }
       }
 
+      // make meter object smaller for debug
       // let testExpandedMeters = allExpandedMeters.slice(0, 100);
       function batchRequest(batchedMeterObject) {
         return new Promise((resolve, reject) => {
@@ -236,7 +237,6 @@ axios
                 data += chunk;
               });
               res.on("end", () => {
-                let delay200 = 0;
                 // See not200Limit for how many errors will cause script to quit.
                 // See AWS lambda / API gateway documentation, there is default throttling for too many requests that can
                 // cause 502 return code.
@@ -247,7 +247,7 @@ axios
                 // Or just wait a few hours when throttling has reduced, and try again.
 
                 // For now this just skips the meter / point combination if it returns a non-200 status code (see reject below).
-                // Could set up something to retry the request or lower the endIterationConst at some point in the future.
+                // Could set up something to retry the request or lower the batchSize at some point in the future.
                 if (res.statusCode !== 200) {
                   console.log("Return status code " + res.statusCode);
                   console.log(options.path);
@@ -256,309 +256,99 @@ axios
                     "Try lowering batchSize or increasing timeout (especially if status code 502)";
 
                   reject(singleNon200Error);
-                  // Add a timeout (same as default timeout bettween iterations) so there's time to see what's happening, for local terminal use
-                  // delay200 = timeOut;
 
                   // Due to rejecting the request on non-200 status code, whatever comes back from the API will not
                   // make it into the final output (otherwise there may be false negatives for missing data points).
                 }
-                setTimeout(() => {
-                  const parsedData = JSON.parse(data);
-                  if (parsedData.length > 0) {
-                    const timeValues = [];
+                const parsedData = JSON.parse(data);
+                if (parsedData.length > 0) {
+                  const timeValues = [];
 
-                    for (const obj of parsedData) {
-                      timeValues.push(obj.time);
-                    }
+                  for (const obj of parsedData) {
+                    timeValues.push(obj.time);
+                  }
 
-                    const dataValues = parsedData.map((obj) => {
-                      const keys = Object.keys(obj);
-                      return keys.length > 0 ? obj[keys[0]] : undefined;
-                    });
+                  const dataValues = parsedData.map((obj) => {
+                    const keys = Object.keys(obj);
+                    return keys.length > 0 ? obj[keys[0]] : undefined;
+                  });
 
-                    /*
+                  /*
                         the first data point and its timestamp is checked. If the first data point is older than 3 days, it is
                         considered "missing", and anything between 3 and 4 days (259200 to 345600 seconds) is also flagged as
                         "recent" missing data
                         */
-                    let timeDifferenceNoData = "";
-                    if (dataValues[0] || dataValues[0] === 0) {
-                      timeDifferenceNoData = moment().diff(
-                        moment.unix(timeValues[0]),
-                        "seconds",
-                      );
-                    }
-                    // uncomment for debug (test no data value slightly over 3 days, vs over 4 days)
-                    /*
+                  let timeDifferenceNoData = "";
+                  if (dataValues[0] || dataValues[0] === 0) {
+                    timeDifferenceNoData = moment().diff(
+                      moment.unix(timeValues[0]),
+                      "seconds",
+                    );
+                  }
+                  // uncomment for debug (test no data value slightly over 3 days, vs over 4 days)
+                  /*
                         if (batchedMeterObject.meter_id === 1) {
                           timeDifferenceNoData = 269200;
                         } else {
                           timeDifferenceNoData = 400000;
                         }
                         */
-                    if (timeDifferenceNoData > 259200) {
-                      let timeDifferenceNoDataText = "";
+                  if (timeDifferenceNoData > 259200) {
+                    let timeDifferenceNoDataText = "";
 
-                      if (timeDifferenceNoData && timeDifferenceNoData < 3600) {
-                        // If less than an hour, express in minutes
-                        const minutes = Math.floor(timeDifferenceNoData / 60);
-                        timeDifferenceNoDataText = `${minutes} minute${
-                          minutes > 1 ? "s" : ""
-                        }`;
-                      } else if (timeDifferenceNoData < 86400) {
-                        // If between 1 hour and 1 day, express in hours
-                        const hours = Math.floor(timeDifferenceNoData / 3600);
-                        timeDifferenceNoDataText = `${hours} hour${
-                          hours > 1 ? "s" : ""
-                        }`;
-                      } else {
-                        // If 1 day or more, express in days
-                        const days = Math.floor(timeDifferenceNoData / 86400);
-                        timeDifferenceNoDataText = `${days} day${
-                          days > 1 ? "s" : ""
-                        }`;
-                      }
-                      // uncomment for debug
-                      /*
+                    if (timeDifferenceNoData && timeDifferenceNoData < 3600) {
+                      // If less than an hour, express in minutes
+                      const minutes = Math.floor(timeDifferenceNoData / 60);
+                      timeDifferenceNoDataText = `${minutes} minute${
+                        minutes > 1 ? "s" : ""
+                      }`;
+                    } else if (timeDifferenceNoData < 86400) {
+                      // If between 1 hour and 1 day, express in hours
+                      const hours = Math.floor(timeDifferenceNoData / 3600);
+                      timeDifferenceNoDataText = `${hours} hour${
+                        hours > 1 ? "s" : ""
+                      }`;
+                    } else {
+                      // If 1 day or more, express in days
+                      const days = Math.floor(timeDifferenceNoData / 86400);
+                      timeDifferenceNoDataText = `${days} day${
+                        days > 1 ? "s" : ""
+                      }`;
+                    }
+                    // uncomment for debug
+                    /*
                           console.log("\n" + batchedMeterObject.meter_id)
                           console.log(dataValues.findIndex(function (el) {
                             return el === dataValues[0];
                           }))
                           console.log(timeDifferenceNoData)
                           */
-                      batchedMeterObject.noDataPoints = [
-                        batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
-                          batchedMeterObject.currentPoint +
-                          ")" +
-                          " (First data point at " +
-                          timeDifferenceNoDataText,
-                      ];
+                    batchedMeterObject.noDataPoints = [
+                      batchedMeterObject.currentPointLabel +
+                        " (DB value: " +
+                        batchedMeterObject.currentPoint +
+                        ")" +
+                        " (First data point at " +
+                        timeDifferenceNoDataText,
+                    ];
 
-                      const checkDupMeterAndPoints = (obj) =>
-                        obj.meter_id ===
-                          parseInt(batchedMeterObject.meter_id) &&
-                        obj.currentPoint === batchedMeterObject.currentPoint;
+                    const checkDupMeterAndPoints = (obj) =>
+                      obj.meter_id === parseInt(batchedMeterObject.meter_id) &&
+                      obj.currentPoint === batchedMeterObject.currentPoint;
 
-                      if (timeDifferenceNoData <= 345600) {
-                        batchedMeterObject.noDataPoints3or4Days = true;
-                      }
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
-                        nonMergedFinalData.push(batchedMeterObject);
-                      }
+                    if (timeDifferenceNoData <= 345600) {
+                      batchedMeterObject.noDataPoints3or4Days = true;
                     }
-
-                    if (!timeDifferenceNoData) {
-                      batchedMeterObject.noDataPoints = [
-                        batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
-                          batchedMeterObject.currentPoint +
-                          ")" +
-                          `: No datapoints within the past ${formattedTotalDuration}`,
-                      ];
-
-                      const checkDupMeterAndPoints = (obj) =>
-                        obj.meter_id ===
-                          parseInt(batchedMeterObject.meter_id) &&
-                        obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
-                        nonMergedFinalData.push(batchedMeterObject);
-                      }
-                    }
-
-                    /*
-                        The first negative data value (no matter how recent) is counted. If no negative values are found, the 
-                        meter is assumed to be all values of 0 or greater for the total time period of the previous 2 months
-                        */
-                    let timeDifferenceNegative = "";
-
-                    timeDifferenceNegative = moment().diff(
-                      moment.unix(
-                        timeValues[
-                          dataValues.findIndex(function (el) {
-                            return el < 0;
-                          })
-                        ],
-                      ),
-                      "seconds",
-                    );
-
-                    // uncomment for debug
-                    /*
-                          console.log("\n" + batchedMeterObject.meter_id)
-                          console.log(dataValues.findIndex(function (el) {
-                            return el !== dataValues[0];
-                          }))
-                          console.log(timeDifferenceNegative)
-                        */
-
+                    // TODO: handle solar power later by updating energy dashboard backend
                     if (
-                      dataValues.findIndex(function (el) {
-                        return el < 0;
-                      }) !== -1
+                      !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                      batchedMeterObject.type !== "Solar Panel"
                     ) {
-                      let timeDifferenceNegativeText = "";
-
-                      if (
-                        timeDifferenceNegative &&
-                        timeDifferenceNegative < 3600
-                      ) {
-                        // If less than an hour, express in minutes
-                        const minutes = Math.floor(timeDifferenceNegative / 60);
-                        timeDifferenceNegativeText = `${minutes} minute${
-                          minutes > 1 ? "s" : ""
-                        }`;
-                      } else if (timeDifferenceNegative < 86400) {
-                        // If between 1 hour and 1 day, express in hours
-                        const hours = Math.floor(timeDifferenceNegative / 3600);
-                        timeDifferenceNegativeText = `${hours} hour${
-                          hours > 1 ? "s" : ""
-                        }`;
-                      } else {
-                        // If 1 day or more, express in days
-                        const days = Math.floor(timeDifferenceNegative / 86400);
-                        timeDifferenceNegativeText = `${days} day${
-                          days > 1 ? "s" : ""
-                        }`;
-                      }
-                      batchedMeterObject.negPoints = [
-                        batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
-                          batchedMeterObject.currentPoint +
-                          ")" +
-                          ": First negative datapoint at " +
-                          timeDifferenceNegativeText,
-                      ];
-                      const checkDupMeterAndPoints = (obj) =>
-                        obj.meter_id ===
-                          parseInt(batchedMeterObject.meter_id) &&
-                        obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
-                        nonMergedFinalData.push(batchedMeterObject);
-                      }
+                      nonMergedFinalData.push(batchedMeterObject);
                     }
-                    /* 
-                        the first data point with a measurement different from the first datapoint is checked. If the timestamp
-                        is older than 3 days, it is considered "non-changing". If no data values different from the first
-                        datapoint are found, it is assumed the data is identical for the total time period of the previous 2 months
-                        */
-                    let timeDifferenceNoChange = "";
+                  }
 
-                    timeDifferenceNoChange = moment().diff(
-                      moment.unix(
-                        timeValues[
-                          dataValues.findIndex(function (el) {
-                            return el !== dataValues[0];
-                          })
-                        ],
-                      ),
-                      "seconds",
-                    );
-
-                    // uncomment for debug
-                    /*
-                        console.log("\n" + batchedMeterObject.meter_id);
-                        console.log(
-                          dataValues.findIndex(function (el) {
-                            return el !== dataValues[0];
-                          }),
-                        );
-                        console.log(timeDifferenceNoChange);
-                        */
-
-                    if (
-                      dataValues.findIndex(function (el) {
-                        return el !== dataValues[0];
-                      }) !== -1
-                    ) {
-                      if (timeDifferenceNoChange > 259200) {
-                        let timeDifferenceNoChangeText = "";
-
-                        if (
-                          timeDifferenceNoChange &&
-                          timeDifferenceNoChange < 3600
-                        ) {
-                          // If less than an hour, express in minutes
-                          const minutes = Math.floor(
-                            timeDifferenceNoChange / 60,
-                          );
-                          timeDifferenceNoChangeText = `${minutes} minute${
-                            minutes > 1 ? "s" : ""
-                          }`;
-                        } else if (timeDifferenceNoChange < 86400) {
-                          // If between 1 hour and 1 day, express in hours
-                          const hours = Math.floor(
-                            timeDifferenceNoChange / 3600,
-                          );
-                          timeDifferenceNoChangeText = `${hours} hour${
-                            hours > 1 ? "s" : ""
-                          }`;
-                        } else {
-                          // If 1 day or more, express in days
-                          const days = Math.floor(
-                            timeDifferenceNoChange / 86400,
-                          );
-                          timeDifferenceNoChangeText = `${days} day${
-                            days > 1 ? "s" : ""
-                          }`;
-                        }
-
-                        batchedMeterObject.noChangePoints = [
-                          batchedMeterObject.currentPointLabel +
-                            " (DB value: " +
-                            batchedMeterObject.currentPoint +
-                            ")" +
-                            ": First different datapoint at " +
-                            timeDifferenceNoChangeText,
-                        ];
-
-                        const checkDupMeterAndPoints = (obj) =>
-                          obj.meter_id ===
-                            parseInt(batchedMeterObject.meter_id) &&
-                          obj.currentPoint === batchedMeterObject.currentPoint;
-                        // TODO: handle solar power later by updating energy dashboard backend
-                        if (
-                          !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                          batchedMeterObject.type !== "Solar Panel"
-                        ) {
-                          nonMergedFinalData.push(batchedMeterObject);
-                        }
-                      }
-                    } else {
-                      batchedMeterObject.noChangePoints = [
-                        batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
-                          batchedMeterObject.currentPoint +
-                          ")" +
-                          `: No different datapoints within the past ${formattedTotalDuration}`,
-                      ];
-
-                      const checkDupMeterAndPoints = (obj) =>
-                        obj.meter_id ===
-                          parseInt(batchedMeterObject.meter_id) &&
-                        obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
-                        nonMergedFinalData.push(batchedMeterObject);
-                      }
-                    }
-                  } else {
-                    // for meters that are tracked in the database but still return no data
+                  if (!timeDifferenceNoData) {
                     batchedMeterObject.noDataPoints = [
                       batchedMeterObject.currentPointLabel +
                         " (DB value: " +
@@ -578,8 +368,204 @@ axios
                       nonMergedFinalData.push(batchedMeterObject);
                     }
                   }
-                  resolve(batchedMeterObject);
-                }, delay200);
+
+                  /*
+                        The first negative data value (no matter how recent) is counted. If no negative values are found, the 
+                        meter is assumed to be all values of 0 or greater for the total time period of the previous 2 months
+                        */
+                  let timeDifferenceNegative = "";
+
+                  timeDifferenceNegative = moment().diff(
+                    moment.unix(
+                      timeValues[
+                        dataValues.findIndex(function (el) {
+                          return el < 0;
+                        })
+                      ],
+                    ),
+                    "seconds",
+                  );
+
+                  // uncomment for debug
+                  /*
+                          console.log("\n" + batchedMeterObject.meter_id)
+                          console.log(dataValues.findIndex(function (el) {
+                            return el !== dataValues[0];
+                          }))
+                          console.log(timeDifferenceNegative)
+                        */
+
+                  if (
+                    dataValues.findIndex(function (el) {
+                      return el < 0;
+                    }) !== -1
+                  ) {
+                    let timeDifferenceNegativeText = "";
+
+                    if (
+                      timeDifferenceNegative &&
+                      timeDifferenceNegative < 3600
+                    ) {
+                      // If less than an hour, express in minutes
+                      const minutes = Math.floor(timeDifferenceNegative / 60);
+                      timeDifferenceNegativeText = `${minutes} minute${
+                        minutes > 1 ? "s" : ""
+                      }`;
+                    } else if (timeDifferenceNegative < 86400) {
+                      // If between 1 hour and 1 day, express in hours
+                      const hours = Math.floor(timeDifferenceNegative / 3600);
+                      timeDifferenceNegativeText = `${hours} hour${
+                        hours > 1 ? "s" : ""
+                      }`;
+                    } else {
+                      // If 1 day or more, express in days
+                      const days = Math.floor(timeDifferenceNegative / 86400);
+                      timeDifferenceNegativeText = `${days} day${
+                        days > 1 ? "s" : ""
+                      }`;
+                    }
+                    batchedMeterObject.negPoints = [
+                      batchedMeterObject.currentPointLabel +
+                        " (DB value: " +
+                        batchedMeterObject.currentPoint +
+                        ")" +
+                        ": First negative datapoint at " +
+                        timeDifferenceNegativeText,
+                    ];
+                    const checkDupMeterAndPoints = (obj) =>
+                      obj.meter_id === parseInt(batchedMeterObject.meter_id) &&
+                      obj.currentPoint === batchedMeterObject.currentPoint;
+                    // TODO: handle solar power later by updating energy dashboard backend
+                    if (
+                      !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                      batchedMeterObject.type !== "Solar Panel"
+                    ) {
+                      nonMergedFinalData.push(batchedMeterObject);
+                    }
+                  }
+                  /* 
+                        the first data point with a measurement different from the first datapoint is checked. If the timestamp
+                        is older than 3 days, it is considered "non-changing". If no data values different from the first
+                        datapoint are found, it is assumed the data is identical for the total time period of the previous 2 months
+                        */
+                  let timeDifferenceNoChange = "";
+
+                  timeDifferenceNoChange = moment().diff(
+                    moment.unix(
+                      timeValues[
+                        dataValues.findIndex(function (el) {
+                          return el !== dataValues[0];
+                        })
+                      ],
+                    ),
+                    "seconds",
+                  );
+
+                  // uncomment for debug
+                  /*
+                        console.log("\n" + batchedMeterObject.meter_id);
+                        console.log(
+                          dataValues.findIndex(function (el) {
+                            return el !== dataValues[0];
+                          }),
+                        );
+                        console.log(timeDifferenceNoChange);
+                        */
+
+                  if (
+                    dataValues.findIndex(function (el) {
+                      return el !== dataValues[0];
+                    }) !== -1
+                  ) {
+                    if (timeDifferenceNoChange > 259200) {
+                      let timeDifferenceNoChangeText = "";
+
+                      if (
+                        timeDifferenceNoChange &&
+                        timeDifferenceNoChange < 3600
+                      ) {
+                        // If less than an hour, express in minutes
+                        const minutes = Math.floor(timeDifferenceNoChange / 60);
+                        timeDifferenceNoChangeText = `${minutes} minute${
+                          minutes > 1 ? "s" : ""
+                        }`;
+                      } else if (timeDifferenceNoChange < 86400) {
+                        // If between 1 hour and 1 day, express in hours
+                        const hours = Math.floor(timeDifferenceNoChange / 3600);
+                        timeDifferenceNoChangeText = `${hours} hour${
+                          hours > 1 ? "s" : ""
+                        }`;
+                      } else {
+                        // If 1 day or more, express in days
+                        const days = Math.floor(timeDifferenceNoChange / 86400);
+                        timeDifferenceNoChangeText = `${days} day${
+                          days > 1 ? "s" : ""
+                        }`;
+                      }
+
+                      batchedMeterObject.noChangePoints = [
+                        batchedMeterObject.currentPointLabel +
+                          " (DB value: " +
+                          batchedMeterObject.currentPoint +
+                          ")" +
+                          ": First different datapoint at " +
+                          timeDifferenceNoChangeText,
+                      ];
+
+                      const checkDupMeterAndPoints = (obj) =>
+                        obj.meter_id ===
+                          parseInt(batchedMeterObject.meter_id) &&
+                        obj.currentPoint === batchedMeterObject.currentPoint;
+                      // TODO: handle solar power later by updating energy dashboard backend
+                      if (
+                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                        batchedMeterObject.type !== "Solar Panel"
+                      ) {
+                        nonMergedFinalData.push(batchedMeterObject);
+                      }
+                    }
+                  } else {
+                    batchedMeterObject.noChangePoints = [
+                      batchedMeterObject.currentPointLabel +
+                        " (DB value: " +
+                        batchedMeterObject.currentPoint +
+                        ")" +
+                        `: No different datapoints within the past ${formattedTotalDuration}`,
+                    ];
+
+                    const checkDupMeterAndPoints = (obj) =>
+                      obj.meter_id === parseInt(batchedMeterObject.meter_id) &&
+                      obj.currentPoint === batchedMeterObject.currentPoint;
+                    // TODO: handle solar power later by updating energy dashboard backend
+                    if (
+                      !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                      batchedMeterObject.type !== "Solar Panel"
+                    ) {
+                      nonMergedFinalData.push(batchedMeterObject);
+                    }
+                  }
+                } else {
+                  // for meters that are tracked in the database but still return no data
+                  batchedMeterObject.noDataPoints = [
+                    batchedMeterObject.currentPointLabel +
+                      " (DB value: " +
+                      batchedMeterObject.currentPoint +
+                      ")" +
+                      `: No datapoints within the past ${formattedTotalDuration}`,
+                  ];
+
+                  const checkDupMeterAndPoints = (obj) =>
+                    obj.meter_id === parseInt(batchedMeterObject.meter_id) &&
+                    obj.currentPoint === batchedMeterObject.currentPoint;
+                  // TODO: handle solar power later by updating energy dashboard backend
+                  if (
+                    !nonMergedFinalData.some(checkDupMeterAndPoints) &&
+                    batchedMeterObject.type !== "Solar Panel"
+                  ) {
+                    nonMergedFinalData.push(batchedMeterObject);
+                  }
+                }
+                resolve(batchedMeterObject);
               });
             });
             req.on("error", (error) => {
@@ -590,7 +576,12 @@ axios
             req.end();
           });
         }).catch((error) => {
-          console.error("Error:", error);
+          if (
+            error !==
+            "Try lowering batchSize or increasing timeout (especially if status code 502)"
+          ) {
+            console.error("Error:", error);
+          }
           if (not200Counter >= not200Limit) {
             throw new Error(
               `Quitting due to having more than ${not200Limit} non-200 status codes.`,
@@ -909,8 +900,8 @@ function cleanUp() {
     }
   }
 }
-process.on ("SIGINT", function(){
-  cleanUp()
+process.on("SIGINT", function () {
+  cleanUp();
   console.log(mergedFinalData);
   process.exit();
 });
