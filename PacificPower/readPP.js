@@ -69,8 +69,7 @@ const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
 const localeTime = dateObj
   .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
   .match(/\d+/g);
-const DATE =
-  localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
+const DATE = localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
 const END_TIME = `${DATE}T23:59:59`;
 console.log("Time is " + END_TIME);
 
@@ -497,7 +496,9 @@ console.log("Unix time is " + END_TIME_SECONDS);
 
           // check if meter is in meterlist.json to pull db_meter_id
           let db_meter_id = null;
-          const meterData = meterlist.find((meter) => meter.pacificPowerMeterID === pp_meter_id);
+          const meterData = meterlist.find(
+            (meter) => meter.pacificPowerMeterID === pp_meter_id,
+          );
 
           if (meterData) {
             db_meter_id = meterData.meterID;
@@ -509,7 +510,7 @@ console.log("Unix time is " + END_TIME_SECONDS);
             usage_kwh,
             db_meter_id,
             time: END_TIME,
-            time_seconds: END_TIME_SECONDS
+            time_seconds: END_TIME_SECONDS,
           };
 
           PPArray.push(PPTable);
@@ -583,7 +584,6 @@ console.log("Unix time is " + END_TIME_SECONDS);
         console.log(err);
       });
     // */ //block comment ends here
-
   }
 
   // Close browser.
