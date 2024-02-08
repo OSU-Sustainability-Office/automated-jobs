@@ -6,10 +6,13 @@
     "building_id": 12,
     "building_name": "West Dining Hall",
     "meterGroups": [
-      "West Dining Hall (Meter Group ID: 58)"
+      {
+        "meter_group_id": "58",
+        "meter_group_name": "West Dining Hall"
+      }
     ],
     "type": "Electricity",
-    "class": 2,
+    "classInt": 2,
     "building_hidden": true
   },
   {
@@ -19,10 +22,13 @@
     "building_id": 31,
     "building_name": "Weniger Hall",
     "meterGroups": [
-      "Weniger Electric (Meter Group ID: 82)"
+      {
+        "meter_group_id": "82",
+        "meter_group_name": "Weniger Electric"
+      }
     ],
     "type": "Electricity",
-    "class": 48,
+    "classInt": 48,
     "building_hidden": true
   },
   {
@@ -32,10 +38,13 @@
     "building_id": 34,
     "building_name": "Orchard Court",
     "meterGroups": [
-      "Orchard Court (Meter Group ID: 39)"
+      {
+        "meter_group_id": "39",
+        "meter_group_name": "Orchard Court"
+      }
     ],
     "type": "Electricity",
-    "class": 48,
+    "classInt": 48,
     "building_hidden": true
   },
   {
@@ -45,10 +54,13 @@
     "building_id": 35,
     "building_name": "35th Street Solar Array",
     "meterGroups": [
-      "35th Street Solar Array (Meter Group ID: 175)"
+      {
+        "meter_group_id": "175",
+        "meter_group_name": "35th Street Solar Array"
+      }
     ],
     "type": "Solar Panel",
-    "class": 9990001,
+    "classInt": 9990001,
     "building_hidden": false
   },
   {
@@ -58,10 +70,13 @@
     "building_id": 36,
     "building_name": "53rd Street Solar Array",
     "meterGroups": [
-      "53rd Street Solar Array (Meter Group ID: 176)"
+      {
+        "meter_group_id": "176",
+        "meter_group_name": "53rd Street Solar Array"
+      }
     ],
     "type": "Solar Panel",
-    "class": 9990001,
+    "classInt": 9990001,
     "building_hidden": false
   },
   {
@@ -71,10 +86,13 @@
     "building_id": 37,
     "building_name": "Hermiston Solar Array",
     "meterGroups": [
-      "Hermiston Solar Array (Meter Group ID: 177)"
+      {
+        "meter_group_id": "177",
+        "meter_group_name": "Hermiston Solar Array"
+      }
     ],
     "type": "Solar Panel",
-    "class": 9990001,
+    "classInt": 9990001,
     "building_hidden": false
   },
   {
@@ -84,10 +102,13 @@
     "building_id": 38,
     "building_name": "NWREC Data Solar Array",
     "meterGroups": [
-      "NWREC Data Solar Array (Meter Group ID: 178)"
+      {
+        "meter_group_id": "178",
+        "meter_group_name": "NWREC Data Solar Array"
+      }
     ],
     "type": "Solar Panel",
-    "class": 9990001,
+    "classInt": 9990001,
     "building_hidden": false
   },
   {
@@ -97,10 +118,13 @@
     "building_id": 40,
     "building_name": "Agricultural & Life Sciences Building",
     "meterGroups": [
-      "Agricultural & Life Sciences Building (Meter Group ID: 179)"
+      {
+        "meter_group_id": "179",
+        "meter_group_name": "Agricultural & Life Sciences Building"
+      }
     ],
     "type": "Steam",
-    "class": 4444,
+    "classInt": 4444,
     "building_hidden": true
   },
   {
@@ -110,10 +134,13 @@
     "building_id": 41,
     "building_name": "Weatherford Hall",
     "meterGroups": [
-      "Weatherford (Manual) (Meter Group ID: 211)"
+      {
+        "meter_group_id": "211",
+        "meter_group_name": "Weatherford (Manual)"
+      }
     ],
     "type": "Electricity",
-    "class": 4045,
+    "classInt": 4045,
     "building_hidden": true
   }
 ]

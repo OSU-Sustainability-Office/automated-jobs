@@ -18,6 +18,7 @@ let mergedFinalData = []; // [Added negative / nochange / nodata points] combine
 let outputLogs = [];
 let mergedFinalDataLogs = [];
 let batchIterations = 0;
+let non200Arr = [];
 
 const startDate = moment().subtract(2, "months").unix(); // Energy Dashboard frontend uses 2 months timeframe by default for its API calls
 const endDate = moment().unix();
@@ -75,13 +76,13 @@ axios
               building_id: parseInt(buildings.id),
               building_name: buildings.name,
               meterGroups: [
-                buildings.meterGroups[i].name +
-                  " (Meter Group ID: " +
-                  buildings.meterGroups[i].id +
-                  ")",
+                {
+                  meter_group_id: buildings.meterGroups[i].id,
+                  meter_group_name: buildings.meterGroups[i].name,
+                },
               ],
               type: buildings.meterGroups[i].meters[j].type,
-              class: buildings.meterGroups[i].meters[j].classInt,
+              classInt: buildings.meterGroups[i].meters[j].classInt,
               points: buildings.meterGroups[i].meters[j].points,
               building_hidden: buildings.hidden,
             };
@@ -100,12 +101,10 @@ axios
                 allMeters.push(meterObject);
               } else {
                 let foundMeter = allMeters.find(checkDupMeter);
-                foundMeter.meterGroups.push(
-                  buildings.meterGroups[i].name +
-                    " (Meter Group ID: " +
-                    buildings.meterGroups[i].id +
-                    ")",
-                );
+                foundMeter.meterGroups.push({
+                  meter_group_id: buildings.meterGroups[i].id,
+                  meter_group_name: buildings.meterGroups[i].name,
+                });
               }
             }
 
@@ -127,15 +126,15 @@ axios
                 foundBlacklistMeter.building_name = meterObject.building_name;
                 delete foundBlacklistMeter.meterGroups;
                 foundBlacklistMeter.meterGroups = [
-                  buildings.meterGroups[i].name +
-                    " (Meter Group ID: " +
-                    buildings.meterGroups[i].id +
-                    ")",
+                  {
+                    meter_group_id: buildings.meterGroups[i].id,
+                    meter_group_name: buildings.meterGroups[i].name,
+                  },
                 ];
                 delete foundBlacklistMeter.type;
                 foundBlacklistMeter.type = meterObject.type;
-                delete foundBlacklistMeter.class;
-                foundBlacklistMeter.class = meterObject.class;
+                delete foundBlacklistMeter.classInt;
+                foundBlacklistMeter.classInt = meterObject.classInt;
                 delete foundBlacklistMeter.building_hidden;
                 foundBlacklistMeter.building_hidden =
                   meterObject.building_hidden;
@@ -143,12 +142,10 @@ axios
               } else {
                 let foundBlacklistMeterGroups =
                   finalBlacklistMeters.find(checkDupMeter);
-                foundBlacklistMeterGroups.meterGroups.push(
-                  buildings.meterGroups[i].name +
-                    " (Meter Group ID: " +
-                    buildings.meterGroups[i].id +
-                    ")",
-                );
+                foundBlacklistMeterGroups.meterGroups.push({
+                  meter_group_id: buildings.meterGroups[i].id,
+                  meter_group_name: buildings.meterGroups[i].name,
+                });
               }
             }
           }
@@ -163,7 +160,10 @@ axios
         }
       });
       if (process.argv.includes("--update-blacklist")) {
-        console.log(finalBlacklistMeters);
+        // log each item in array to console, to prevent nested arrays of objects from being shown as [Object]
+        for (let i = 0; i < finalBlacklistMeters.length; i++) {
+          console.log(finalBlacklistMeters[i]);
+        }
         let { saveOutputToFile } = require("./save-output");
         saveOutputToFile(finalBlacklistMeters, "blacklist.json", "json");
         console.log("Saved to blacklist.json");
@@ -178,7 +178,10 @@ axios
         }
       });
       if (process.argv.includes("--all-meters")) {
-        console.log(allMeters);
+        // log each item in array to console, to prevent nested arrays of objects from being shown as [Object]
+        for (let i = 0; i < allMeters.length; i++) {
+          console.log(allMeters[i]);
+        }
         let { saveOutputToFile } = require("./save-output");
         saveOutputToFile(allMeters, "allMeters.json", "json");
         console.log("Saved to allMeters.json");
@@ -186,7 +189,7 @@ axios
       }
       for (let i = 0; i < allMeters.length; i++) {
         for (let j = 0; j < allMeters[i].points.length; j++) {
-          // TODO: fix in backend meter classes ("instant" for Gas energy type)
+          // TODO: fix in backend meter point labels ("instant" for Gas energy type)
           if (allMeters[i].points[j].value === "instant") {
             allMeters[i].points[j] = {
               label: "Instant",
@@ -209,7 +212,7 @@ axios
             building_name: allMeters[i].building_name,
             meterGroups: allMeters[i].meterGroups,
             type: allMeters[i].type,
-            class: allMeters[i].class,
+            classInt: allMeters[i].classInt,
             building_hidden: allMeters[i].building_hidden,
             currentPoint: allMeters[i].points[j].value,
             currentPointLabel: allMeters[i].points[j].label,
@@ -217,8 +220,9 @@ axios
 
           // TODO: fix solar panel logic on backend
           if (
-            expandedMeterObject.type === "Solar Panel" &&
-            expandedMeterObject.currentPoint !== "energy_change"
+            (expandedMeterObject.type === "Solar Panel" &&
+              expandedMeterObject.currentPoint !== "energy_change") ||
+            expandedMeterObject.classInt === 9990002 // TODO: remove when pacific power meter logic is merged to prod backend
           ) {
             continue;
           }
@@ -233,7 +237,7 @@ axios
           process.nextTick(() => {
             const options = {
               hostname: "api.sustainability.oregonstate.edu",
-              path: `/v2/energy/data?id=${batchedMeterObject.meter_id}&startDate=${startDate}&endDate=${endDate}&point=${batchedMeterObject.currentPoint}&meterClass=${batchedMeterObject.class}`,
+              path: `/v2/energy/data?id=${batchedMeterObject.meter_id}&startDate=${startDate}&endDate=${endDate}&point=${batchedMeterObject.currentPoint}&meterClass=${batchedMeterObject.classInt}`,
               method: "GET",
             };
             const req = https.request(options, (res) => {
@@ -257,7 +261,10 @@ axios
                   console.log(
                     "Status code " + res.statusCode + " for: " + options.path,
                   );
-                  // console.log(options.path);
+                  if (!(batchedMeterObject.meter_id in non200Arr)) {
+                    non200Arr.push(batchedMeterObject.meter_id);
+                  }
+                  non200Arr = [...new Set(non200Arr)].sort();
                   not200Counter += 1;
                   batchedErrorCount += 1;
                   const singleNon200Error =
@@ -333,7 +340,7 @@ axios
                           */
                       batchedMeterObject.noDataPoints = [
                         batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
+                          " (point: " +
                           batchedMeterObject.currentPoint +
                           ")" +
                           " (First data point at " +
@@ -360,7 +367,7 @@ axios
                     if (!timeDifferenceNoData) {
                       batchedMeterObject.noDataPoints = [
                         batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
+                          " (point: " +
                           batchedMeterObject.currentPoint +
                           ")" +
                           `: No datapoints within the past ${formattedTotalDuration}`,
@@ -436,7 +443,7 @@ axios
                       }
                       batchedMeterObject.negPoints = [
                         batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
+                          " (point: " +
                           batchedMeterObject.currentPoint +
                           ")" +
                           ": First negative datapoint at " +
@@ -522,7 +529,7 @@ axios
 
                         batchedMeterObject.noChangePoints = [
                           batchedMeterObject.currentPointLabel +
-                            " (DB value: " +
+                            " (point: " +
                             batchedMeterObject.currentPoint +
                             ")" +
                             ": First different datapoint at " +
@@ -544,7 +551,7 @@ axios
                     } else {
                       batchedMeterObject.noChangePoints = [
                         batchedMeterObject.currentPointLabel +
-                          " (DB value: " +
+                          " (point: " +
                           batchedMeterObject.currentPoint +
                           ")" +
                           `: No different datapoints within the past ${formattedTotalDuration}`,
@@ -566,7 +573,7 @@ axios
                     // for meters that are tracked in the database but still return no data
                     batchedMeterObject.noDataPoints = [
                       batchedMeterObject.currentPointLabel +
-                        " (DB value: " +
+                        " (point: " +
                         batchedMeterObject.currentPoint +
                         ")" +
                         `: No datapoints within the past ${formattedTotalDuration}`,
@@ -600,6 +607,7 @@ axios
             console.error("Error:", error);
           }
           if (not200Counter >= not200Limit) {
+            cleanUp();
             throw new Error(
               `Quitting due to having more than ${not200Limit} non-200 status codes.`,
             );
@@ -799,6 +807,9 @@ function cleanUp() {
     }
   }
 
+  // easier to tell where outputLogs starts in mergedFinalDataOutput (if needed)
+  outputLogs.push("---");
+
   // Might be redundant with AWS Cloudwatch logs that also give timestamp, but useful for local
   outputLogs.push(
     "Timestamp (approximate): " +
@@ -808,7 +819,11 @@ function cleanUp() {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
+  outputLogs.push(
+    'If needed, remember to click "Load More" in Cloudwatch logs when scrolling up, to see all logs',
+  );
   if (
+    non200Arr.length > 0 ||
     totalNoDataPoints.length > 0 ||
     totalNoDataPoints3or4Days.length > 0 ||
     totalNoDataPoints3or4Days.length > 0 ||
@@ -816,9 +831,13 @@ function cleanUp() {
     totalSomePhasesNegative.length > 0
   ) {
     outputLogs.push(
-      "The lines below are just a summary, refer to corresponding meter_id values in data above for details.",
+      "The lines below are just a summary. Refer to data / logs above, based on the corresponding meter_id values, for details (e.g. specific point values).",
     );
-    outputLogs.push("Data above is sorted by meter_id from lowest to highest.");
+  }
+  if (non200Arr.length > 0) {
+    outputLogs.push(
+      "Meters returning non-200 status codes: " + non200Arr.join(", "),
+    );
   }
   if (totalNoDataPoints.length > 0) {
     outputLogs.push("Meters with no data: " + totalNoDataPoints.join(", "));
@@ -843,12 +862,13 @@ function cleanUp() {
         totalSomePhasesNegative.join(", "),
     );
   }
-  // easy index identifier between logs and data just in case output needs to be queried programatically from AWS Cloudwatch logs
-  outputLogs.push("---");
 
   // console log the final output here so the "saved to file" logs are at the bottom when running locally
-  mergedFinalDataLogs = [...outputLogs.concat(mergedFinalData)];
-  console.log(mergedFinalDataLogs);
+  mergedFinalDataLogs = mergedFinalData.concat([...outputLogs]);
+  // log each item in array to console, to prevent nested arrays of objects from being shown as [Object]
+  for (let i = 0; i < mergedFinalDataLogs.length; i++) {
+    console.log(mergedFinalDataLogs[i]);
+  }
 
   if (process.argv.includes("--save-output")) {
     const { saveOutputToFile } = require("./save-output");
