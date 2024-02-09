@@ -1,3 +1,15 @@
 package.json
 package-lock.json
 output.json
+allBuildings.json
+mergedFinalDataOutput.json
+mergedFinalDataOutput.txt
+mergedFinalDataOutputNegative.json
+mergedFinalDataOutputNegative.txt
+mergedFinalDataOutputNoData.json
+mergedFinalDataOutputNoData.txt
+mergedFinalDataOutputNoChange.json
+mergedFinalDataOutputNoChange.txt
+blacklist.json
+docker-compose.yml
+allMeters.json
