@@ -53,9 +53,9 @@ Similarly, any files listed should be assumed to be located within the directory
     - Retrieves most recent cloudwatch logs from a given ECS container via the AWS CLI, to save time having to deal with AWS website interface, and to make it easier to download log files to managers when needed
     - The exact amount of logs, and which ECS container, can be configured in the variables at the top of `retrieveLogs` file
     - Must have AWS CLI installed and set up with proper IAM credentials, see https://osu-sustainability-office.github.io/docs/backend_prereqs#aws
-    - Output filename format: "formatted-" (if applicable) + last event timestamp (in unix) + "-" + container name ("/" replaced with "_" to avoid file naming errors)
+    - Output filename format: `formatted-` (if applicable) + last event timestamp (in unix) + `-` + container name (`/` replaced with `_` to avoid file naming errors)
       - When sorted alphabetically, most recent logs will be at bottom. Timestamps in filename can be checked with https://www.unixtimestamp.com/index.php, and the rest of the filename can be checked with the log stream names as they appear on cloudwatch web interface
-      - "formatted-" strips the timestamps on each line and trailing whitespace to improve readability. The original (non formatted) log files are also kept if needed (e.g. to double check how long it took for a process to execute)
+      - `formatted-` in the output filenames means that timestamps and trailing whitespace on each line have been removed to improve readability. The original (non-formatted) log files are also kept if needed (e.g. to double check how long it took for a process to execute)
 ## Deprecated
 
 - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
