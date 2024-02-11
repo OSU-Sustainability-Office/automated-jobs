@@ -5,11 +5,9 @@ function saveOutputToFile(dataObj, outputPath, outputFormat) {
   let dataToWrite =
     outputFormat === "json" ? JSON.stringify(dataObj, null, 2) : dataObj;
 
-  fs.writeFile(outputPath, dataToWrite, (err) => {
+  fs.writeFileSync(outputPath, dataToWrite, (err) => {
     if (err) {
       console.error("Error writing file:", err);
-    } else {
-      console.log(`Data saved to ${outputPath}`);
     }
   });
 }

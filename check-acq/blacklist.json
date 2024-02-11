@@ -1,106 +1,146 @@
 [
   {
-    "building_id": 9,
-    "building_name": "Valley Library",
-    "_meter_comments": [
-      {
-        "id": 3,
-        "note": "No Data since October 2020"
-      }
-    ]
-  },
-  {
+    "meter_id": 46,
+    "meter_note": "No Data since April 2020",
+    "meter_name": "West Dining",
     "building_id": 12,
     "building_name": "West Dining Hall",
-    "_meter_comments": [
+    "meterGroups": [
       {
-        "id": 46,
-        "note": "No Data since April 2020"
+        "meter_group_id": "58",
+        "meter_group_name": "West Dining Hall"
       }
-    ]
+    ],
+    "type": "Electricity",
+    "classInt": 2,
+    "building_hidden": true
   },
   {
-    "building_id": 16,
-    "building_name": "Buxton Hall",
-    "_meter_comments": [
-      {
-        "id": 38,
-        "note": "No data since June 2018"
-      }
-    ]
-  },
-  {
+    "meter_id": 35,
+    "meter_note": "Valid, up to date data. But Net Energy Usage in specific is not shown. Maybe math issue?",
+    "meter_name": "Weniger South Electricity",
     "building_id": 31,
     "building_name": "Weniger Hall",
-    "_meter_comments": [
+    "meterGroups": [
       {
-        "id": 35,
-        "note": "Valid, up to date data. But Net Energy Usage in specific is not shown. Maybe math issue?"
+        "meter_group_id": "82",
+        "meter_group_name": "Weniger Electric"
       }
-    ]
+    ],
+    "type": "Electricity",
+    "classInt": 48,
+    "building_hidden": true
   },
   {
+    "meter_id": 68,
+    "meter_note": "No data since 2019",
+    "meter_name": "Orchard Court",
     "building_id": 34,
     "building_name": "Orchard Court",
-    "_meter_comments": [
+    "meterGroups": [
       {
-        "id": 68,
-        "note": "No data since 2019"
+        "meter_group_id": "39",
+        "meter_group_name": "Orchard Court"
       }
-    ]
+    ],
+    "type": "Electricity",
+    "classInt": 48,
+    "building_hidden": true
   },
   {
+    "meter_id": 83,
+    "meter_note": "Use Tesla Iframes now, don't use own API data",
+    "meter_name": "M007c9349M72baM450cMaa1fM4e5a77b68f79",
     "building_id": 35,
-    "building_name": "35th Solar Array",
-    "_meter_comments": [
+    "building_name": "35th Street Solar Array",
+    "meterGroups": [
       {
-        "id": 83,
-        "note": "Use Tesla Iframes now, don't use own API data"
+        "meter_group_id": "175",
+        "meter_group_name": "35th Street Solar Array"
       }
-    ]
+    ],
+    "type": "Solar Panel",
+    "classInt": 9990001,
+    "building_hidden": false
   },
   {
+    "meter_id": 84,
+    "meter_note": "Use Tesla Iframes now, don't use own API data",
+    "meter_name": "M9D5EB0D2ME376M44A1M9B8CM8DFCDD7507A5",
     "building_id": 36,
     "building_name": "53rd Street Solar Array",
-    "_meter_comments": [
+    "meterGroups": [
       {
-        "id": 84,
-        "note": "Use Tesla Iframes now, don't use own API data"
+        "meter_group_id": "176",
+        "meter_group_name": "53rd Street Solar Array"
       }
-    ]
+    ],
+    "type": "Solar Panel",
+    "classInt": 9990001,
+    "building_hidden": false
   },
   {
+    "meter_id": 85,
+    "meter_note": "Use Tesla Iframes now, don't use own API data",
+    "meter_name": "M38954c21M8669M47b6M8376M835cc24f908c",
     "building_id": 37,
     "building_name": "Hermiston Solar Array",
-    "_meter_comments": [
+    "meterGroups": [
       {
-        "id": 85,
-        "note": "Use Tesla Iframes now, don't use own API data"
+        "meter_group_id": "177",
+        "meter_group_name": "Hermiston Solar Array"
       }
-    ]
+    ],
+    "type": "Solar Panel",
+    "classInt": 9990001,
+    "building_hidden": false
   },
   {
+    "meter_id": 86,
+    "meter_note": "Use Tesla Iframes now, don't use own API data",
+    "meter_name": "M47cf089aM5b93M4200M8566Me030cb4f8574",
     "building_id": 38,
-    "building_name": "NWREC Solar Array",
-    "_meter_comments": [
+    "building_name": "NWREC Data Solar Array",
+    "meterGroups": [
       {
-        "id": 86,
-        "note": "Use Tesla Iframes now, don't use own API data"
+        "meter_group_id": "178",
+        "meter_group_name": "NWREC Data Solar Array"
       }
-    ]
+    ],
+    "type": "Solar Panel",
+    "classInt": 9990001,
+    "building_hidden": false
   },
   {
+    "meter_id": 117,
+    "meter_note": "All data has been null, probably since creation",
+    "meter_name": "ALS Steam",
+    "building_id": 40,
+    "building_name": "Agricultural & Life Sciences Building",
+    "meterGroups": [
+      {
+        "meter_group_id": "179",
+        "meter_group_name": "Agricultural & Life Sciences Building"
+      }
+    ],
+    "type": "Steam",
+    "classInt": 4444,
+    "building_hidden": true
+  },
+  {
+    "meter_id": 120,
+    "meter_note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)",
+    "meter_name": "Weatherford Electric (Manual)",
     "building_id": 41,
     "building_name": "Weatherford Hall",
-    "_meter_comments": [
+    "meterGroups": [
       {
-        "id": 119,
-        "note": "Not sure if this has ever shown valid data. Not connected to a meter group"
-      },
-      {
-        "id": 120,
-        "note": "No Data since May 2022 (Manually Entered for 2022 Kilowatt Crackdown)"
+        "meter_group_id": "211",
+        "meter_group_name": "Weatherford (Manual)"
       }
-    ]
+    ],
+    "type": "Electricity",
+    "classInt": 4045,
+    "building_hidden": true
   }
 ]

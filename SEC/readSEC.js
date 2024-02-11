@@ -71,7 +71,10 @@ const axios = require("axios");
   while (attempt < maxAttempts) {
     try {
       await page.click(LOGIN_BUTTON);
-      await page.waitForNavigation({ waitUntil: "networkidle0" });
+      await page.waitForNavigation({
+        waitUntil: "networkidle0",
+        timeout: 25000,
+      });
       console.log("Login Button Clicked!");
       break; // Exit the loop if successful
     } catch (error) {
@@ -96,9 +99,38 @@ const axios = require("axios");
     localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
   const END_TIME = `${DATE}T23:59:59`;
 
+  // Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
+  // https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
+  const getOffset = (timeZone) => {
+    const timeZoneName = Intl.DateTimeFormat("ia", {
+      timeZoneName: "shortOffset",
+      timeZone,
+    })
+      .formatToParts()
+      .find((i) => i.type === "timeZoneName").value;
+    const offset = timeZoneName.slice(3);
+    if (!offset) return 0;
+
+    const matchData = offset.match(/([+-])(\d+)(?::(\d+))?/);
+    if (!matchData) throw `cannot parse timezone name: ${timeZoneName}`;
+
+    const [, sign, hour, minute] = matchData;
+    let result = parseInt(hour) * 60;
+    if (sign === "+") result *= -1;
+    if (minute) result += parseInt(minute);
+
+    return result;
+  };
+
+  console.log(getOffset("US/Pacific"));
+  const dateObjUnix = new Date(
+    new Date().getTime() -
+      (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000),
+  );
+
   // unix time calc
-  dateObj.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+  dateObjUnix.setUTCHours(23, 59, 59, 0);
+  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
 
   console.log(END_TIME_SECONDS);
 

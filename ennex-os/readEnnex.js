@@ -89,16 +89,48 @@ const meterlist = require("./meterlist.json");
   let ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
   console.log(ENNEX_DATE);
 
+  // Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
+  // https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
+  const getOffset = (timeZone) => {
+    const timeZoneName = Intl.DateTimeFormat("ia", {
+      timeZoneName: "shortOffset",
+      timeZone,
+    })
+      .formatToParts()
+      .find((i) => i.type === "timeZoneName").value;
+    const offset = timeZoneName.slice(3);
+    if (!offset) return 0;
+
+    const matchData = offset.match(/([+-])(\d+)(?::(\d+))?/);
+    if (!matchData) throw `cannot parse timezone name: ${timeZoneName}`;
+
+    const [, sign, hour, minute] = matchData;
+    let result = parseInt(hour) * 60;
+    if (sign === "+") result *= -1;
+    if (minute) result += parseInt(minute);
+
+    return result;
+  };
+
+  console.log(getOffset("US/Pacific"));
+  const dateObjUnix = new Date(
+    new Date().getTime() -
+      (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000),
+  );
+
   // unix time calc
-  dateObj.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+  dateObjUnix.setUTCHours(23, 59, 59, 0);
+  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
 
   console.log(END_TIME_SECONDS);
 
   while (attempt < maxAttempts) {
     try {
       await page.click(LOGIN_BUTTON);
-      await page.waitForNavigation({ waitUntil: "networkidle0" });
+      await page.waitForNavigation({
+        waitUntil: "networkidle0",
+        timeOut: 25000,
+      });
       console.log("Login Button Clicked!");
       break; // Exit the loop if successful
     } catch (error) {
@@ -159,6 +191,48 @@ const meterlist = require("./meterlist.json");
     let [ennexMeterName] = await page.$x(
       '//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span',
     );
+
+    const MONTHS = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "June",
+      "July",
+      "Aug",
+      "Sept",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    // change month tab to previous month if necessary - Date functions are used to conver from numeric <-> string formats
+    await page.waitForSelector(".mat-select-min-line");
+
+    // get currently selected month and convert to numeric format
+    let selectedMonth = await page.evaluate(
+      () => document.querySelector(".mat-select-min-line").innerText,
+    );
+    selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
+    console.log("Currently selected month found");
+
+    if (selectedMonth != ENNEX_MONTH) {
+      console.log("Changing month selector to previous month");
+      await page.waitForSelector(
+        "#timeline-picker-element_" +
+          MONTHS[ENNEX_MONTH - 1] +
+          "\\ " +
+          localeTime[2],
+      );
+      await page.click(
+        "#timeline-picker-element_" +
+          MONTHS[ENNEX_MONTH - 1] +
+          "\\ " +
+          localeTime[2],
+      );
+      await page.waitForTimeout(25000);
+    }
 
     // might be redundant but it's a sanity check that the meter name is what we expect
     let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
