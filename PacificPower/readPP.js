@@ -479,9 +479,11 @@ let page = "";
           console.log(usage_kwh);
 
           // get the date for the data
-          let positionPeriod = "Period"
-          let positionAve = "Average"
-          let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
+          let positionPeriod = "Period";
+          let positionAve = "Average";
+          let date = monthly_top_text
+            .split(positionPeriod)[1]
+            .split(positionAve)[0];
 
           console.log(date);
           const dateObj = new Date(date);
@@ -490,7 +492,9 @@ let page = "";
 
           // unix time calc
           dateObj.setUTCHours(23, 59, 59, 0);
-          const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+          const END_TIME_SECONDS = Math.floor(
+            dateObj.valueOf() / 1000,
+          ).toString();
           console.log("Unix time is " + END_TIME_SECONDS);
 
           const PPTable = {
@@ -550,7 +554,7 @@ let page = "";
     console.log(PPArray[i]);
 
     // to prevent uploading data to API: node readPP.js --no-upload
-    if(!process.argv.includes("--no-upload")){
+    if (!process.argv.includes("--no-upload")) {
       await axios({
         method: "post",
         url: `${process.env.DASHBOARD_API}/upload`,
