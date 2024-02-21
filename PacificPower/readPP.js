@@ -6,6 +6,7 @@
 // random (based on Internet speed etc), so better safe than sorry for production. You can lower the timeouts for debug.
 
 const puppeteer = require("puppeteer");
+const moment = require("moment-timezone");
 require("dotenv").config();
 
 const TIMEOUT_BUFFER = 7200000; // Currently set for 2 hours (7,200,000 ms), based on 42 minutes actual result as noted above
@@ -485,7 +486,24 @@ let page = "";
             .split(positionPeriod)[1]
             .split(positionAve)[0];
 
-          console.log(date);
+          console.log("Latest date from PacificPower: " + date);
+
+          // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
+          // yesterday's date in PST timezone, YYYY-MM-DD format
+          let actualDate = moment
+            .tz(
+              new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
+              "America/Los_Angeles",
+            )
+            .format("YYYY-MM-DD");
+
+          console.log("Actual date: " + actualDate);
+
+          if (date !== actualDate) {
+            console.log("Does not match yesterday's date");
+            // TBD if we just log the warning or if we should stop the scraper if this happens
+          }
+
           const dateObj = new Date(date);
           const END_TIME = `${date}T23:59:59`;
           console.log("Time is " + END_TIME);
