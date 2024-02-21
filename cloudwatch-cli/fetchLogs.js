@@ -1,7 +1,7 @@
 const LOG_AMOUNT = 5;
 
 // see all ecs containers: aws logs describe-log-groups --log-group-name-prefix "/ecs"
-const ECS_CONTAINER = "/ecs/collect-check-acq";
+const ECS_CONTAINER = "/ecs/collect-ennex-data";
 // manually get stream info (example): aws logs describe-log-streams --log-group-name "/ecs/collect-check-acq" --order-by LastEventTime --descending
 // manually get logs for specific stream (example): aws logs get-log-events --log-group-name /ecs/collect-check-acq --log-stream-name ecs/check-acq-container/4379d84b43f04b188c97017de0f09bc3 --output text > a.log
 
@@ -25,7 +25,7 @@ for (let i = 0; i < recentStreams.length; i++) {
     "-" +
     recentStreams[i].logStreamName.replace(/\//g, "_");
   execSync(
-    `aws logs get-log-events --log-group-name ${ECS_CONTAINER} --log-stream-name ${recentStreams[i].logStreamName} --output text > ${replacedString}.log`
+    `aws logs get-log-events --log-group-name ${ECS_CONTAINER} --log-stream-name ${recentStreams[i].logStreamName} --start-time ${recentStreams[i].firstEventTimestamp} --end-time ${recentStreams[i].lastIngestionTime} --output text > ${replacedString}.log`
   );
   inputFileNames.push(`${replacedString}.log`);
 }
