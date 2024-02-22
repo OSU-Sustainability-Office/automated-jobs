@@ -8,8 +8,9 @@
 const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
 require("dotenv").config();
+const startDate = moment().unix();
 
-const TIMEOUT_BUFFER = 7200000; // Currently set for 2 hours (7,200,000 ms), based on 42 minutes actual result as noted above
+const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
 const axios = require("axios");
 const fs = require("fs");
 const maxAttempts = 5;
@@ -54,6 +55,10 @@ let loggedInFlag = false;
 let graphButton = "";
 let first_selector_num = 0;
 let PPArray = [];
+let unAvailableArray = [];
+let otherErrorArray = [];
+let wrongDateArray = [];
+let yearlyArray = [];
 let continueDetailsFlag = false;
 let successDetailsFlag = false;
 let monthly_top = "";
@@ -89,7 +94,7 @@ let page = "";
         "Accept-Language": "en-US,en;q=0.9",
       });
       await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
       );
       console.log(await page.title());
 
@@ -156,15 +161,15 @@ let page = "";
       await page.waitForFunction(
         () =>
           !document.querySelector(
-            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading",
-          ),
+            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading"
+          )
       );
 
       await page.waitForFunction(
         () =>
           !document.querySelector(
-            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
-          ),
+            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div"
+          )
       );
 
       await page.waitForSelector(USAGE_DETAILS, { timeout: 60000 });
@@ -182,7 +187,7 @@ let page = "";
       // it's theoretically possible to get yearly result for first meter, so check just in case
       // await page.waitForTimeout(25000);
       await page.waitForFunction(
-        () => !document.querySelector("#loading-component > mat-spinner"),
+        () => !document.querySelector("#loading-component > mat-spinner")
       );
       console.log(await page.title());
       [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
@@ -211,12 +216,12 @@ let page = "";
 
       await page.waitForFunction(() =>
         document.querySelector(
-          "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-        ),
+          "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
+        )
       );
       console.log("Meter Menu Opened");
       meter_selector_full = await page.$eval("mat-option", (el) =>
-        el.getAttribute("id"),
+        el.getAttribute("id")
       );
       meter_selector_num = parseInt(meter_selector_full.slice(11));
       first_selector_num = meter_selector_num;
@@ -228,8 +233,8 @@ let page = "";
       await page.waitForFunction(
         () =>
           !document.querySelector(
-            "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-          ),
+            "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
+          )
       );
       // one time pause after closing menu before the while loops, just in case
       // await page.waitForTimeout(10000);
@@ -243,7 +248,7 @@ let page = "";
       console.log(
         `Unknown Issue en route to Energy Usage Details Page, (Attempt ${
           continueDetails + 1
-        } of ${maxAttempts}). Retrying...`,
+        } of ${maxAttempts}). Retrying...`
       );
       continueDetails++;
       if (continueDetails === maxAttempts) {
@@ -267,8 +272,8 @@ let page = "";
           await page.waitForFunction(
             () =>
               !document.querySelector(
-                "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-              ),
+                "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
+              )
           );
           await page.click(METER_MENU);
           console.log("Meter Menu Opened");
@@ -276,20 +281,20 @@ let page = "";
           // await page.waitForTimeout(10000);
           await page.waitForFunction(() =>
             document.querySelector(
-              "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-            ),
+              "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
+            )
           );
           await page.waitForSelector(
             "#" +
               meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString(),
+              meter_selector_num.toString()
           );
           console.log("New Meter Opened");
 
           await page.click(
             "#" +
               meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString(),
+              meter_selector_num.toString()
           );
 
           if (first_selector_num !== meter_selector_num) {
@@ -300,9 +305,9 @@ let page = "";
                 await page.waitForFunction(
                   () =>
                     document.querySelector(
-                      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
+                      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing"
                     ),
-                  { timeout: 25000 },
+                  { timeout: 25000 }
                 );
                 console.log("Loading Screen Found");
                 break;
@@ -327,15 +332,15 @@ let page = "";
               await page.waitForFunction(
                 () =>
                   !document.querySelector(
-                    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
-                  ),
+                    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing"
+                  )
               );
             }
           }
 
           const pp_meter_element = await page.waitForSelector(METER_MENU);
           const pp_meter_full = await pp_meter_element.evaluate(
-            (el) => el.textContent,
+            (el) => el.textContent
           );
 
           let pp_meter_full_trim = pp_meter_full.trim();
@@ -346,8 +351,8 @@ let page = "";
           let pp_meter_id = parseInt(
             pp_meter_full_trim.slice(
               meterStringIndex + 8,
-              pp_meter_full_trim.length - 2,
-            ),
+              pp_meter_full_trim.length - 2
+            )
           );
           console.log(pp_meter_id);
 
@@ -357,7 +362,7 @@ let page = "";
           while (!continueVarMonthlyFlag && continueVarMonthly < maxAttempts) {
             try {
               await page.waitForSelector(
-                "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
+                "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area"
               );
               await page.waitForSelector(MONTHLY_TOP, {
                 timeout: 25000,
@@ -379,10 +384,9 @@ let page = "";
               // await page.waitForTimeout(10000);
               await page.waitForFunction(() =>
                 document.querySelector(
-                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-                ),
+                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
+                )
               );
-              console.log("Time Menu Opened");
               if (continueVarMonthly % 2 === 0) {
                 [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
                   timeout: 25000,
@@ -437,13 +441,13 @@ let page = "";
               "Attempt " +
                 (continueVarMonthly + 1).toString() +
                 " of " +
-                maxAttempts,
+                maxAttempts
             );
             continueVarMonthlyFlag = false;
             continueVarMonthly++;
             if (continueVarMonthly === maxAttempts) {
               console.log(
-                `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
+                `Re-Checked ${maxAttempts} times, Stopping Webscraper`
               );
               continueMetersFlag = true;
               break;
@@ -453,10 +457,10 @@ let page = "";
 
           monthly_top = await page.waitForSelector(MONTHLY_TOP);
           console.log(
-            "Monthly Data Top Row Found, getting table top row value",
+            "Monthly Data Top Row Found, getting table top row value"
           );
           let monthly_top_text = await monthly_top.evaluate(
-            (el) => el.textContent,
+            (el) => el.textContent
           );
           console.log(monthly_top_text);
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
@@ -466,30 +470,23 @@ let page = "";
             console.log("Data is not yearly. Data is probably monthly.");
           } else {
             console.log("Year Check Found, skipping to next meter");
+            yearlyArray.push({ meter_selector_num, pp_meter_id });
             meter_selector_num++;
             continueVarLoading = 0;
             continue;
           }
 
-          if (
-            monthly_top_text.includes("Unavailable")
-          ) {
-            console.log("Usage (kwh) unavailable, try again");
+          // potential TODO: If unavailable, get second row of data
+          // Then need to handle potential redundant data on upload, first of month case
+          // Difference between unavailable and just wrong date is that unavailable shows expected
+          // date (e.g. yesterday), just that the usage (kwh) data is "unavailable"
+          if (monthly_top_text.includes("Unavailable")) {
             console.log(
-              "Attempt " +
-                (continueVarMonthly + 1).toString() +
-                " of " +
-                maxAttempts,
+              "Unavailable Usage (kwh) data for monthly time range, skipping to next meter"
             );
-            continueVarMonthlyFlag = false;
-            continueVarMonthly++;
-            if (continueVarMonthly === maxAttempts) {
-              console.log(
-                `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
-              );
-              continueMetersFlag = true;
-              break;
-            }
+            meter_selector_num++;
+            continueVarLoading = 0;
+            unAvailableArray.push({ meter_selector_num, pp_meter_id });
             continue;
           }
 
@@ -497,7 +494,7 @@ let page = "";
           continueVarMonthly = 0;
 
           let usage_kwh = parseFloat(
-            monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+            monthly_top_text.split(positionUsage)[1].split(positionEst)[0]
           );
           console.log(usage_kwh);
 
@@ -515,16 +512,11 @@ let page = "";
           let actualDate = moment
             .tz(
               new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-              "America/Los_Angeles",
+              "America/Los_Angeles"
             )
             .format("YYYY-MM-DD");
 
           console.log("Actual date: " + actualDate);
-
-          if (date !== actualDate) {
-            console.log("Does not match yesterday's date");
-            // TBD if we just log the warning or if we should stop the scraper if this happens
-          }
 
           const dateObj = new Date(date);
           const END_TIME = `${date}T23:59:59`;
@@ -533,9 +525,23 @@ let page = "";
           // unix time calc
           dateObj.setUTCHours(23, 59, 59, 0);
           const END_TIME_SECONDS = Math.floor(
-            dateObj.valueOf() / 1000,
+            dateObj.valueOf() / 1000
           ).toString();
           console.log("Unix time is " + END_TIME_SECONDS);
+
+          // potential TODO: handle potential redundant data on upload, first of month case
+          // wrong date (usually) means the most recent data is 2 days old
+          // current wrongdate meter (that is in meters table): 74264319
+          if (date !== actualDate) {
+            wrongDateArray.push({
+              meter_selector_num,
+              pp_meter_id,
+              time: END_TIME,
+              time_seconds: END_TIME_SECONDS,
+            });
+            console.log("Does not match yesterday's date");
+            // TBD if we just log the warning or if we should stop the scraper if this happens
+          }
 
           const PPTable = {
             meter_selector_num,
@@ -563,32 +569,18 @@ let page = "";
         } catch (error) {
           // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
           console.error(error);
+          otherErrorArray.push({ meter_selector_num, pp_meter_id });
           console.log(
             meter_selector_num.toString() +
-              " Unknown Issue, Skipping to next meter",
+              " Unknown Issue, Skipping to next meter"
           );
           meter_selector_num++;
           continueMeters++;
           if (continueMeters === maxAttempts) {
-            console.log(
-              `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
-            );
+            console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
           }
           // continue;
         }
-      }
-      // node readPP.js --save-output
-      if (
-        process.argv.includes("--save-output") ||
-        process.env.SAVE_OUTPUT === "true"
-      ) {
-        const jsonContent = JSON.stringify(PPArray, null, 2);
-        fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
-          if (err) {
-            return console.log(err);
-          }
-          console.log("The file was saved!");
-        });
       }
     }
   }
@@ -612,7 +604,7 @@ let page = "";
       })
         .then((res) => {
           console.log(
-            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`
           );
           console.log(`uploaded ${pacificPowerMeters} data to API`);
         })
@@ -620,6 +612,44 @@ let page = "";
           console.log(err);
         });
     }
+  }
+  console.log(
+    "Timestamp (approximate): " +
+      moment
+        .unix(startDate)
+        .tz("America/Los_Angeles")
+        .format("MM-DD-YYYY hh:mm a") +
+      " PST"
+  );
+  console.log("\nWrong Date Meters (Monthly): ");
+  console.log(wrongDateArray);
+  console.log("\nUnavailable Meters (Monthly): ");
+  console.log(unAvailableArray);
+  console.log("\nYearly Meters: ");
+  console.log(yearlyArray);
+  console.log("\nOther Errors: ");
+  console.log(otherErrorArray);
+
+  // node readPP.js --save-output
+  if (
+    process.argv.includes("--save-output") ||
+    process.env.SAVE_OUTPUT === "true"
+  ) {
+    PPArray.push("Wrong Date Meters (Monthly): ");
+    PPArray.push(wrongDateArray);
+    PPArray.push("Unavailable Meters (Monthly): ");
+    PPArray.push(unAvailableArray);
+    PPArray.push("Yearly Meters: ");
+    PPArray.push(yearlyArray);
+    PPArray.push("Other Errors: ");
+    PPArray.push(otherErrorArray);
+    const jsonContent = JSON.stringify(PPArray, null, 2);
+    fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
+      if (err) {
+        return console.log(err);
+      }
+      console.log("The file was saved!");
+    });
   }
 
   // Close browser.
