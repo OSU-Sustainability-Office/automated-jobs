@@ -94,7 +94,7 @@ let page = "";
         "Accept-Language": "en-US,en;q=0.9",
       });
       await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
       );
       console.log(await page.title());
 
@@ -161,15 +161,15 @@ let page = "";
       await page.waitForFunction(
         () =>
           !document.querySelector(
-            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading"
-          )
+            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading",
+          ),
       );
 
       await page.waitForFunction(
         () =>
           !document.querySelector(
-            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div"
-          )
+            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
+          ),
       );
 
       await page.waitForSelector(USAGE_DETAILS, { timeout: 60000 });
@@ -187,7 +187,7 @@ let page = "";
       // it's theoretically possible to get yearly result for first meter, so check just in case
       // await page.waitForTimeout(25000);
       await page.waitForFunction(
-        () => !document.querySelector("#loading-component > mat-spinner")
+        () => !document.querySelector("#loading-component > mat-spinner"),
       );
       console.log(await page.title());
       [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
@@ -216,12 +216,12 @@ let page = "";
 
       await page.waitForFunction(() =>
         document.querySelector(
-          "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
-        )
+          "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+        ),
       );
       console.log("Meter Menu Opened");
       meter_selector_full = await page.$eval("mat-option", (el) =>
-        el.getAttribute("id")
+        el.getAttribute("id"),
       );
       meter_selector_num = parseInt(meter_selector_full.slice(11));
       first_selector_num = meter_selector_num;
@@ -233,8 +233,8 @@ let page = "";
       await page.waitForFunction(
         () =>
           !document.querySelector(
-            "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
-          )
+            "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+          ),
       );
       // one time pause after closing menu before the while loops, just in case
       // await page.waitForTimeout(10000);
@@ -248,7 +248,7 @@ let page = "";
       console.log(
         `Unknown Issue en route to Energy Usage Details Page, (Attempt ${
           continueDetails + 1
-        } of ${maxAttempts}). Retrying...`
+        } of ${maxAttempts}). Retrying...`,
       );
       continueDetails++;
       if (continueDetails === maxAttempts) {
@@ -272,8 +272,8 @@ let page = "";
           await page.waitForFunction(
             () =>
               !document.querySelector(
-                "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
-              )
+                "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+              ),
           );
           await page.click(METER_MENU);
           console.log("Meter Menu Opened");
@@ -281,20 +281,20 @@ let page = "";
           // await page.waitForTimeout(10000);
           await page.waitForFunction(() =>
             document.querySelector(
-              "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
-            )
+              "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+            ),
           );
           await page.waitForSelector(
             "#" +
               meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString()
+              meter_selector_num.toString(),
           );
           console.log("New Meter Opened");
 
           await page.click(
             "#" +
               meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString()
+              meter_selector_num.toString(),
           );
 
           if (first_selector_num !== meter_selector_num) {
@@ -305,9 +305,9 @@ let page = "";
                 await page.waitForFunction(
                   () =>
                     document.querySelector(
-                      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing"
+                      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
                     ),
-                  { timeout: 25000 }
+                  { timeout: 25000 },
                 );
                 console.log("Loading Screen Found");
                 break;
@@ -332,15 +332,15 @@ let page = "";
               await page.waitForFunction(
                 () =>
                   !document.querySelector(
-                    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing"
-                  )
+                    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
+                  ),
               );
             }
           }
 
           const pp_meter_element = await page.waitForSelector(METER_MENU);
           const pp_meter_full = await pp_meter_element.evaluate(
-            (el) => el.textContent
+            (el) => el.textContent,
           );
 
           let pp_meter_full_trim = pp_meter_full.trim();
@@ -351,8 +351,8 @@ let page = "";
           let pp_meter_id = parseInt(
             pp_meter_full_trim.slice(
               meterStringIndex + 8,
-              pp_meter_full_trim.length - 2
-            )
+              pp_meter_full_trim.length - 2,
+            ),
           );
           console.log(pp_meter_id);
 
@@ -362,7 +362,7 @@ let page = "";
           while (!continueVarMonthlyFlag && continueVarMonthly < maxAttempts) {
             try {
               await page.waitForSelector(
-                "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area"
+                "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
               );
               await page.waitForSelector(MONTHLY_TOP, {
                 timeout: 25000,
@@ -384,8 +384,8 @@ let page = "";
               // await page.waitForTimeout(10000);
               await page.waitForFunction(() =>
                 document.querySelector(
-                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing"
-                )
+                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+                ),
               );
               if (continueVarMonthly % 2 === 0) {
                 [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
@@ -441,13 +441,13 @@ let page = "";
               "Attempt " +
                 (continueVarMonthly + 1).toString() +
                 " of " +
-                maxAttempts
+                maxAttempts,
             );
             continueVarMonthlyFlag = false;
             continueVarMonthly++;
             if (continueVarMonthly === maxAttempts) {
               console.log(
-                `Re-Checked ${maxAttempts} times, Stopping Webscraper`
+                `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
               );
               continueMetersFlag = true;
               break;
@@ -457,10 +457,10 @@ let page = "";
 
           monthly_top = await page.waitForSelector(MONTHLY_TOP);
           console.log(
-            "Monthly Data Top Row Found, getting table top row value"
+            "Monthly Data Top Row Found, getting table top row value",
           );
           let monthly_top_text = await monthly_top.evaluate(
-            (el) => el.textContent
+            (el) => el.textContent,
           );
           console.log(monthly_top_text);
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
@@ -482,7 +482,7 @@ let page = "";
           // date (e.g. yesterday), just that the usage (kwh) data is "unavailable"
           if (monthly_top_text.includes("Unavailable")) {
             console.log(
-              "Unavailable Usage (kwh) data for monthly time range, skipping to next meter"
+              "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
             );
             meter_selector_num++;
             continueVarLoading = 0;
@@ -494,7 +494,7 @@ let page = "";
           continueVarMonthly = 0;
 
           let usage_kwh = parseFloat(
-            monthly_top_text.split(positionUsage)[1].split(positionEst)[0]
+            monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
           );
           console.log(usage_kwh);
 
@@ -512,7 +512,7 @@ let page = "";
           let actualDate = moment
             .tz(
               new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-              "America/Los_Angeles"
+              "America/Los_Angeles",
             )
             .format("YYYY-MM-DD");
 
@@ -525,7 +525,7 @@ let page = "";
           // unix time calc
           dateObj.setUTCHours(23, 59, 59, 0);
           const END_TIME_SECONDS = Math.floor(
-            dateObj.valueOf() / 1000
+            dateObj.valueOf() / 1000,
           ).toString();
           console.log("Unix time is " + END_TIME_SECONDS);
 
@@ -572,7 +572,7 @@ let page = "";
           otherErrorArray.push({ meter_selector_num, pp_meter_id });
           console.log(
             meter_selector_num.toString() +
-              " Unknown Issue, Skipping to next meter"
+              " Unknown Issue, Skipping to next meter",
           );
           meter_selector_num++;
           continueMeters++;
@@ -604,7 +604,7 @@ let page = "";
       })
         .then((res) => {
           console.log(
-            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`
+            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
           );
           console.log(`uploaded ${pacificPowerMeters} data to API`);
         })
@@ -619,7 +619,7 @@ let page = "";
         .unix(startDate)
         .tz("America/Los_Angeles")
         .format("MM-DD-YYYY hh:mm a") +
-      " PST"
+      " PST",
   );
   console.log("\nWrong Date Meters (Monthly): ");
   console.log(wrongDateArray);
