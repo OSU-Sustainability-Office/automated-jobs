@@ -259,7 +259,7 @@ let page = "";
       console.log(meter_selector_num);
     } else {
       // testing at specific meter ID, e.g. to see if termination behavior works
-      // meter_selector_num = 622;
+      // meter_selector_num = 621;
 
       while (!continueMetersFlag && continueMeters < maxAttempts) {
         try {
@@ -451,9 +451,6 @@ let page = "";
             continue;
           }
 
-          continueVarMonthlyFlag = false;
-          continueVarMonthly = 0;
-
           monthly_top = await page.waitForSelector(MONTHLY_TOP);
           console.log(
             "Monthly Data Top Row Found, getting table top row value",
@@ -473,6 +470,31 @@ let page = "";
             continueVarLoading = 0;
             continue;
           }
+
+          if (
+            monthly_top_text.includes("Unavailable")
+          ) {
+            console.log("Usage (kwh) unavailable, try again");
+            console.log(
+              "Attempt " +
+                (continueVarMonthly + 1).toString() +
+                " of " +
+                maxAttempts,
+            );
+            continueVarMonthlyFlag = false;
+            continueVarMonthly++;
+            if (continueVarMonthly === maxAttempts) {
+              console.log(
+                `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
+              );
+              continueMetersFlag = true;
+              break;
+            }
+            continue;
+          }
+
+          continueVarMonthlyFlag = false;
+          continueVarMonthly = 0;
 
           let usage_kwh = parseFloat(
             monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
@@ -547,6 +569,11 @@ let page = "";
           );
           meter_selector_num++;
           continueMeters++;
+          if (continueMeters === maxAttempts) {
+            console.log(
+              `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
+            );
+          }
           // continue;
         }
       }
