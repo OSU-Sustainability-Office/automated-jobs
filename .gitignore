@@ -122,3 +122,4 @@ check-acq/allMeters.json
 
 # PacificPower output
 pacificpower/output.json
+pacificpower/logs/log-file*.txt
