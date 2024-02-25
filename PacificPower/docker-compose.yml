@@ -1,0 +1,10 @@
+version: "3.8" # Docker engine 19.03.0+
+services:
+  # Scrape energy data from pacific power
+  pacific-power:
+    image: "buildkite/puppeteer:latest"
+    working_dir: electrical
+    command: "npm install && node readPP.js"
+    ports:
+      - "443:443"
+      - "80:80"
