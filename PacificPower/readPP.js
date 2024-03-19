@@ -497,7 +497,8 @@ let pp_meter_id = "";
           // Difference between delivered error and just wrong date is that unavailable shows expected
           // date (e.g. yesterday), just that the usage seems to be completely wrong values
           if (
-            monthly_top_text.includes("delivered to you" || "received from you")
+            monthly_top_text.includes("delivered to you") ||
+            monthly_top_text.includes("received from you")
           ) {
             console.log(
               "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
