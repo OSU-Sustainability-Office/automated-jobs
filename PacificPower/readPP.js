@@ -55,7 +55,8 @@ let loggedInFlag = false;
 let graphButton = "";
 let first_selector_num = 0;
 let PPArray = [];
-let unAvailableArray = [];
+let unAvailableErrorArray = [];
+let deliveredErrorArray = [];
 let otherErrorArray = [];
 let wrongDateArray = [];
 let yearlyArray = [];
@@ -67,6 +68,7 @@ let continueMeters = 0;
 let continueVarLoading = 0;
 let continueVarMonthly = 0;
 let page = "";
+let pp_meter_id = "";
 
 (async () => {
   // Launch the browser
@@ -348,7 +350,7 @@ let page = "";
 
           let positionMeter = "(Meter #";
           let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
-          let pp_meter_id = parseInt(
+          pp_meter_id = parseInt(
             pp_meter_full_trim.slice(
               meterStringIndex + 8,
               pp_meter_full_trim.length - 2,
@@ -486,7 +488,24 @@ let page = "";
             );
             meter_selector_num++;
             continueVarLoading = 0;
-            unAvailableArray.push({ meter_selector_num, pp_meter_id });
+            unAvailableErrorArray.push({ meter_selector_num, pp_meter_id });
+            continue;
+          }
+
+          // potential TODO: If delivered error, get second row of data
+          // Then need to handle potential redundant data on upload, first of month case
+          // Difference between delivered error and just wrong date is that unavailable shows expected
+          // date (e.g. yesterday), just that the usage seems to be completely wrong values
+          if (
+            monthly_top_text.includes("delivered to you") ||
+            monthly_top_text.includes("received from you")
+          ) {
+            console.log(
+              "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
+            );
+            meter_selector_num++;
+            continueVarLoading = 0;
+            deliveredErrorArray.push({ meter_selector_num, pp_meter_id });
             continue;
           }
 
@@ -588,7 +607,10 @@ let page = "";
   const pacificPowerMeters = "pacific_power_data";
 
   for (let i = 0; i < PPArray.length; i++) {
-    console.log(PPArray[i]);
+    // No need to log the data twice if uploading
+    if (process.argv.includes("--no-upload")) {
+      console.log(PPArray[i]);
+    }
 
     // to prevent uploading data to API: node readPP.js --no-upload
     if (!process.argv.includes("--no-upload")) {
@@ -606,7 +628,6 @@ let page = "";
           console.log(
             `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
           );
-          console.log(`uploaded ${pacificPowerMeters} data to API`);
         })
         .catch((err) => {
           console.log(err);
@@ -622,13 +643,25 @@ let page = "";
       " PST",
   );
   console.log("\nWrong Date Meters (Monthly): ");
-  console.log(wrongDateArray);
+  for (let i = 0; i < wrongDateArray.length; i++) {
+    console.log(wrongDateArray[i]);
+  }
   console.log("\nUnavailable Meters (Monthly): ");
-  console.log(unAvailableArray);
+  for (let i = 0; i < unAvailableErrorArray.length; i++) {
+    console.log(unAvailableErrorArray[i]);
+  }
+  console.log("\nDelivered Error Meters (Monthly): ");
+  for (let i = 0; i < deliveredErrorArray.length; i++) {
+    console.log(deliveredErrorArray[i]);
+  }
   console.log("\nYearly Meters: ");
-  console.log(yearlyArray);
+  for (let i = 0; i < yearlyArray.length; i++) {
+    console.log(yearlyArray[i]);
+  }
   console.log("\nOther Errors: ");
-  console.log(otherErrorArray);
+  for (let i = 0; i < otherErrorArray.length; i++) {
+    console.log(otherErrorArray[i]);
+  }
 
   // node readPP.js --save-output
   if (
@@ -638,7 +671,7 @@ let page = "";
     PPArray.push("Wrong Date Meters (Monthly): ");
     PPArray.push(wrongDateArray);
     PPArray.push("Unavailable Meters (Monthly): ");
-    PPArray.push(unAvailableArray);
+    PPArray.push(unAvailableErrorArray);
     PPArray.push("Yearly Meters: ");
     PPArray.push(yearlyArray);
     PPArray.push("Other Errors: ");
