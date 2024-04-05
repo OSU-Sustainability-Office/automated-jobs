@@ -323,29 +323,29 @@ const meterlist = require("./meterlist.json");
   for (let i = 0; i < final_PV_tableData.length; i++) {
     console.log(final_PV_tableData[i]);
 
-    // Comment out the axios POST request as specified below for local development (unless making changes to upload stuff).
-    // Uncomment this section before pushing to production.
-    // /* block comment starts here
-    await axios({
-      method: "post",
-      url: `${process.env.DASHBOARD_API}/upload`,
-      data: {
-        id: solarmeter,
-        body: final_PV_tableData[i],
-        pwd: process.env.API_PWD,
-        type: "solar",
-      },
-    })
-      .then((res) => {
-        console.log(
-          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
-        );
-        console.log(`uploaded ${solarmeter} data to API`);
+    // Use the --no-upload flag to prevent uploading to the API for local development/testing
+    // node readEnnex.js --no-upload
+    if (!process.argv.includes("--no-upload")) {
+      await axios({
+        method: "post",
+        url: `${process.env.DASHBOARD_API}/upload`,
+        data: {
+          id: solarmeter,
+          body: final_PV_tableData[i],
+          pwd: process.env.API_PWD,
+          type: "solar",
+        },
       })
-      .catch((err) => {
-        console.log(err);
-      });
-    // */ //block comment ends here
+        .then((res) => {
+          console.log(
+            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+          );
+          console.log(`uploaded ${solarmeter} data to API`);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    }
   }
 
   // Close browser.
