@@ -70,7 +70,30 @@ let continueVarMonthly = 0;
 let page = "";
 let pp_meter_id = "";
 
+let pp_meter_exclude_yes = [];
+let pp_meter_exclude_no = [];
+let pp_meter_exclude_not_found = [];
+
 (async () => {
+  // fetch the meter exclusion list
+  const pp_meter_exclusion_list = await axios({
+    method: "get",
+    url: `${process.env.DASHBOARD_API}/ppexclude`,
+  })
+    .then((res) => {
+      console.log(
+        `RESPONSE: ${res.status}, TEXT: ${
+          res.statusText
+        }, DATA: ${JSON.stringify(res.data)}`,
+      );
+      return res.data;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+
+  console.log("PP Meter Exclusion List: ", pp_meter_exclusion_list);
+
   // Launch the browser
   const browser = await puppeteer.launch({
     headless: "new", // set to false (no quotes) for debug. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
@@ -570,7 +593,23 @@ let pp_meter_id = "";
             time_seconds: END_TIME_SECONDS,
           };
 
-          PPArray.push(PPTable);
+          const meter = pp_meter_exclusion_list.find(
+            (meter) => meter.pp_meter_id === pp_meter_id,
+          );
+          if (meter && meter.exclude === "yes") {
+            console.log(`Meter ${pp_meter_id} is excluded`);
+            pp_meter_exclude_yes.push(pp_meter_id);
+          } else if (meter && meter.exclude === "no") {
+            console.log(`Meter ${pp_meter_id} is not excluded`);
+            pp_meter_exclude_no.push(pp_meter_id);
+            PPArray.push(PPTable);
+          } else {
+            console.log(
+              `Meter ${pp_meter_id} is not in the exclusion list: NEW METER`,
+            );
+            pp_meter_exclude_not_found.push(pp_meter_id);
+            PPArray.push(PPTable);
+          }
 
           /* // for testing json output
       if (newID === 511) {
@@ -662,6 +701,18 @@ let pp_meter_id = "";
   for (let i = 0; i < otherErrorArray.length; i++) {
     console.log(otherErrorArray[i]);
   }
+  console.log("\nMeters Excluded: ");
+  for (let i = 0; i < pp_meter_exclude_yes.length; i++) {
+    console.log(pp_meter_exclude_yes[i]);
+  }
+  console.log("\nMeters Not Excluded: ");
+  for (let i = 0; i < pp_meter_exclude_no.length; i++) {
+    console.log(pp_meter_exclude_no[i]);
+  }
+  console.log("\nMeters Not Found in Exclusion List (new meters): ");
+  for (let i = 0; i < pp_meter_exclude_not_found.length; i++) {
+    console.log(pp_meter_exclude_not_found[i]);
+  }
 
   // node readPP.js --save-output
   if (
@@ -676,6 +727,12 @@ let pp_meter_id = "";
     PPArray.push(yearlyArray);
     PPArray.push("Other Errors: ");
     PPArray.push(otherErrorArray);
+    PPArray.push("Meters Excluded: ");
+    PPArray.push(pp_meter_exclude_yes);
+    PPArray.push("Meters Not Excluded: ");
+    PPArray.push(pp_meter_exclude_no);
+    PPArray.push("Meters Not Found in Exclusion List (new meters): ");
+    PPArray.push(pp_meter_exclude_not_found);
     const jsonContent = JSON.stringify(PPArray, null, 2);
     fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
       if (err) {
