@@ -9,6 +9,8 @@ const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
 require("dotenv").config();
 const startDate = moment().unix();
+const apiRecentUrl =
+  process.env.DASHBOARD_API + "/pprecent"
 
 const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
 const axios = require("axios");
@@ -69,6 +71,15 @@ let continueVarLoading = 0;
 let continueVarMonthly = 0;
 let page = "";
 let pp_meter_id = "";
+
+axios
+  .get(apiRecentUrl)
+  .then((response) => {
+    // Remember, this status check is for allBuildings API call, not the batched requests
+    if (response.status === 200) {
+      const ppRecent = response.data;
+      console.log(ppRecent);
+
 
 (async () => {
   // Launch the browser
@@ -552,6 +563,9 @@ let pp_meter_id = "";
           // wrong date (usually) means the most recent data is 2 days old
           // current wrongdate meter (that is in meters table): 74264319
           if (date !== actualDate) {
+            // TODO: Exit early if wrong date, and if data already exists in SQL database
+            let matchingPPRecent = ppRecent.find(o => o.pacific_power_meter_id === pp_meter_id);
+            console.log(matchingPPRecent);
             wrongDateArray.push({
               meter_selector_num,
               pp_meter_id,
@@ -559,8 +573,16 @@ let pp_meter_id = "";
               time_seconds: END_TIME_SECONDS,
             });
             console.log("Does not match yesterday's date");
-            // TBD if we just log the warning or if we should stop the scraper if this happens
+          } else {
+            console.log("Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago")
+            let matchingPPRecent = ppRecent.find(o => o.pacific_power_meter_id === pp_meter_id);
+            console.log(matchingPPRecent);
+            // TODO: Implement function to get 2 days ago data from webscraper
+            // TODO: Upload 2 days ago data + yesterday's data to SQL database
           }
+
+          let matchingPPRecent = ppRecent.find(o => o.pacific_power_meter_id === pp_meter_id);
+          console.log(matchingPPRecent);
 
           const PPTable = {
             meter_selector_num,
@@ -688,3 +710,11 @@ let pp_meter_id = "";
   // Close browser.
   await browser.close();
 })();
+
+} else {
+  console.error("Failed to fetch data from the API.");
+}
+})
+.catch((error) => {
+console.error("An error occurred while fetching data:", error);
+});
