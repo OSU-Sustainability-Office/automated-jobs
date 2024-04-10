@@ -64,6 +64,7 @@ let unAvailableErrorArray = [];
 let deliveredErrorArray = [];
 let otherErrorArray = [];
 let wrongDateArray = [];
+let wrongDateGapArray = [];
 let yearlyArray = [];
 let continueDetailsFlag = false;
 let successDetailsFlag = false;
@@ -77,9 +78,7 @@ let pp_meter_id = "";
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
-  console.log("Monthly Data Top Row Found, getting table top row value");
   let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
-  console.log(monthly_top_text);
   return monthly_top_text;
 }
 
@@ -93,8 +92,6 @@ async function getActualDate(actual_days) {
       "America/Los_Angeles",
     )
     .format("YYYY-MM-DD");
-
-  console.log("Actual date: " + actualDate);
   return actualDate;
 }
 
@@ -102,22 +99,18 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let usage_kwh = parseFloat(
     monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
   );
-  console.log(usage_kwh);
 
   // get the date for the data
   let positionPeriod = "Period";
   let positionAve = "Average";
   let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
 
-  console.log("Latest date from PacificPower: " + date);
   const dateObj = new Date(date);
   const END_TIME = `${date}T23:59:59`;
-  console.log("Time is " + END_TIME);
 
   // unix time calc
   dateObj.setUTCHours(23, 59, 59, 0);
   const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
-  console.log("Unix time is " + END_TIME_SECONDS);
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
@@ -526,18 +519,12 @@ axios
                   continue;
                 }
 
-                /*
-          monthly_top = await page.waitForSelector(MONTHLY_TOP);
-          console.log(
-            "Monthly Data Top Row Found, getting table top row value",
-          );
-          let monthly_top_text = await monthly_top.evaluate(
-            (el) => el.textContent,
-          );
-          console.log(monthly_top_text);
-          */
                 let row_days = row_days_const;
                 let monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+                console.log(
+                  "Monthly Data Top Row Found, getting table top row value",
+                ); // TODO: Fix this to be just "top row" or something, rename "monthly" var names to be more clear on time interval vs total time frame
+                console.log(monthly_top_text);
                 let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
                 let positionEst = "Est. Rounded";
 
@@ -588,44 +575,6 @@ axios
                 continueVarMonthlyFlag = false;
                 continueVarMonthly = 0;
 
-                /*
-          let usage_kwh = parseFloat(
-            monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-          );
-          console.log(usage_kwh);
-
-          // get the date for the data
-          let positionPeriod = "Period";
-          let positionAve = "Average";
-          let date = monthly_top_text
-            .split(positionPeriod)[1]
-            .split(positionAve)[0];
-
-          console.log("Latest date from PacificPower: " + date);
-
-          // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
-          // yesterday's date in PST timezone, YYYY-MM-DD format
-          // TODO: Maybe change this from yesterday to 2 days ago for testing in the morning
-          let actualDate = moment
-            .tz(
-              new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-              "America/Los_Angeles",
-            )
-            .format("YYYY-MM-DD");
-
-          console.log("Actual date: " + actualDate);
-
-          const dateObj = new Date(date);
-          const END_TIME = `${date}T23:59:59`;
-          console.log("Time is " + END_TIME);
-
-          // unix time calc
-          dateObj.setUTCHours(23, 59, 59, 0);
-          const END_TIME_SECONDS = Math.floor(
-            dateObj.valueOf() / 1000,
-          ).toString();
-          console.log("Unix time is " + END_TIME_SECONDS);
-          */
                 let actual_days = actual_days_const;
                 let actualDate = await getActualDate(actual_days);
                 let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
@@ -639,23 +588,24 @@ axios
                 // wrong date (usually) means the most recent data is 2 days old
                 // current wrongdate meter (that is in meters table): 74264319
                 if (date !== actualDate) {
+                  // TODO: Exit early if wrong date, and if data already exists in SQL database
+                  console.log(
+                    "Latest date on PacificPower does not match actual date",
+                  );
+                  let matchingPPRecent = ppRecent.find(
+                    (o) => o.pacific_power_meter_id === pp_meter_id,
+                  );
+                  console.log(matchingPPRecent);
+                  let matchingPPRecentTime = moment
+                    .tz(
+                      matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
+                      "America/Los_Angeles",
+                    )
+                    .format("YYYY-MM-DD");
+                  console.log(matchingPPRecentTime);
                   while (!prevDayFlag && actual_days < maxPrevDayCount) {
-                    // TODO: Exit early if wrong date, and if data already exists in SQL database
-                    console.log(
-                      "Latest date on PacificPower does not match actual date",
-                    );
-                    let matchingPPRecent = ppRecent.find(
-                      (o) => o.pacific_power_meter_id === pp_meter_id,
-                    );
-                    console.log(matchingPPRecent);
-                    let matchingPPRecentTime = moment
-                      .tz(
-                        matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
-                        "America/Los_Angeles",
-                      )
-                      .format("YYYY-MM-DD");
-                    console.log(matchingPPRecentTime);
                     let actualDate = await getActualDate(actual_days);
+                    console.log("Actual date: " + actualDate);
                     if (matchingPPRecentTime === actualDate) {
                       console.log(
                         "Data for this day already exists in SQL database",
@@ -663,14 +613,44 @@ axios
                       prevDayFlag = true;
                       break;
                     }
-                    actual_days += 1;
                     monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+                    console.log(
+                      "Monthly Data Top Row Found, getting table top row value",
+                    );
+                    console.log(monthly_top_text);
                     let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
                       await getRowData(
                         monthly_top_text,
                         positionUsage,
                         positionEst,
                       );
+                    console.log(usage_kwh);
+                    console.log("Latest date from PacificPower: " + date);
+                    console.log("Time is " + END_TIME);
+                    console.log("Unix time is " + END_TIME_SECONDS);
+                    const PPTable = {
+                      meter_selector_num,
+                      pp_meter_id,
+                      usage_kwh,
+                      time: END_TIME,
+                      time_seconds: END_TIME_SECONDS,
+                    };
+
+                    if (
+                      String(matchingPPRecent.time_seconds) !== END_TIME_SECONDS
+                    ) {
+                      console.log("heeeeeere 1");
+                      console.log(matchingPPRecent.time_seconds);
+                      console.log(END_TIME_SECONDS);
+                      PPArray.push(PPTable);
+                      wrongDateArray.push({
+                        meter_selector_num,
+                        pp_meter_id,
+                        time: END_TIME,
+                        time_seconds: END_TIME_SECONDS,
+                      });
+                    }
+                    actual_days += 1;
                     // TODO: Only run this at end of loop
                     /*
                   wrongDateArray.push({
@@ -686,23 +666,24 @@ axios
                   }
                   prevDayFlag = false;
                 } else {
+                  // TODO: Change to something about aligning actual days and row days
+                  console.log(
+                    "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
+                  );
+                  let matchingPPRecent = ppRecent.find(
+                    (o) => o.pacific_power_meter_id === pp_meter_id,
+                  );
+                  console.log(matchingPPRecent);
+                  let matchingPPRecentTime = moment
+                    .tz(
+                      matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
+                      "America/Los_Angeles",
+                    )
+                    .format("YYYY-MM-DD");
+                  console.log(matchingPPRecentTime);
                   while (!prevDayFlag && actual_days < maxPrevDayCount) {
-                    // TODO: Change to something about aligning actual days and row days
-                    console.log(
-                      "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
-                    );
-                    let matchingPPRecent = ppRecent.find(
-                      (o) => o.pacific_power_meter_id === pp_meter_id,
-                    );
-                    console.log(matchingPPRecent);
-                    let matchingPPRecentTime = moment
-                      .tz(
-                        matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
-                        "America/Los_Angeles",
-                      )
-                      .format("YYYY-MM-DD");
-                    console.log(matchingPPRecentTime);
                     let actualDate = await getActualDate(actual_days);
+                    console.log("Actual date: " + actualDate);
                     if (matchingPPRecentTime === actualDate) {
                       console.log(
                         "Data for this day already exists in SQL database",
@@ -710,18 +691,49 @@ axios
                       prevDayFlag = true;
                       break;
                     }
-                    // TODO: Implement function to get 2 days ago data from webscraper
-                    // TODO: Upload 2 days ago data + yesterday's data to SQL database
-                    // TODO: Add "missing data uploaded" array and log it?
-                    row_days += 1;
-                    actual_days += 1;
                     monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+                    console.log(
+                      "Monthly Data Top Row Found, getting table top row value",
+                    );
+                    console.log(monthly_top_text);
                     let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
                       await getRowData(
                         monthly_top_text,
                         positionUsage,
                         positionEst,
                       );
+                    console.log(usage_kwh);
+                    console.log("Latest date from PacificPower: " + date);
+                    console.log("Time is " + END_TIME);
+                    console.log("Unix time is " + END_TIME_SECONDS);
+                    const PPTable = {
+                      meter_selector_num,
+                      pp_meter_id,
+                      usage_kwh,
+                      time: END_TIME,
+                      time_seconds: END_TIME_SECONDS,
+                    };
+                    if (
+                      String(matchingPPRecent.time_seconds) !== END_TIME_SECONDS
+                    ) {
+                      PPArray.push(PPTable);
+                      console.log("heeeeeere 2");
+                      console.log(matchingPPRecent.time_seconds);
+                      console.log(END_TIME_SECONDS);
+                      if (actual_days > actual_days_const) {
+                        wrongDateGapArray.push({
+                          meter_selector_num,
+                          pp_meter_id,
+                          time: END_TIME,
+                          time_seconds: END_TIME_SECONDS,
+                        });
+                      }
+                    }
+                    // TODO: Implement function to get 2 days ago data from webscraper
+                    // TODO: Upload 2 days ago data + yesterday's data to SQL database
+                    // TODO: Add "missing data uploaded" array and log it?
+                    row_days += 1;
+                    actual_days += 1;
                   }
                   prevDayFlag = false;
                   /* TODO: Move to end of loop?
@@ -733,16 +745,6 @@ axios
                   });
                   */
                 }
-
-                const PPTable = {
-                  meter_selector_num,
-                  pp_meter_id,
-                  usage_kwh,
-                  time: END_TIME,
-                  time_seconds: END_TIME_SECONDS,
-                };
-
-                PPArray.push(PPTable);
 
                 /* // for testing json output
       if (newID === 511) {
@@ -816,9 +818,13 @@ axios
               .format("MM-DD-YYYY hh:mm a") +
             " PST",
         );
-        console.log("\nWrong Date Meters (Monthly): ");
+        console.log("\nWrong Date Meters (Monthly, new upload): ");
         for (let i = 0; i < wrongDateArray.length; i++) {
           console.log(wrongDateArray[i]);
+        }
+        console.log("\nWrong Date Gap Meters (Monthly, new upload): ");
+        for (let i = 0; i < wrongDateGapArray.length; i++) {
+          console.log(wrongDateGapArray[i]);
         }
         console.log("\nUnavailable Meters (Monthly): ");
         for (let i = 0; i < unAvailableErrorArray.length; i++) {
@@ -844,6 +850,8 @@ axios
         ) {
           PPArray.push("Wrong Date Meters (Monthly): ");
           PPArray.push(wrongDateArray);
+          PPArray.push("Wrong Date Gap Meters (Monthly): ");
+          PPArray.push(wrongDateGapArray);
           PPArray.push("Unavailable Meters (Monthly): ");
           PPArray.push(unAvailableErrorArray);
           PPArray.push("Yearly Meters: ");
