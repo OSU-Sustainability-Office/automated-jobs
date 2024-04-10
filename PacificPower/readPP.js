@@ -83,24 +83,7 @@ async function getRowText(monthly_top_const, row_days) {
   return monthly_top_text;
 }
 
-async function getRowData(
-  monthly_top_text,
-  actual_days,
-  positionUsage,
-  positionEst,
-) {
-  let usage_kwh = parseFloat(
-    monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-  );
-  console.log(usage_kwh);
-
-  // get the date for the data
-  let positionPeriod = "Period";
-  let positionAve = "Average";
-  let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
-
-  console.log("Latest date from PacificPower: " + date);
-
+async function getActualDate(actual_days) {
   // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
   // yesterday's date in PST timezone, YYYY-MM-DD format
   // TODO: Maybe change this from yesterday to 2 days ago for testing in the morning
@@ -112,7 +95,21 @@ async function getRowData(
     .format("YYYY-MM-DD");
 
   console.log("Actual date: " + actualDate);
+  return actualDate;
+}
 
+async function getRowData(monthly_top_text, positionUsage, positionEst) {
+  let usage_kwh = parseFloat(
+    monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+  );
+  console.log(usage_kwh);
+
+  // get the date for the data
+  let positionPeriod = "Period";
+  let positionAve = "Average";
+  let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
+
+  console.log("Latest date from PacificPower: " + date);
   const dateObj = new Date(date);
   const END_TIME = `${date}T23:59:59`;
   console.log("Time is " + END_TIME);
@@ -121,7 +118,7 @@ async function getRowData(
   dateObj.setUTCHours(23, 59, 59, 0);
   const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
   console.log("Unix time is " + END_TIME_SECONDS);
-  return { usage_kwh, date, actualDate, END_TIME, END_TIME_SECONDS };
+  return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
 axios
@@ -130,7 +127,7 @@ axios
     // Remember, this status check is for allBuildings API call, not the batched requests
     if (response.status === 200) {
       const ppRecent = response.data;
-      console.log(ppRecent); // TODO: comment out later, or call in for loop to get rid of "...4 more items"
+      //console.log(ppRecent); // TODO: comment out later, or call in for loop to get rid of "...4 more items"
       (async () => {
         // Launch the browser
         const browser = await puppeteer.launch({
@@ -200,19 +197,24 @@ axios
 
               await frame.click(LOGIN_BUTTON);
               console.log("Login Button clicked");
+              // this one needs more timeout, based on results from stresstest.sh
+              await page.waitForNavigation({
+                waitUntil: "networkidle0",
+                timeout: 60000,
+              });
+              console.log(await page.title());
               loggedInFlag = true;
             } else {
               console.log("Already logged in, go to My Account");
               // Go to your site
               await page.goto(process.env.PP_ACCOUNTPAGE);
+              // this one needs more timeout, based on results from stresstest.sh
+              await page.waitForNavigation({
+                waitUntil: "networkidle0",
+                timeout: 60000,
+              });
+              console.log(await page.title());
             }
-
-            // this one needs more timeout, based on results from stresstest.sh
-            await page.waitForNavigation({
-              waitUntil: "networkidle0",
-              timeout: 60000,
-            });
-            console.log(await page.title());
 
             await page.waitForTimeout(25000);
 
@@ -625,18 +627,13 @@ axios
           console.log("Unix time is " + END_TIME_SECONDS);
           */
                 let actual_days = actual_days_const;
-                let {
-                  usage_kwh,
-                  date,
-                  actualDate,
-                  END_TIME,
-                  END_TIME_SECONDS,
-                } = await getRowData(
-                  monthly_top_text,
-                  actual_days,
-                  positionUsage,
-                  positionEst,
-                );
+                let actualDate = await getActualDate(actual_days);
+                let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+                  await getRowData(
+                    monthly_top_text,
+                    positionUsage,
+                    positionEst,
+                  );
 
                 // potential TODO: handle potential redundant data on upload, first of month case
                 // wrong date (usually) means the most recent data is 2 days old
@@ -647,20 +644,33 @@ axios
                     console.log(
                       "Latest date on PacificPower does not match actual date",
                     );
+                    let matchingPPRecent = ppRecent.find(
+                      (o) => o.pacific_power_meter_id === pp_meter_id,
+                    );
+                    console.log(matchingPPRecent);
+                    let matchingPPRecentTime = moment
+                      .tz(
+                        matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
+                        "America/Los_Angeles",
+                      )
+                      .format("YYYY-MM-DD");
+                    console.log(matchingPPRecentTime);
+                    let actualDate = await getActualDate(actual_days);
+                    if (matchingPPRecentTime === actualDate) {
+                      console.log(
+                        "Data for this day already exists in SQL database",
+                      );
+                      prevDayFlag = true;
+                      break;
+                    }
                     actual_days += 1;
                     monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
-                    let {
-                      usage_kwh,
-                      date,
-                      actualDate,
-                      END_TIME,
-                      END_TIME_SECONDS,
-                    } = await getRowData(
-                      monthly_top_text,
-                      actual_days,
-                      positionUsage,
-                      positionEst,
-                    );
+                    let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+                      await getRowData(
+                        monthly_top_text,
+                        positionUsage,
+                        positionEst,
+                      );
                     // TODO: Only run this at end of loop
                     /*
                   wrongDateArray.push({
@@ -673,6 +683,14 @@ axios
                     console.log("new corrected date?");
                     console.log(actualDate);
                     console.log(date);
+                  }
+                  prevDayFlag = false;
+                } else {
+                  while (!prevDayFlag && actual_days < maxPrevDayCount) {
+                    // TODO: Change to something about aligning actual days and row days
+                    console.log(
+                      "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
+                    );
                     let matchingPPRecent = ppRecent.find(
                       (o) => o.pacific_power_meter_id === pp_meter_id,
                     );
@@ -684,6 +702,7 @@ axios
                       )
                       .format("YYYY-MM-DD");
                     console.log(matchingPPRecentTime);
+                    let actualDate = await getActualDate(actual_days);
                     if (matchingPPRecentTime === actualDate) {
                       console.log(
                         "Data for this day already exists in SQL database",
@@ -691,32 +710,18 @@ axios
                       prevDayFlag = true;
                       break;
                     }
-                  }
-                  prevDayFlag = false;
-                } else {
-                  while (!prevDayFlag && actual_days < maxPrevDayCount) {
-                    // TODO: Change to something about aligning actual days and row days
-                    console.log(
-                      "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
-                    );
                     // TODO: Implement function to get 2 days ago data from webscraper
                     // TODO: Upload 2 days ago data + yesterday's data to SQL database
                     // TODO: Add "missing data uploaded" array and log it?
                     row_days += 1;
                     actual_days += 1;
                     monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
-                    let {
-                      usage_kwh,
-                      date,
-                      actualDate,
-                      END_TIME,
-                      END_TIME_SECONDS,
-                    } = await getRowData(
-                      monthly_top_text,
-                      actual_days,
-                      positionUsage,
-                      positionEst,
-                    );
+                    let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+                      await getRowData(
+                        monthly_top_text,
+                        positionUsage,
+                        positionEst,
+                      );
                   }
                   prevDayFlag = false;
                   /* TODO: Move to end of loop?
@@ -727,24 +732,6 @@ axios
                     time_seconds: END_TIME_SECONDS,
                   });
                   */
-                  let matchingPPRecent = ppRecent.find(
-                    (o) => o.pacific_power_meter_id === pp_meter_id,
-                  );
-                  console.log(matchingPPRecent);
-                  let matchingPPRecentTime = moment
-                    .tz(
-                      matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
-                      "America/Los_Angeles",
-                    )
-                    .format("YYYY-MM-DD");
-                  console.log(matchingPPRecentTime);
-                  if (matchingPPRecentTime === actualDate) {
-                    console.log(
-                      "Data for this day already exists in SQL database",
-                    );
-                    prevDayFlag = true;
-                    break;
-                  }
                 }
 
                 const PPTable = {
