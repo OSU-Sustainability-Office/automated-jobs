@@ -582,7 +582,8 @@ axios
 
                 // potential TODO: handle potential redundant data on upload, first of month case
                 // wrong date (usually) means the most recent data is 2 days old
-                // current wrongdate meter (that is in meters table): 74264319
+
+                // TODO: Most stuff in the while loop other than row_days and actual_days can be initialized at the very top
                 while (!prevDayFlag && actual_days <= maxPrevDayCount) {
                   try {
                     try {
