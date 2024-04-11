@@ -584,92 +584,102 @@ axios
                 // wrong date (usually) means the most recent data is 2 days old
                 // current wrongdate meter (that is in meters table): 74264319
                 while (!prevDayFlag && actual_days <= maxPrevDayCount) {
-                  monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
-                  console.log(
-                    "Monthly Data Top Row Found, getting table top row value",
-                  );
-                  console.log(monthly_top_text);
-                  let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
-                    await getRowData(
-                      monthly_top_text,
-                      positionUsage,
-                      positionEst,
-                    );
-                  let { actualDate, ACTUAL_DATE_UNIX } =
-                    getActualDate(actual_days);
-                  console.log("Actual date: " + actualDate);
-                  if (date !== actualDate) {
-                    console.log(date);
-                    console.log(actualDate);
-
-                    // TODO: Exit early if wrong date, and if data already exists in SQL database
-                    console.log(
-                      "Latest date on PacificPower does not match actual date",
-                    );
-                    let matchingPPRecent = ppRecent.find(
-                      (o) => o.pacific_power_meter_id === pp_meter_id,
-                    );
-                    let matchingPPRecentTime = "";
-                    if (matchingPPRecent) {
-                      console.log(matchingPPRecent);
-                      matchingPPRecentTime = moment
-                        .tz(
-                          matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
-                          "America/Los_Angeles",
-                        )
-                        .format("YYYY-MM-DD");
-                      console.log(matchingPPRecentTime);
-                    } else {
-                      console.log("No matching data found yet in SQL database");
-                    }
-                    if (
-                      matchingPPRecentTime &&
-                      matchingPPRecentTime === actualDate
-                    ) {
+                  try {
+                    try {
+                      monthly_top_text = await getRowText(
+                        MONTHLY_TOP,
+                        row_days,
+                      );
+                    } catch (error) {
                       console.log(
-                        "Data for this day already exists in SQL database",
+                        `Meter data for ${actual_days} days ago not found, likely due to this being a new meter. Exiting early.`,
                       );
                       prevDayFlag = true;
-                      break;
                     }
-                    const PPTable = {
-                      meter_selector_num,
-                      pp_meter_id,
-                      usage_kwh,
-                      time: END_TIME,
-                      time_seconds: END_TIME_SECONDS,
-                    };
-
-                    let matchingPPArray = PPArray.find(
-                      (o) =>
-                        o.pp_meter_id === PPTable.pp_meter_id &&
-                        o.time_seconds === PPTable.time_seconds,
+                    console.log(
+                      "Monthly Data Top Row Found, getting table top row value",
                     );
-
-                    if (
-                      ((matchingPPRecent &&
-                        String(matchingPPRecent.time_seconds) !==
-                          END_TIME_SECONDS) ||
-                        !matchingPPRecent) &&
-                      !matchingPPArray
-                    ) {
-                      PPArray.push(PPTable);
-                      wrongDateArray.push({
+                    console.log(monthly_top_text);
+                    let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+                      await getRowData(
+                        monthly_top_text,
+                        positionUsage,
+                        positionEst,
+                      );
+                    let { actualDate, ACTUAL_DATE_UNIX } =
+                      getActualDate(actual_days);
+                    console.log("Actual date: " + actualDate);
+                    if (date !== actualDate) {
+                      // TODO: Exit early if wrong date, and if data already exists in SQL database
+                      console.log(
+                        "Latest date on PacificPower does not match actual date",
+                      );
+                      let matchingPPRecent = ppRecent.find(
+                        (o) => o.pacific_power_meter_id === pp_meter_id,
+                      );
+                      let matchingPPRecentTime = "";
+                      if (matchingPPRecent) {
+                        console.log(matchingPPRecent);
+                        matchingPPRecentTime = moment
+                          .tz(
+                            matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
+                            "America/Los_Angeles",
+                          )
+                          .format("YYYY-MM-DD");
+                        console.log(matchingPPRecentTime);
+                      } else {
+                        console.log(
+                          "No matching data found yet in SQL database",
+                        );
+                      }
+                      if (
+                        matchingPPRecentTime &&
+                        matchingPPRecentTime === actualDate
+                      ) {
+                        console.log(
+                          "Data for this day already exists in SQL database",
+                        );
+                        prevDayFlag = true;
+                        break;
+                      }
+                      const PPTable = {
                         meter_selector_num,
                         pp_meter_id,
+                        usage_kwh,
                         time: END_TIME,
                         time_seconds: END_TIME_SECONDS,
-                      });
-                    }
-                    if (actual_days === maxPrevDayCount) {
-                      console.log(
-                        `Reached max day count of ${maxPrevDayCount} days, exiting`,
+                      };
+
+                      let matchingPPArray = PPArray.find(
+                        (o) =>
+                          o.pp_meter_id === PPTable.pp_meter_id &&
+                          o.time_seconds === PPTable.time_seconds,
                       );
-                      prevDayFlag = true;
-                      break;
-                    }
-                    // TODO: Only run this at end of loop
-                    /*
+
+                      if (
+                        ((matchingPPRecent &&
+                          String(matchingPPRecent.time_seconds) !==
+                            END_TIME_SECONDS) ||
+                          !matchingPPRecent) &&
+                        !matchingPPArray
+                      ) {
+                        PPArray.push(PPTable);
+                        wrongDateArray.push({
+                          meter_selector_num,
+                          pp_meter_id,
+                          time: END_TIME,
+                          time_seconds: END_TIME_SECONDS,
+                        });
+                      }
+                      if (actual_days === maxPrevDayCount) {
+                        console.log(
+                          `Reached max day count of ${maxPrevDayCount} days, exiting`,
+                        );
+                        prevDayFlag = true;
+                        break;
+                      }
+                      // TODO: Only run this at end of loop
+                      /*
                     wrongDateArray.push({
                       meter_selector_num,
                       pp_meter_id,
@@ -677,91 +687,93 @@ axios
                       time_seconds: END_TIME_SECONDS,
                     });
                     */
-                    console.log("new corrected date?");
-                    console.log(actualDate);
-                    console.log(date.toString());
-                    if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
-                      console.log(
-                        "Synced actual date and row date, go to equalled if loop",
-                      );
-                      continue;
-                    }
-                    actual_days += 1;
-                  }
-                  if (date === actualDate) {
-                    // TODO: Change to something about aligning actual days and row days
-                    console.log(
-                      "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
-                    );
-                    let matchingPPRecent = ppRecent.find(
-                      (o) => o.pacific_power_meter_id === pp_meter_id,
-                    );
-                    let matchingPPRecentTime = "";
-                    if (matchingPPRecent) {
-                      console.log(matchingPPRecent);
-                      matchingPPRecentTime = moment
-                        .tz(
-                          matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
-                          "America/Los_Angeles",
-                        )
-                        .format("YYYY-MM-DD");
-                      console.log(matchingPPRecentTime);
-                    } else {
-                      console.log("No matching data found yet in SQL database");
-                    }
-                    if (
-                      matchingPPRecentTime &&
-                      matchingPPRecentTime === actualDate
-                    ) {
-                      console.log(
-                        "Data for this day already exists in SQL database",
-                      );
-                      prevDayFlag = true;
-                      break;
-                    }
-                    const PPTable = {
-                      meter_selector_num,
-                      pp_meter_id,
-                      usage_kwh,
-                      time: END_TIME,
-                      time_seconds: END_TIME_SECONDS,
-                    };
-                    let matchingPPArray = PPArray.find(
-                      (o) =>
-                        o.pp_meter_id === PPTable.pp_meter_id &&
-                        o.time_seconds === PPTable.time_seconds,
-                    );
-                    if (
-                      ((matchingPPRecent &&
-                        String(matchingPPRecent.time_seconds) !==
-                          END_TIME_SECONDS) ||
-                        !matchingPPRecent) &&
-                      !matchingPPArray
-                    ) {
-                      PPArray.push(PPTable);
-                      if (actual_days > actual_days_const) {
-                        wrongDateGapArray.push({
-                          meter_selector_num,
-                          pp_meter_id,
-                          time: END_TIME,
-                          time_seconds: END_TIME_SECONDS,
-                        });
+                      console.log("new corrected date?");
+                      console.log(actualDate);
+                      console.log(date.toString());
+                      if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
+                        console.log(
+                          "Synced actual date and row date, go to equalled if loop",
+                        );
+                        continue;
                       }
+                      actual_days += 1;
                     }
-                    if (actual_days === maxPrevDayCount) {
+                    if (date === actualDate) {
+                      // TODO: Change to something about aligning actual days and row days
                       console.log(
-                        `Reached max day count of ${maxPrevDayCount} days, exiting`,
+                        "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
                       );
-                      prevDayFlag = true;
-                      break;
+                      let matchingPPRecent = ppRecent.find(
+                        (o) => o.pacific_power_meter_id === pp_meter_id,
+                      );
+                      let matchingPPRecentTime = "";
+                      if (matchingPPRecent) {
+                        console.log(matchingPPRecent);
+                        matchingPPRecentTime = moment
+                          .tz(
+                            matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
+                            "America/Los_Angeles",
+                          )
+                          .format("YYYY-MM-DD");
+                        console.log(matchingPPRecentTime);
+                      } else {
+                        console.log(
+                          "No matching data found yet in SQL database",
+                        );
+                      }
+                      if (
+                        matchingPPRecentTime &&
+                        matchingPPRecentTime === actualDate
+                      ) {
+                        console.log(
+                          "Data for this day already exists in SQL database",
+                        );
+                        prevDayFlag = true;
+                        break;
+                      }
+                      const PPTable = {
+                        meter_selector_num,
+                        pp_meter_id,
+                        usage_kwh,
+                        time: END_TIME,
+                        time_seconds: END_TIME_SECONDS,
+                      };
+                      let matchingPPArray = PPArray.find(
+                        (o) =>
+                          o.pp_meter_id === PPTable.pp_meter_id &&
+                          o.time_seconds === PPTable.time_seconds,
+                      );
+                      if (
+                        ((matchingPPRecent &&
+                          String(matchingPPRecent.time_seconds) !==
+                            END_TIME_SECONDS) ||
+                          !matchingPPRecent) &&
+                        !matchingPPArray
+                      ) {
+                        PPArray.push(PPTable);
+                        if (actual_days > actual_days_const) {
+                          wrongDateGapArray.push({
+                            meter_selector_num,
+                            pp_meter_id,
+                            time: END_TIME,
+                            time_seconds: END_TIME_SECONDS,
+                          });
+                        }
+                      }
+                      if (actual_days === maxPrevDayCount) {
+                        console.log(
+                          `Reached max day count of ${maxPrevDayCount} days, exiting`,
+                        );
+                        prevDayFlag = true;
+                        break;
+                      }
+                      // TODO: Implement function to get 2 days ago data from webscraper
+                      // TODO: Upload 2 days ago data + yesterday's data to SQL database
+                      // TODO: Add "missing data uploaded" array and log it?
+                      row_days += 1;
+                      actual_days += 1;
                     }
-                    // TODO: Implement function to get 2 days ago data from webscraper
-                    // TODO: Upload 2 days ago data + yesterday's data to SQL database
-                    // TODO: Add "missing data uploaded" array and log it?
-                    row_days += 1;
-                    actual_days += 1;
-                  }
-                  /* TODO: Move to end of loop?
+                    /* TODO: Move to end of loop?
                   wrongDateArray.push({
                     meter_selector_num,
                     pp_meter_id,
@@ -769,6 +781,12 @@ axios
                     time_seconds: END_TIME_SECONDS,
                   });
                   */
+                  } catch (error) {
+                    console.log(
+                      "Some other error occurred, skipping to next meter",
+                    );
+                    prevDayFlag = true;
+                  }
                 }
                 prevDayFlag = false;
 
