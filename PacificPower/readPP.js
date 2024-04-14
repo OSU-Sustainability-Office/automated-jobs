@@ -48,6 +48,7 @@ const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
 const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
 const MONTHLY_TOP =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
+let monthly_top_text = "";
 let yearCheck = false;
 let prevDayFlag = false;
 let monthCheck = false;
@@ -78,7 +79,7 @@ let pp_meter_id = "";
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
-  let monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
+  monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
   return monthly_top_text;
 }
 
@@ -523,7 +524,7 @@ axios
                 }
 
                 let row_days = row_days_const;
-                let monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+                monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
                 console.log(
                   "Monthly Data Top Row Found, getting table top row value",
                 ); // TODO: Fix this to be just "top row" or something, rename "monthly" var names to be more clear on time interval vs total time frame
@@ -538,40 +539,6 @@ axios
                   yearlyArray.push({ meter_selector_num, pp_meter_id });
                   meter_selector_num++;
                   continueVarLoading = 0;
-                  continue;
-                }
-
-                // potential TODO: If unavailable, get second row of data
-                // Then need to handle potential redundant data on upload, first of month case
-                // Difference between unavailable and just wrong date is that unavailable shows expected
-                // date (e.g. yesterday), just that the usage (kwh) data is "unavailable"
-                if (monthly_top_text.includes("Unavailable")) {
-                  console.log(
-                    "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
-                  );
-                  meter_selector_num++;
-                  continueVarLoading = 0;
-                  unAvailableErrorArray.push({
-                    meter_selector_num,
-                    pp_meter_id,
-                  });
-                  continue;
-                }
-
-                // potential TODO: If delivered error, get second row of data
-                // Then need to handle potential redundant data on upload, first of month case
-                // Difference between delivered error and just wrong date is that unavailable shows expected
-                // date (e.g. yesterday), just that the usage seems to be completely wrong values
-                if (
-                  monthly_top_text.includes("delivered to you") ||
-                  monthly_top_text.includes("received from you")
-                ) {
-                  console.log(
-                    "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
-                  );
-                  meter_selector_num++;
-                  continueVarLoading = 0;
-                  deliveredErrorArray.push({ meter_selector_num, pp_meter_id });
                   continue;
                 }
 
@@ -597,10 +564,50 @@ axios
                       );
                       prevDayFlag = true;
                     }
-                    console.log(
-                      "Monthly Data Top Row Found, getting table top row value",
-                    );
-                    console.log(monthly_top_text);
+                    if (actual_days > actual_days_const) {
+                      console.log(
+                        "Monthly Data Top Row Found, getting table top row value",
+                      );
+                      console.log(monthly_top_text);
+                    }
+
+                    // potential TODO: If unavailable, get second row of data
+                    // Then need to handle potential redundant data on upload, first of month case
+                    // Difference between unavailable and just wrong date is that unavailable shows expected
+                    // date (e.g. yesterday), just that the usage (kwh) data is "unavailable"
+                    if (monthly_top_text.includes("Unavailable")) {
+                      console.log(
+                        "Unavailable Usage (kwh) data for monthly time range, skipping to next day",
+                      );
+                      row_days += 1;
+                      actual_days += 1;
+                      unAvailableErrorArray.push({
+                        meter_selector_num,
+                        pp_meter_id,
+                      });
+                      continue;
+                    }
+
+                    // potential TODO: If delivered error, get second row of data
+                    // Then need to handle potential redundant data on upload, first of month case
+                    // Difference between delivered error and just wrong date is that unavailable shows expected
+                    // date (e.g. yesterday), just that the usage seems to be completely wrong values
+                    if (
+                      monthly_top_text.includes("delivered to you") ||
+                      monthly_top_text.includes("received from you")
+                    ) {
+                      console.log(
+                        "Unavailable Usage (kwh) data for monthly time range, skipping to next day",
+                      );
+                      row_days += 1;
+                      actual_days += 1;
+                      deliveredErrorArray.push({
+                        meter_selector_num,
+                        pp_meter_id,
+                      });
+                      continue;
+                    }
+
                     let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
                       await getRowData(
                         monthly_top_text,
@@ -700,6 +707,7 @@ axios
                       actual_days += 1;
                     }
                     if (date === actualDate) {
+                      // TODO: move into if-else
                       // TODO: Change to something about aligning actual days and row days
                       console.log(
                         "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
