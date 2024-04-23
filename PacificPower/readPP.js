@@ -210,6 +210,11 @@ axios
               );
             }
 
+            // Note changed accountpage URL (now goes direct to energy usage page).
+            // The page.goto() as well as `await page.setCacheEnabled(false)` seems to improve reliability of getting
+            // to the energy usage page, but note some of the selector indices change from 1 to 0, "meter_selector_num"
+            // now starts from 0 instead of 500+, and that after logging in once, you will stay logged in on other pages.
+            // See `continueDetails` variable, and also run the scraper with `headless: false` to see the process.
             await page.goto(process.env.PP_ACCOUNTPAGE, {
               waitUntil: "networkidle0",
               timeout: 120000,
