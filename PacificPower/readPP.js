@@ -33,15 +33,12 @@ const SIGN_IN_PASSWORD = "input#password";
 // This is the actual login button, as opposed to signin page button
 const LOGIN_BUTTON = "button#next";
 
-// This button takes you to a specific meter's page
-const USAGE_DETAILS = "a.usage-link";
-
 const GRAPH_TO_TABLE_BUTTON_MONTHLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
 const GRAPH_TO_TABLE_BUTTON_YEARLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
-const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
-const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
+const METER_MENU = "#mat-select-0 > div > div.mat-select-value > span";
+const TIME_MENU = "#mat-select-1 > div > div.mat-select-value > span";
 const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
 const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
 const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
@@ -57,7 +54,6 @@ let twoYearCheck = false;
 let continueMetersFlag = false;
 let continueLoadingFlag = false;
 let continueVarMonthlyFlag = false;
-let loggedInFlag = false;
 let graphButton = "";
 let first_selector_num = 0;
 let PPArray = [];
@@ -86,7 +82,6 @@ async function getRowText(monthly_top_const, row_days) {
 function getActualDate(actual_days) {
   // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
   // yesterday's date in PST timezone, YYYY-MM-DD format
-  // TODO: Maybe change this from yesterday to 2 days ago for testing in the morning
   let actualDate = moment
     .tz(
       new Date(new Date().getTime() - actual_days * 24 * 60 * 60 * 1000),
@@ -143,6 +138,8 @@ axios
             // Create a page
             page = await browser.newPage();
             await page.setDefaultTimeout(TIMEOUT_BUFFER);
+            await page.setCacheEnabled(false);
+            await page.reload({ waitUntil: "networkidle2" });
 
             // Go to your site
             await page.goto(process.env.PP_LOGINPAGE, {
@@ -159,19 +156,16 @@ axios
             );
             console.log(await page.title());
 
+            await page.waitForTimeout(25000);
             if (continueDetails === 0) {
-              await page.waitForTimeout(25000);
               await page.waitForSelector(ACCEPT_COOKIES);
               console.log("Cookies Button found");
 
               await page.click(ACCEPT_COOKIES);
               await page.click(LOCATION_BUTTON);
               console.log("Location Button clicked");
-            }
+              // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
-            // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
-
-            if (!loggedInFlag) {
               await page.click(SIGN_IN_PAGE_BUTTON);
               console.log("SignIn Page Button Clicked!");
 
@@ -204,18 +198,23 @@ axios
                 timeout: 60000,
               });
               console.log(await page.title());
-              loggedInFlag = true;
-            } else {
-              console.log("Already logged in, go to My Account Energy Page");
-              // Go to your site
-              // this one needs more timeout, based on results from stresstest.sh
-              await page.goto(process.env.PP_ACCOUNTPAGE, {
-                waitUntil: "networkidle0",
-                timeout: 120000,
-              });
-              console.log(await page.title());
+              console.log(
+                "First time logged in, continuing to Account > Energy Usage Page",
+              );
+
+              // uncomment for login error handling
+              // throw "testing login error handling try again";
+            } else if (continueDetails > 0) {
+              console.log(
+                "Already logged in, continuing to Account > Energy Usage Page",
+              );
             }
 
+            await page.goto(process.env.PP_ACCOUNTPAGE, {
+              waitUntil: "networkidle0",
+              timeout: 120000,
+            });
+            console.log(await page.title());
             await page.waitForSelector("#loader-temp-secure", {
               hidden: true,
               timeout: 25000,
@@ -235,23 +234,11 @@ axios
                 ),
             );
 
-            await page.waitForSelector(USAGE_DETAILS, { timeout: 120000 });
-            console.log("Usage Details Link found");
-
-            await page.click(USAGE_DETAILS);
-
-            // this one needs more timeout, based on results from stresstest.sh
-            await page.waitForNavigation({
-              waitUntil: "networkidle0",
-              timeout: 120000,
-            });
-
             // it's theoretically possible to get yearly result for first meter, so check just in case
             // await page.waitForTimeout(25000);
             await page.waitForFunction(
               () => !document.querySelector("#loading-component > mat-spinner"),
             );
-            console.log(await page.title());
             [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
             [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
             console.log("Year / Month Check found");
@@ -308,7 +295,7 @@ axios
           } catch (err) {
             console.error(err);
             console.log(
-              `Unknown Issue en route to Energy Usage Details Page, (Attempt ${
+              `Unknown Issue en route to Energy Usage Page, (Attempt ${
                 continueDetails + 1
               } of ${maxAttempts}). Retrying...`,
             );
@@ -419,7 +406,7 @@ axios
                     pp_meter_full_trim.length - 2,
                   ),
                 );
-                console.log(pp_meter_id);
+                console.log("PP Meter ID: " + pp_meter_id.toString());
 
                 // await page.waitForSelector(
                 // "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
@@ -528,14 +515,17 @@ axios
                 console.log(
                   "Monthly Data Top Row Found, getting table top row value",
                 ); // TODO: Fix this to be just "top row" or something, rename "monthly" var names to be more clear on time interval vs total time frame
-                console.log(monthly_top_text);
                 let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
                 let positionEst = "Est. Rounded";
 
                 if (monthly_top_text.includes(positionEst)) {
                   console.log("Data is not yearly. Data is probably monthly.");
+                  console.log("===");
+                  console.log(monthly_top_text);
                 } else {
                   console.log("Year Check Found, skipping to next meter");
+                  console.log("===");
+                  console.log(monthly_top_text);
                   yearlyArray.push({ meter_selector_num, pp_meter_id });
                   meter_selector_num++;
                   continueVarLoading = 0;
@@ -546,9 +536,6 @@ axios
                 continueVarMonthly = 0;
 
                 let actual_days = actual_days_const;
-
-                // potential TODO: handle potential redundant data on upload, first of month case
-                // wrong date (usually) means the most recent data is 2 days old
 
                 // TODO: Most stuff in the while loop other than row_days and actual_days can be initialized at the very top
                 while (!prevDayFlag && actual_days <= maxPrevDayCount) {
@@ -568,6 +555,7 @@ axios
                       console.log(
                         "Monthly Data Top Row Found, getting table top row value",
                       );
+                      console.log("===");
                       console.log(monthly_top_text);
                     }
 
@@ -588,10 +576,6 @@ axios
                       continue;
                     }
 
-                    // potential TODO: If delivered error, get second row of data
-                    // Then need to handle potential redundant data on upload, first of month case
-                    // Difference between delivered error and just wrong date is that unavailable shows expected
-                    // date (e.g. yesterday), just that the usage seems to be completely wrong values
                     if (
                       monthly_top_text.includes("delivered to you") ||
                       monthly_top_text.includes("received from you")
@@ -616,28 +600,39 @@ axios
                       );
                     let { actualDate, ACTUAL_DATE_UNIX } =
                       getActualDate(actual_days);
-                    console.log("Actual date: " + actualDate);
-                    if (date !== actualDate) {
-                      // TODO: Exit early if wrong date, and if data already exists in SQL database
-                      console.log(
-                        "Latest date on PacificPower does not match actual date",
-                      );
+                    if (date && date !== actualDate) {
                       let matchingPPRecent = ppRecent.find(
                         (o) => o.pacific_power_meter_id === pp_meter_id,
                       );
                       let matchingPPRecentTime = "";
                       if (matchingPPRecent) {
-                        console.log(matchingPPRecent);
+                        // console.log(matchingPPRecent);
                         matchingPPRecentTime = moment
                           .tz(
                             matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
                             "America/Los_Angeles",
                           )
                           .format("YYYY-MM-DD");
-                        console.log(matchingPPRecentTime);
+                        console.log(
+                          "Actual date does not match date shown on PacificPower site",
+                        );
+                        console.log("Actual date: " + actualDate);
+                        console.log(
+                          "Date shown on Pacific Power site: " +
+                            date.toString(),
+                        );
+                        console.log(
+                          "Latest date in SQL database: " +
+                            matchingPPRecentTime,
+                        );
                       } else {
                         console.log(
-                          "No matching data found yet in SQL database",
+                          "No matching data for this day found yet in SQL database",
+                        );
+                        console.log("Actual date: " + actualDate);
+                        console.log(
+                          "Date shown on Pacific Power site: " +
+                            date.toString(),
                         );
                       }
                       if (
@@ -645,7 +640,7 @@ axios
                         matchingPPRecentTime === actualDate
                       ) {
                         console.log(
-                          "Data for this day already exists in SQL database",
+                          "Data for this day already exists in SQL database, skipping upload",
                         );
                         prevDayFlag = true;
                         break;
@@ -658,6 +653,7 @@ axios
                         time_seconds: END_TIME_SECONDS,
                       };
 
+                      // PPArray contains the data to be uploaded today, check for duplicate values before uploading
                       let matchingPPArray = PPArray.find(
                         (o) =>
                           o.pp_meter_id === PPTable.pp_meter_id &&
@@ -672,6 +668,9 @@ axios
                         !matchingPPArray
                       ) {
                         PPArray.push(PPTable);
+                        console.log(
+                          "Valid data to be uploaded found (actual date and date on pacific power site out of sync)",
+                        );
                         wrongDateArray.push({
                           meter_selector_num,
                           pp_meter_id,
@@ -695,39 +694,50 @@ axios
                       time_seconds: END_TIME_SECONDS,
                     });
                     */
-                      console.log("new corrected date?");
-                      console.log(actualDate);
-                      console.log(date.toString());
+                      console.log(
+                        "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
+                      );
                       if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
                         console.log(
-                          "Synced actual date and row date, go to equalled if loop",
+                          "Synced actual date and date from Pacific Power site, go to equalled if loop",
                         );
                         continue;
                       }
                       actual_days += 1;
-                    }
-                    if (date === actualDate) {
-                      // TODO: move into if-else
+                    } else if (date && date === actualDate) {
                       // TODO: Change to something about aligning actual days and row days
-                      console.log(
-                        "Matches yesterday's date, now let's check if the last data from SQL database is from 2 days ago",
-                      );
                       let matchingPPRecent = ppRecent.find(
                         (o) => o.pacific_power_meter_id === pp_meter_id,
                       );
                       let matchingPPRecentTime = "";
                       if (matchingPPRecent) {
-                        console.log(matchingPPRecent);
+                        // console.log(matchingPPRecent);
                         matchingPPRecentTime = moment
                           .tz(
                             matchingPPRecent.time_seconds * 1000, // moment.tz expects milliseconds
                             "America/Los_Angeles",
                           )
                           .format("YYYY-MM-DD");
-                        console.log(matchingPPRecentTime);
+                        console.log(
+                          "Actual date matches date from Pacific Power site, now let's check SQL database for matching dates as well",
+                        );
+                        console.log("Actual date: " + actualDate);
+                        console.log(
+                          "Date shown on Pacific Power site: " +
+                            date.toString(),
+                        );
+                        console.log(
+                          "Latest date in SQL database: " +
+                            matchingPPRecentTime,
+                        );
                       } else {
                         console.log(
-                          "No matching data found yet in SQL database",
+                          "No matching data for this day found yet in SQL database",
+                        );
+                        console.log("Actual date: " + actualDate);
+                        console.log(
+                          "Date shown on Pacific Power site: " +
+                            date.toString(),
                         );
                       }
                       if (
@@ -735,7 +745,7 @@ axios
                         matchingPPRecentTime === actualDate
                       ) {
                         console.log(
-                          "Data for this day already exists in SQL database",
+                          "Data for this day already exists in SQL database, skipping upload",
                         );
                         prevDayFlag = true;
                         break;
@@ -747,6 +757,8 @@ axios
                         time: END_TIME,
                         time_seconds: END_TIME_SECONDS,
                       };
+
+                      // PPArray contains the data to be uploaded today, check for duplicate values before uploading
                       let matchingPPArray = PPArray.find(
                         (o) =>
                           o.pp_meter_id === PPTable.pp_meter_id &&
@@ -760,6 +772,9 @@ axios
                         !matchingPPArray
                       ) {
                         PPArray.push(PPTable);
+                        console.log(
+                          "Valid data to be uploaded found (synced actual date and date on pacific power site)",
+                        );
                         if (actual_days > actual_days_const) {
                           wrongDateGapArray.push({
                             meter_selector_num,
@@ -776,9 +791,6 @@ axios
                         prevDayFlag = true;
                         break;
                       }
-                      // TODO: Implement function to get 2 days ago data from webscraper
-                      // TODO: Upload 2 days ago data + yesterday's data to SQL database
-                      // TODO: Add "missing data uploaded" array and log it?
                       row_days += 1;
                       actual_days += 1;
                     }
@@ -835,6 +847,16 @@ axios
 
         const pacificPowerMeters = "pacific_power_data";
 
+        if (process.argv.includes("--no-upload") && PPArray.length > 0) {
+          console.log("\nData to be uploaded: ");
+        } else if (
+          process.argv.includes("--no-upload") &&
+          PPArray.length === 0
+        ) {
+          console.log(
+            "\nNo data to be uploaded, SQL database is already up to date",
+          );
+        }
         for (let i = 0; i < PPArray.length; i++) {
           // No need to log the data twice if uploading
           if (process.argv.includes("--no-upload")) {
@@ -864,7 +886,7 @@ axios
           }
         }
         console.log(
-          "Timestamp (approximate): " +
+          "\nTimestamp (approximate): " +
             moment
               .unix(startDate)
               .tz("America/Los_Angeles")
@@ -916,7 +938,7 @@ axios
             if (err) {
               return console.log(err);
             }
-            console.log("The file was saved!");
+            console.log("\nFile Saved: Yes");
           });
         }
 
