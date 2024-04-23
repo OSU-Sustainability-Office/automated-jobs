@@ -210,7 +210,7 @@ axios
               );
             }
 
-            // Note changed accountpage URL (now goes direct to energy usage page).
+            // Note changed accountpage URL from env file (now goes direct to energy usage page).
             // The page.goto() as well as `await page.setCacheEnabled(false)` seems to improve reliability of getting
             // to the energy usage page, but note some of the selector indices change from 1 to 0, "meter_selector_num"
             // now starts from 0 instead of 500+, and that after logging in once, you will stay logged in on other pages.
