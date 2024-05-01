@@ -559,6 +559,14 @@ async function addNewMetersToDatabase() {
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
           let positionEst = "Est. Rounded";
 
+          // Custom breakpoint for testing
+          /*
+          if (meter_selector_num === 518) {
+            continueMetersFlag = true;
+            break;
+          }
+          */
+
           if (monthly_top_text.includes(positionEst)) {
             console.log("Data is not yearly. Data is probably monthly.");
           } else {
@@ -668,14 +676,6 @@ async function addNewMetersToDatabase() {
           } else {
             PPArray.push(PPTable);
           }
-
-          /* // for testing json output
-      if (newID === 511) {
-        continueMetersFlag = true;
-  
-        break;
-      }
-      */
 
           // If "Est. Rounded" is found, then the data is monthly.
           if (monthly_top_text.includes(positionEst)) {
