@@ -10,8 +10,8 @@ const moment = require("moment-timezone");
 require("dotenv").config();
 const startDate = moment().unix();
 const apiRecentUrl = process.env.DASHBOARD_API + "/pprecent";
-const actual_days_const = 1; // TODO: change this to "let" style var and reset it after loop to fit other syntax?
-const row_days_const = 1; // TODO: change this to "let" style var and reset it after loop to fit other syntax?
+const actual_days_const = 1;
+const row_days_const = 1;
 const maxPrevDayCount = 7;
 
 const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
@@ -560,7 +560,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
           let actual_days = actual_days_const;
 
-          // TODO: Most stuff in the while loop other than row_days and actual_days can be initialized at the very top
           while (!prevDayFlag && actual_days <= maxPrevDayCount) {
             try {
               try {
@@ -579,10 +578,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 console.log(monthly_top_text);
               }
 
-              // potential TODO: If unavailable, get second row of data
-              // Then need to handle potential redundant data on upload, first of month case
-              // Difference between unavailable and just wrong date is that unavailable shows expected
-              // date (e.g. yesterday), just that the usage (kwh) data is "unavailable"
               if (monthly_top_text.includes("Unavailable")) {
                 console.log(
                   "Unavailable Usage (kwh) data for monthly time range, skipping to next day",
@@ -703,15 +698,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   prevDayFlag = true;
                   break;
                 }
-                // TODO: Only run this at end of loop
-                /*
-                    wrongDateArray.push({
-                      meter_selector_num,
-                      pp_meter_id,
-                      time: END_TIME,
-                      time_seconds: END_TIME_SECONDS,
-                    });
-                    */
                 console.log(
                   "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
                 );
@@ -723,7 +709,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 }
                 actual_days += 1;
               } else if (date && date === actualDate) {
-                // TODO: Change to something about aligning actual days and row days
                 if (pp_recent_list) {
                   if (pp_recent_matching) {
                     console.log(
@@ -804,14 +789,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 row_days += 1;
                 actual_days += 1;
               }
-              /* TODO: Move to end of loop?
-                  wrongDateArray.push({
-                    meter_selector_num,
-                    pp_meter_id,
-                    time: END_TIME,
-                    time_seconds: END_TIME_SECONDS,
-                  });
-                  */
             } catch (error) {
               console.log("Some other error occurred, skipping to next meter");
               console.error(error);
@@ -822,12 +799,11 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           prevDayFlag = false;
 
           /* // for testing json output
-                if (newID === 511) {
-                  continueMetersFlag = true;
-            
-                  break;
-                }
-                */
+          if (newID === 511) {
+            continueMetersFlag = true;
+            break;
+            }
+          */
 
           // If "Est. Rounded" is found, then the data is monthly.
           if (monthly_top_text.includes(positionEst)) {
@@ -847,7 +823,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           if (continueMeters === maxAttempts) {
             console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
           }
-          // continue;
         }
       }
     }
