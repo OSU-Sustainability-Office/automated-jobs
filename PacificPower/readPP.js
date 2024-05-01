@@ -123,7 +123,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
-// Remember, this status check is for allBuildings API call, not the batched requests
 (async () => {
   pp_recent_list = await axios
     .get(apiRecentUrl)
