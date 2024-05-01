@@ -856,7 +856,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
       })
         .then((res) => {
           console.log(
-            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+            `RESPONSE: ${res.status}, TEXT: ${
+              res.statusText
+            }, DATA: ${JSON.stringify(res.data)}`,
           );
         })
         .catch((err) => {
@@ -872,27 +874,39 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
-  console.log("\nWrong Date Meters (Monthly, new upload): ");
+  if (wrongDateArray.length > 0) {
+    console.log("\nWrong Date Meters (Monthly, new upload): ");
+  }
   for (let i = 0; i < wrongDateArray.length; i++) {
     console.log(wrongDateArray[i]);
   }
-  console.log("\nWrong Date Gap Meters (Monthly, new upload): ");
+  if (wrongDateGapArray.length > 0) {
+    console.log("\nWrong Date Gap Meters (Monthly, new upload): ");
+  }
   for (let i = 0; i < wrongDateGapArray.length; i++) {
     console.log(wrongDateGapArray[i]);
   }
-  console.log("\nUnavailable Meters (Monthly): ");
+  if (unAvailableErrorArray.length > 0) {
+    console.log("\nUnavailable Meters (Monthly): ");
+  }
   for (let i = 0; i < unAvailableErrorArray.length; i++) {
     console.log(unAvailableErrorArray[i]);
   }
-  console.log("\nDelivered Error Meters (Monthly): ");
+  if (deliveredErrorArray.length > 0) {
+    console.log("\nDelivered Error Meters (Monthly): ");
+  }
   for (let i = 0; i < deliveredErrorArray.length; i++) {
     console.log(deliveredErrorArray[i]);
   }
-  console.log("\nYearly Meters: ");
+  if (yearlyArray.length > 0) {
+    console.log("\nYearly Meters: ");
+  }
   for (let i = 0; i < yearlyArray.length; i++) {
     console.log(yearlyArray[i]);
   }
-  console.log("\nOther Errors: ");
+  if (otherErrorArray.length > 0) {
+    console.log("\nOther Errors: ");
+  }
   for (let i = 0; i < otherErrorArray.length; i++) {
     console.log(otherErrorArray[i]);
   }
