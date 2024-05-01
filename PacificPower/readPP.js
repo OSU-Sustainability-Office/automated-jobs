@@ -541,6 +541,14 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
           let positionEst = "Est. Rounded";
 
+          // Custom breakpoint for testing
+          /*
+          if (meter_selector_num === 4) {
+            continueMetersFlag = true;
+            break;
+          }
+          */
+
           if (monthly_top_text.includes(positionEst)) {
             console.log("Data is not yearly. Data is probably monthly.");
             console.log("===");
@@ -797,13 +805,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
             }
           }
           prevDayFlag = false;
-
-          /* // for testing json output
-          if (newID === 511) {
-            continueMetersFlag = true;
-            break;
-            }
-          */
 
           // If "Est. Rounded" is found, then the data is monthly.
           if (monthly_top_text.includes(positionEst)) {
