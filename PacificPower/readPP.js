@@ -122,9 +122,12 @@ async function addNewMetersToDatabase() {
       },
     })
       .then((res) => {
-        console.log(
-          `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
-        );
+        console.log(`\nRESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+        if (res.status === 200) {
+          console.log(
+            `${pp_meters_exclude_not_found[i]} uploaded to database.`,
+          );
+        }
       })
       .catch((err) => {
         console.log(err);
@@ -142,12 +145,6 @@ async function addNewMetersToDatabase() {
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Meter Exclusion List");
       }
-
-      console.log(
-        `RESPONSE: ${res.status}, TEXT: ${
-          res.statusText
-        }, DATA: ${JSON.stringify(res.data)}`,
-      );
       return res.data;
     })
     .catch((err) => {
@@ -155,7 +152,9 @@ async function addNewMetersToDatabase() {
     });
 
   if (pp_meters_exclusion_list) {
-    console.log("PP Meter Exclusion List: ", pp_meters_exclusion_list);
+    console.log(
+      `${pp_meters_exclusion_list.length} meters in Meter Exclusion List`,
+    );
   } else {
     console.log(
       "Could not get PP Meter Exclusion List. All meter data will be uploaded.",
@@ -723,7 +722,9 @@ async function addNewMetersToDatabase() {
       })
         .then((res) => {
           console.log(
-            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+            `RESPONSE: ${res.status}, TEXT: ${
+              res.statusText
+            }, DATA: ${JSON.stringify(res.data)}`,
           );
         })
         .catch((err) => {
@@ -767,9 +768,12 @@ async function addNewMetersToDatabase() {
   for (let i = 0; i < pp_meters_include.length; i++) {
     console.log(pp_meters_include[i]);
   }
-  console.log("\nMeters Not Found in Exclusion List (new meters): ");
-  for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
-    console.log(pp_meters_exclude_not_found[i]);
+
+  if (pp_meters_exclude_not_found.length > 0) {
+    console.log("\nMeters Not Found in Exclusion List (new meters): ");
+    for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
+      console.log(pp_meters_exclude_not_found[i]);
+    }
   }
 
   // add new meters to exclusion table in database if uploading
