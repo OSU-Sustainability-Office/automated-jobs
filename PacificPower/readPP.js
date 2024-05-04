@@ -138,12 +138,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
       console.log(err);
     });
 
-  if (pp_recent_list) {
-    console.log("PP Recent Data List:");
-    for (let i = 0; i < pp_recent_list.length; i++) {
-      console.log(pp_recent_list[i]);
-    }
-  } else {
+  if (!pp_recent_list) {
     console.log(
       "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
     );
