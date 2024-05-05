@@ -138,7 +138,11 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
       console.log(err);
     });
 
-  if (!pp_recent_list) {
+  if (pp_recent_list) {
+    console.log(
+      `${pp_meters_exclusion_list.length} meters in Meter Exclusion List`,
+    );
+  } else {
     console.log(
       "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
     );
