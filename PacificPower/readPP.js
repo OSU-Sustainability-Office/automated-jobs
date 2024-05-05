@@ -625,7 +625,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
               upload_queue_matching = PPArray.find(
                 (o) =>
                   o.pp_meter_id === pp_meter_id &&
-                  o.time_seconds === time_seconds,
+                  o.time_seconds === END_TIME_SECONDS,
               );
               if (upload_queue_matching && !pp_recent_list) {
                 console.log(
