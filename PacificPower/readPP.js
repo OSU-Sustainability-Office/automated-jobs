@@ -703,10 +703,7 @@ async function addNewMetersToDatabase() {
   const pacificPowerMeters = "pacific_power_data";
 
   for (let i = 0; i < PPArray.length; i++) {
-    // No need to log the data twice if uploading
-    if (process.argv.includes("--no-upload")) {
-      console.log(PPArray[i]);
-    }
+    console.log(PPArray[i]);
 
     // to prevent uploading data to API: node readPP.js --no-upload
     if (!process.argv.includes("--no-upload")) {
@@ -721,11 +718,10 @@ async function addNewMetersToDatabase() {
         },
       })
         .then((res) => {
-          console.log(
-            `RESPONSE: ${res.status}, TEXT: ${
-              res.statusText
-            }, DATA: ${JSON.stringify(res.data)}`,
-          );
+          console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+          if (res.status === 200) {
+            console.log(`${PPArray[i].pp_meter_id} uploaded to database.`);
+          }
         })
         .catch((err) => {
           console.log(err);
