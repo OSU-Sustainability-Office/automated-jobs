@@ -875,39 +875,39 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   );
   if (wrongDateArray.length > 0) {
     console.log("\nWrong Date Meters (Monthly, new upload): ");
-  }
-  for (let i = 0; i < wrongDateArray.length; i++) {
-    console.log(wrongDateArray[i]);
+    for (let i = 0; i < wrongDateArray.length; i++) {
+      console.log(wrongDateArray[i]);
+    }
   }
   if (wrongDateGapArray.length > 0) {
     console.log("\nWrong Date Gap Meters (Monthly, new upload): ");
-  }
-  for (let i = 0; i < wrongDateGapArray.length; i++) {
-    console.log(wrongDateGapArray[i]);
+    for (let i = 0; i < wrongDateGapArray.length; i++) {
+      console.log(wrongDateGapArray[i]);
+    }
   }
   if (unAvailableErrorArray.length > 0) {
     console.log("\nUnavailable Meters (Monthly): ");
-  }
-  for (let i = 0; i < unAvailableErrorArray.length; i++) {
-    console.log(unAvailableErrorArray[i]);
+    for (let i = 0; i < unAvailableErrorArray.length; i++) {
+      console.log(unAvailableErrorArray[i]);
+    }
   }
   if (deliveredErrorArray.length > 0) {
     console.log("\nDelivered Error Meters (Monthly): ");
-  }
-  for (let i = 0; i < deliveredErrorArray.length; i++) {
-    console.log(deliveredErrorArray[i]);
+    for (let i = 0; i < deliveredErrorArray.length; i++) {
+      console.log(deliveredErrorArray[i]);
+    }
   }
   if (yearlyArray.length > 0) {
     console.log("\nYearly Meters: ");
-  }
-  for (let i = 0; i < yearlyArray.length; i++) {
-    console.log(yearlyArray[i]);
+    for (let i = 0; i < yearlyArray.length; i++) {
+      console.log(yearlyArray[i]);
+    }
   }
   if (otherErrorArray.length > 0) {
     console.log("\nOther Errors: ");
-  }
-  for (let i = 0; i < otherErrorArray.length; i++) {
-    console.log(otherErrorArray[i]);
+    for (let i = 0; i < otherErrorArray.length; i++) {
+      console.log(otherErrorArray[i]);
+    }
   }
 
   // node readPP.js --save-output
