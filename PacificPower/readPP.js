@@ -77,7 +77,7 @@ let PPTable = {};
 let pp_recent_list = null;
 let pp_recent_matching = null;
 let pp_recent_matching_time = null;
-let matching_pp_array = null;
+let upload_queue_matching = null;
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
@@ -140,7 +140,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
   if (pp_recent_list) {
     console.log(
-      `${pp_meters_exclusion_list.length} meters in Meter Exclusion List`,
+      `${pp_recent_list.length} meters in Meter Exclusion List`,
     );
   } else {
     console.log(
@@ -534,9 +534,12 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
           let row_days = row_days_const;
           monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+
+          // TODO in future PR: Fix this variable name to be just "top row" or something,
+          // rename "monthly" var names to be more clear on time interval vs total time frame
           console.log(
             "Monthly Data Top Row Found, getting table top row value",
-          ); // TODO: Fix this to be just "top row" or something, rename "monthly" var names to be more clear on time interval vs total time frame
+          );
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
           let positionEst = "Est. Rounded";
 
@@ -617,6 +620,20 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
               let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
                 await getRowData(monthly_top_text, positionUsage, positionEst);
               let { actualDate, ACTUAL_DATE_UNIX } = getActualDate(actual_days);
+              // PPArray contains the data to be uploaded today, check for duplicate values before uploading
+              // TODO in future PR: Rename PPArray and other variables to have clearer meaning
+              upload_queue_matching = PPArray.find(
+                (o) =>
+                  o.pp_meter_id === pp_meter_id &&
+                  o.time_seconds === time_seconds,
+              );
+              if (upload_queue_matching && !pp_recent_list) {
+                console.log(
+                  "Due to the ppRecent API call returning an error, exiting early after at least 1 valid day's worth of data for this meter was uploaded (to avoid uploading too much potentially redundant data).",
+                );
+                prevDayFlag = true;
+                break;
+              }
               if (pp_recent_list) {
                 pp_recent_matching = pp_recent_list.find(
                   (o) => o.pacific_power_meter_id === pp_meter_id,
@@ -673,19 +690,12 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   time_seconds: END_TIME_SECONDS,
                 };
 
-                // PPArray contains the data to be uploaded today, check for duplicate values before uploading
-                matching_pp_array = PPArray.find(
-                  (o) =>
-                    o.pp_meter_id === PPTable.pp_meter_id &&
-                    o.time_seconds === PPTable.time_seconds,
-                );
-
                 if (
                   ((pp_recent_matching &&
                     String(pp_recent_matching.time_seconds) !==
                       END_TIME_SECONDS) ||
                     !pp_recent_matching) &&
-                  !matching_pp_array
+                  !upload_queue_matching
                 ) {
                   PPArray.push(PPTable);
                   console.log(
@@ -760,18 +770,12 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   time_seconds: END_TIME_SECONDS,
                 };
 
-                // PPArray contains the data to be uploaded today, check for duplicate values before uploading
-                matching_pp_array = PPArray.find(
-                  (o) =>
-                    o.pp_meter_id === PPTable.pp_meter_id &&
-                    o.time_seconds === PPTable.time_seconds,
-                );
                 if (
                   ((pp_recent_matching &&
                     String(pp_recent_matching.time_seconds) !==
                       END_TIME_SECONDS) ||
                     !pp_recent_matching) &&
-                  !matching_pp_array
+                  !upload_queue_matching
                 ) {
                   PPArray.push(PPTable);
                   console.log(
