@@ -10,7 +10,7 @@ const moment = require("moment-timezone");
 require("dotenv").config();
 const startDate = moment().unix();
 const apiRecentUrl = process.env.DASHBOARD_API + "/pprecent";
-const actual_days_const = 1;
+const actual_days_const = 1; // change for testing or debug on an older date
 const row_days_const = 1;
 const maxPrevDayCount = 7;
 
@@ -60,7 +60,7 @@ let PPArray = [];
 let unAvailableErrorArray = [];
 let deliveredErrorArray = [];
 let otherErrorArray = [];
-let wrongDateArray = [];
+let wrongDateFirstArray = [];
 let wrongDateGapArray = [];
 let yearlyArray = [];
 let continueDetailsFlag = false;
@@ -78,7 +78,7 @@ let pp_recent_list = null;
 let pp_recent_matching = null;
 let pp_recent_matching_time = null;
 let upload_queue_matching = null;
-let backup_upload_queue_matching = null;
+let upload_queue_matching_time = null;
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
@@ -140,7 +140,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     });
 
   if (pp_recent_list) {
-    console.log(`${pp_recent_list.length} meters in Meter Exclusion List`);
+    console.log(`${pp_recent_list.length} meters in Recent Data List`);
   } else {
     console.log(
       "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
@@ -301,7 +301,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
       );
       meter_selector_num = parseInt(meter_selector_full.slice(11));
       first_selector_num = meter_selector_num;
-      // console.log(meter_selector_full);
       console.log("Meter ID Found");
 
       await page.click(METER_MENU);
@@ -374,8 +373,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           );
 
           if (first_selector_num !== meter_selector_num) {
-            // console.log(first_selector_num);
-            // await page.waitForTimeout(500);
             while (!continueLoadingFlag && continueVarLoading === 0) {
               try {
                 await page.waitForFunction(
@@ -543,11 +540,12 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           let positionEst = "Est. Rounded";
 
           // Custom breakpoint for testing
-
+          /*
           if (meter_selector_num === 4) {
             continueMetersFlag = true;
             break;
           }
+          */
 
           if (monthly_top_text.includes(positionEst)) {
             console.log("Data is not yearly. Data is probably monthly.");
@@ -580,12 +578,12 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 prevDayFlag = true;
               }
 
-              // PPArray contains the data to be uploaded today, check for duplicate values before uploading
+              // Check upload queue (PPArray) for data that matches meter ID (does NOT check for matching time value).
               // TODO in future PR: Rename PPArray and other variables to have clearer meaning
-              backup_upload_queue_matching = PPArray.find(
+              upload_queue_matching = PPArray.find(
                 (o) => String(o.pp_meter_id) === String(pp_meter_id),
               );
-              if (backup_upload_queue_matching && !pp_recent_list) {
+              if (upload_queue_matching && !pp_recent_list) {
                 console.log(
                   "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
                 );
@@ -631,10 +629,11 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
               let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
                 await getRowData(monthly_top_text, positionUsage, positionEst);
-              let { actualDate, ACTUAL_DATE_UNIX } = getActualDate(actual_days);
-              // PPArray contains the data to be uploaded today, check for duplicate values before uploading
+              let actualDate = getActualDate(actual_days).actualDate;
+
+              // Check upload queue (PPArray) for data that matches meter ID AND time, before uploading.
               // TODO in future PR: Rename PPArray and other variables to have clearer meaning
-              upload_queue_matching = PPArray.find(
+              upload_queue_matching_time = PPArray.find(
                 (o) =>
                   String(o.pp_meter_id) === String(pp_meter_id) &&
                   String(o.time_seconds) === String(END_TIME_SECONDS),
@@ -650,162 +649,106 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   )
                   .format("YYYY-MM-DD");
               }
+              console.log("Actual date: " + actualDate);
+              console.log(
+                "Date shown on Pacific Power site: " + date.toString(),
+              );
               if (date && date !== actualDate) {
-                if (pp_recent_list) {
-                  if (pp_recent_matching) {
-                    console.log(
-                      "Actual date matches date from Pacific Power site, now let's check SQL database for matching dates as well",
-                    );
-                  } else {
-                    console.log(
-                      "No matching data for this day found yet in SQL database",
-                    );
-                  }
-                }
-                console.log("Actual date: " + actualDate);
-                console.log(
-                  "Date shown on Pacific Power site: " + date.toString(),
-                );
                 console.log(
                   "Actual date and date on pacific power site are out of sync.",
                 );
-                if (pp_recent_list) {
-                  if (pp_recent_matching) {
-                    console.log(
-                      "Latest date in SQL database: " + pp_recent_matching_time,
-                    );
-                  } else {
-                    console.log(
-                      "No matching data for this day found yet in SQL database",
-                    );
-                  }
-                  if (
-                    pp_recent_matching_time &&
-                    pp_recent_matching_time === actualDate
-                  ) {
-                    console.log(
-                      "Data for this day already exists in SQL database, skipping upload",
-                    );
-                    prevDayFlag = true;
-                    break;
-                  }
-                }
-                PPTable = {
-                  meter_selector_num,
-                  pp_meter_id,
-                  usage_kwh,
-                  time: END_TIME,
-                  time_seconds: END_TIME_SECONDS,
-                };
-                if (
-                  ((pp_recent_matching &&
-                    String(pp_recent_matching.time_seconds) !==
-                      END_TIME_SECONDS) ||
-                    !pp_recent_matching) &&
-                  !upload_queue_matching
-                ) {
-                  PPArray.push(PPTable);
+              } else if (date && date === actualDate) {
+                console.log(
+                  "Actual date and date on pacific power site are in sync.",
+                );
+              }
+              if (pp_recent_list) {
+                if (pp_recent_matching) {
                   console.log(
-                    "Valid data found for this day found; queuing upload.",
+                    "Latest date in SQL database: " + pp_recent_matching_time,
                   );
-                  wrongDateArray.push({
+                } else {
+                  console.log(
+                    "No matching data for this day found yet in SQL database",
+                  );
+                }
+                if (
+                  pp_recent_matching_time &&
+                  pp_recent_matching_time === actualDate
+                ) {
+                  console.log(
+                    "Data for this day already exists in SQL database, skipping upload",
+                  );
+                  prevDayFlag = true;
+                  break;
+                }
+              }
+              PPTable = {
+                meter_selector_num,
+                pp_meter_id,
+                usage_kwh,
+                time: END_TIME,
+                time_seconds: END_TIME_SECONDS,
+              };
+              if (
+                ((pp_recent_matching &&
+                  String(pp_recent_matching.time_seconds) !==
+                    END_TIME_SECONDS) ||
+                  !pp_recent_matching) &&
+                !upload_queue_matching_time
+              ) {
+                PPArray.push(PPTable);
+                console.log(
+                  "Valid data found for this day found; queuing upload.",
+                );
+
+                // Supposed to check for "wrong date" uploads older than the first (valid) date shown on
+                // Pacific Power site. Tracked separately because this usually means that "2 days or older" data was
+                // only uploaded to Pacific Power site today, and a "gap" in data has been filled.
+                if (upload_queue_matching && date && date === actualDate) {
+                  wrongDateGapArray.push({
                     meter_selector_num,
                     pp_meter_id,
                     time: END_TIME,
                     time_seconds: END_TIME_SECONDS,
                   });
                 }
-                if (actual_days === maxPrevDayCount) {
-                  console.log(
-                    `Reached max day count of ${maxPrevDayCount} days, exiting`,
-                  );
-                  prevDayFlag = true;
-                  break;
+                // Supposed to check for "wrong date" uploads matching the first (valid) date shown on
+                // pacific power site.
+                else if (
+                  !upload_queue_matching &&
+                  date &&
+                  date !== actualDate
+                ) {
+                  wrongDateFirstArray.push({
+                    meter_selector_num,
+                    pp_meter_id,
+                    time: END_TIME,
+                    time_seconds: END_TIME_SECONDS,
+                  });
                 }
+              }
+              if (actual_days === maxPrevDayCount) {
+                console.log(
+                  `Reached max day count of ${maxPrevDayCount} days, exiting`,
+                );
+                prevDayFlag = true;
+                break;
+              }
+              if (date && date !== actualDate) {
                 console.log(
                   "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
                 );
+                actual_days += 1;
+                let ACTUAL_DATE_UNIX =
+                  getActualDate(actual_days).ACTUAL_DATE_UNIX;
                 if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
                   console.log(
                     "Synced actual date and date from Pacific Power site, go to equalled if loop",
                   );
                   continue;
                 }
-                actual_days += 1;
               } else if (date && date === actualDate) {
-                if (pp_recent_list) {
-                  if (pp_recent_matching) {
-                    console.log(
-                      "Actual date matches date from Pacific Power site, now let's check SQL database for matching dates as well",
-                    );
-                  } else {
-                    console.log(
-                      "No matching data for this day found yet in SQL database",
-                    );
-                  }
-                }
-                console.log("Actual date: " + actualDate);
-                console.log(
-                  "Date shown on Pacific Power site: " + date.toString(),
-                );
-                console.log(
-                  "Actual date and date on pacific power site are in sync.",
-                );
-                if (pp_recent_list) {
-                  if (pp_recent_matching) {
-                    console.log(
-                      "Latest date in SQL database: " + pp_recent_matching_time,
-                    );
-                  } else {
-                    console.log(
-                      "No matching data for this day found yet in SQL database",
-                    );
-                  }
-                  if (
-                    pp_recent_matching_time &&
-                    pp_recent_matching_time === actualDate
-                  ) {
-                    console.log(
-                      "Data for this day already exists in SQL database, skipping upload",
-                    );
-                    prevDayFlag = true;
-                    break;
-                  }
-                }
-                PPTable = {
-                  meter_selector_num,
-                  pp_meter_id,
-                  usage_kwh,
-                  time: END_TIME,
-                  time_seconds: END_TIME_SECONDS,
-                };
-                if (
-                  ((pp_recent_matching &&
-                    String(pp_recent_matching.time_seconds) !==
-                      END_TIME_SECONDS) ||
-                    !pp_recent_matching) &&
-                  !upload_queue_matching
-                ) {
-                  PPArray.push(PPTable);
-                  console.log(
-                    "Valid data found for this day found; queuing upload",
-                  );
-                  if (actual_days > actual_days_const) {
-                    wrongDateGapArray.push({
-                      meter_selector_num,
-                      pp_meter_id,
-                      time: END_TIME,
-                      time_seconds: END_TIME_SECONDS,
-                    });
-                  }
-                }
-                if (actual_days === maxPrevDayCount) {
-                  console.log(
-                    `Reached max day count of ${maxPrevDayCount} days, exiting`,
-                  );
-                  prevDayFlag = true;
-                  break;
-                }
                 row_days += 1;
                 actual_days += 1;
               }
@@ -882,14 +825,14 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
-  if (wrongDateArray.length > 0) {
-    console.log("\nWrong Date Meters (Monthly, new upload): ");
-    for (let i = 0; i < wrongDateArray.length; i++) {
-      console.log(wrongDateArray[i]);
+  if (wrongDateFirstArray.length > 0) {
+    console.log("\nWrong Date Meters (First Occurence, Monthly): ");
+    for (let i = 0; i < wrongDateFirstArray.length; i++) {
+      console.log(wrongDateFirstArray[i]);
     }
   }
   if (wrongDateGapArray.length > 0) {
-    console.log("\nWrong Date Gap Meters (Monthly, new upload): ");
+    console.log("\nWrong Date Meters (Older Occurences aka 'Gap', Monthly): ");
     for (let i = 0; i < wrongDateGapArray.length; i++) {
       console.log(wrongDateGapArray[i]);
     }
@@ -925,7 +868,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     process.env.SAVE_OUTPUT === "true"
   ) {
     PPArray.push("Wrong Date Meters (Monthly): ");
-    PPArray.push(wrongDateArray);
+    PPArray.push(wrongDateFirstArray);
     PPArray.push("Wrong Date Gap Meters (Monthly): ");
     PPArray.push(wrongDateGapArray);
     PPArray.push("Unavailable Meters (Monthly): ");
