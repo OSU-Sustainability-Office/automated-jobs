@@ -786,9 +786,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
   const pacificPowerMeters = "pacific_power_data";
 
-  if (process.argv.includes("--no-upload") && PPArray.length > 0) {
+  if (PPArray.length > 0) {
     console.log("\nData to be uploaded: ");
-  } else if (process.argv.includes("--no-upload") && PPArray.length === 0) {
+  } else if (PPArray.length === 0) {
     console.log("\nNo data to be uploaded, SQL database is already up to date");
   }
   for (let i = 0; i < PPArray.length; i++) {
