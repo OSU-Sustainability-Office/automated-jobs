@@ -78,6 +78,7 @@ let pp_recent_list = null;
 let pp_recent_matching = null;
 let pp_recent_matching_time = null;
 let upload_queue_matching = null;
+let backup_upload_queue_matching = null;
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
@@ -85,12 +86,12 @@ async function getRowText(monthly_top_const, row_days) {
   return monthly_top_text;
 }
 
-function getActualDate(actual_days) {
+function getActualDate(num_days) {
   // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
   // yesterday's date in PST timezone, YYYY-MM-DD format
   let actualDate = moment
     .tz(
-      new Date(new Date().getTime() - actual_days * 24 * 60 * 60 * 1000),
+      new Date(new Date().getTime() - num_days * 24 * 60 * 60 * 1000),
       "America/Los_Angeles",
     )
     .format("YYYY-MM-DD");
@@ -139,9 +140,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     });
 
   if (pp_recent_list) {
-    console.log(
-      `${pp_recent_list.length} meters in Meter Exclusion List`,
-    );
+    console.log(`${pp_recent_list.length} meters in Meter Exclusion List`);
   } else {
     console.log(
       "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
@@ -544,12 +543,11 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           let positionEst = "Est. Rounded";
 
           // Custom breakpoint for testing
-          /*
+
           if (meter_selector_num === 4) {
             continueMetersFlag = true;
             break;
           }
-          */
 
           if (monthly_top_text.includes(positionEst)) {
             console.log("Data is not yearly. Data is probably monthly.");
@@ -578,7 +576,21 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 console.log(
                   `Meter data for ${actual_days} days ago not found, likely due to this being a new meter. Exiting early.`,
                 );
+                console.error(error);
                 prevDayFlag = true;
+              }
+
+              // PPArray contains the data to be uploaded today, check for duplicate values before uploading
+              // TODO in future PR: Rename PPArray and other variables to have clearer meaning
+              backup_upload_queue_matching = PPArray.find(
+                (o) => String(o.pp_meter_id) === String(pp_meter_id),
+              );
+              if (backup_upload_queue_matching && !pp_recent_list) {
+                console.log(
+                  "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
+                );
+                prevDayFlag = true;
+                break;
               }
               if (actual_days > actual_days_const) {
                 console.log(
@@ -590,7 +602,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
               if (monthly_top_text.includes("Unavailable")) {
                 console.log(
-                  "Unavailable Usage (kwh) data for monthly time range, skipping to next day",
+                  "'Unavailable' error detected for monthly time range, skipping to next day",
                 );
                 row_days += 1;
                 actual_days += 1;
@@ -606,7 +618,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 monthly_top_text.includes("received from you")
               ) {
                 console.log(
-                  "Unavailable Usage (kwh) data for monthly time range, skipping to next day",
+                  "'delivered / received' error detected for monthly time range, skipping to next day",
                 );
                 row_days += 1;
                 actual_days += 1;
@@ -624,16 +636,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
               // TODO in future PR: Rename PPArray and other variables to have clearer meaning
               upload_queue_matching = PPArray.find(
                 (o) =>
-                  o.pp_meter_id === pp_meter_id &&
-                  o.time_seconds === END_TIME_SECONDS,
+                  String(o.pp_meter_id) === String(pp_meter_id) &&
+                  String(o.time_seconds) === String(END_TIME_SECONDS),
               );
-              if (upload_queue_matching && !pp_recent_list) {
-                console.log(
-                  "Due to the ppRecent API call returning an error, exiting early after at least 1 valid day's worth of data for this meter was uploaded (to avoid uploading too much potentially redundant data).",
-                );
-                prevDayFlag = true;
-                break;
-              }
               if (pp_recent_list) {
                 pp_recent_matching = pp_recent_list.find(
                   (o) => o.pacific_power_meter_id === pp_meter_id,
@@ -660,6 +665,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 console.log("Actual date: " + actualDate);
                 console.log(
                   "Date shown on Pacific Power site: " + date.toString(),
+                );
+                console.log(
+                  "Actual date and date on pacific power site are out of sync.",
                 );
                 if (pp_recent_list) {
                   if (pp_recent_matching) {
@@ -689,7 +697,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   time: END_TIME,
                   time_seconds: END_TIME_SECONDS,
                 };
-
                 if (
                   ((pp_recent_matching &&
                     String(pp_recent_matching.time_seconds) !==
@@ -699,7 +706,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 ) {
                   PPArray.push(PPTable);
                   console.log(
-                    "Valid data to be uploaded found (actual date and date on pacific power site out of sync)",
+                    "Valid data found for this day found; queuing upload.",
                   );
                   wrongDateArray.push({
                     meter_selector_num,
@@ -741,6 +748,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 console.log(
                   "Date shown on Pacific Power site: " + date.toString(),
                 );
+                console.log(
+                  "Actual date and date on pacific power site are in sync.",
+                );
                 if (pp_recent_list) {
                   if (pp_recent_matching) {
                     console.log(
@@ -769,7 +779,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   time: END_TIME,
                   time_seconds: END_TIME_SECONDS,
                 };
-
                 if (
                   ((pp_recent_matching &&
                     String(pp_recent_matching.time_seconds) !==
@@ -779,7 +788,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 ) {
                   PPArray.push(PPTable);
                   console.log(
-                    "Valid data to be uploaded found (synced actual date and date on pacific power site)",
+                    "Valid data found for this day found; queuing upload",
                   );
                   if (actual_days > actual_days_const) {
                     wrongDateGapArray.push({
