@@ -70,7 +70,97 @@ let continueVarMonthly = 0;
 let page = "";
 let pp_meter_id = "";
 
+let pp_meters_exclusion_list = null;
+let pp_meters_exclude = [];
+let pp_meters_include = [];
+let pp_meters_exclude_not_found = [];
+
+function compareMeterAgainstExclusionList(PPTable) {
+  const meter = pp_meters_exclusion_list.find(
+    (meter) => meter.pp_meter_id === PPTable.pp_meter_id,
+  );
+
+  if (!meter) {
+    console.log(
+      `Meter ${PPTable.pp_meter_id} is not in the exclusion list: NEW METER`,
+    );
+    pp_meters_exclude_not_found.push(PPTable.pp_meter_id);
+    PPArray.push(PPTable);
+    return;
+  }
+
+  switch (meter.status) {
+    case "exclude":
+      console.log(`Meter ${PPTable.pp_meter_id} is excluded from db`);
+      pp_meters_exclude.push(PPTable.pp_meter_id);
+      break;
+    case "include":
+      console.log(`Meter ${PPTable.pp_meter_id} is included in db`);
+      pp_meters_include.push(PPTable.pp_meter_id);
+      PPArray.push(PPTable);
+      break;
+    case "new":
+      console.log(
+        `Meter ${PPTable.pp_meter_id} status needs updating, include in db for now.`,
+      );
+      pp_meters_include.push(PPTable.pp_meter_id);
+      PPArray.push(PPTable);
+      break;
+    default:
+      console.log(`Meter ${PPTable.pp_meter_id} unrecognized status`);
+  }
+}
+
+async function addNewMetersToDatabase() {
+  for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
+    await axios({
+      method: "post",
+      url: `${process.env.DASHBOARD_API}/ppupload`,
+      data: {
+        id: pp_meters_exclude_not_found[i],
+        pwd: process.env.API_PWD,
+      },
+    })
+      .then((res) => {
+        console.log(`\nRESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+        if (res.status === 200) {
+          console.log(
+            `${pp_meters_exclude_not_found[i]} uploaded to database.`,
+          );
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }
+}
+
 (async () => {
+  // fetch the meter exclusion list
+  pp_meters_exclusion_list = await axios({
+    method: "get",
+    url: `${process.env.DASHBOARD_API}/ppexclude`,
+  })
+    .then((res) => {
+      if (res.status < 200 || res.status >= 300) {
+        throw new Error("Failed to fetch PP Meter Exclusion List");
+      }
+      return res.data;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+
+  if (pp_meters_exclusion_list) {
+    console.log(
+      `${pp_meters_exclusion_list.length} meters in Meter Exclusion List`,
+    );
+  } else {
+    console.log(
+      "Could not get PP Meter Exclusion List. All meter data will be uploaded.",
+    );
+  }
+
   // Launch the browser
   const browser = await puppeteer.launch({
     headless: "new", // set to false (no quotes) for debug. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
@@ -468,6 +558,14 @@ let pp_meter_id = "";
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
           let positionEst = "Est. Rounded";
 
+          // Custom breakpoint for testing
+          /*
+          if (meter_selector_num === 518) {
+            continueMetersFlag = true;
+            break;
+          }
+          */
+
           if (monthly_top_text.includes(positionEst)) {
             console.log("Data is not yearly. Data is probably monthly.");
           } else {
@@ -570,15 +668,13 @@ let pp_meter_id = "";
             time_seconds: END_TIME_SECONDS,
           };
 
-          PPArray.push(PPTable);
-
-          /* // for testing json output
-      if (newID === 511) {
-        continueMetersFlag = true;
-  
-        break;
-      }
-      */
+          // if exclusion list was fetched, compare the meter against it to exclude meters
+          // otherwise we will add all meter data to db
+          if (pp_meters_exclusion_list) {
+            compareMeterAgainstExclusionList(PPTable);
+          } else {
+            PPArray.push(PPTable);
+          }
 
           // If "Est. Rounded" is found, then the data is monthly.
           if (monthly_top_text.includes(positionEst)) {
@@ -607,10 +703,7 @@ let pp_meter_id = "";
   const pacificPowerMeters = "pacific_power_data";
 
   for (let i = 0; i < PPArray.length; i++) {
-    // No need to log the data twice if uploading
-    if (process.argv.includes("--no-upload")) {
-      console.log(PPArray[i]);
-    }
+    console.log(PPArray[i]);
 
     // to prevent uploading data to API: node readPP.js --no-upload
     if (!process.argv.includes("--no-upload")) {
@@ -625,9 +718,10 @@ let pp_meter_id = "";
         },
       })
         .then((res) => {
-          console.log(
-            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
-          );
+          console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+          if (res.status === 200) {
+            console.log(`${PPArray[i].pp_meter_id} uploaded to database.`);
+          }
         })
         .catch((err) => {
           console.log(err);
@@ -662,6 +756,26 @@ let pp_meter_id = "";
   for (let i = 0; i < otherErrorArray.length; i++) {
     console.log(otherErrorArray[i]);
   }
+  console.log("\nMeters Excluded: ");
+  for (let i = 0; i < pp_meters_exclude.length; i++) {
+    console.log(pp_meters_exclude[i]);
+  }
+  console.log("\nMeters Included in DB: ");
+  for (let i = 0; i < pp_meters_include.length; i++) {
+    console.log(pp_meters_include[i]);
+  }
+
+  if (pp_meters_exclude_not_found.length > 0) {
+    console.log("\nMeters Not Found in Exclusion List (new meters): ");
+    for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
+      console.log(pp_meters_exclude_not_found[i]);
+    }
+  }
+
+  // add new meters to exclusion table in database if uploading
+  if (!process.argv.includes("--no-upload")) {
+    await addNewMetersToDatabase();
+  }
 
   // node readPP.js --save-output
   if (
@@ -676,6 +790,12 @@ let pp_meter_id = "";
     PPArray.push(yearlyArray);
     PPArray.push("Other Errors: ");
     PPArray.push(otherErrorArray);
+    PPArray.push("Meters Excluded from DB: ");
+    PPArray.push(pp_meters_exclude);
+    PPArray.push("Meters Included in DB: ");
+    PPArray.push(pp_meters_include);
+    PPArray.push("Meters Not Found in Exclusion List (new meters): ");
+    PPArray.push(pp_meters_exclude_not_found);
     const jsonContent = JSON.stringify(PPArray, null, 2);
     fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
       if (err) {
