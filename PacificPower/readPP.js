@@ -60,8 +60,7 @@ let PPArray = [];
 let unAvailableErrorArray = [];
 let deliveredErrorArray = [];
 let otherErrorArray = [];
-let wrongDateFirstArray = [];
-let wrongDateGapArray = [];
+let wrongDateArray = [];
 let yearlyArray = [];
 let continueDetailsFlag = false;
 let successDetailsFlag = false;
@@ -75,6 +74,7 @@ let pp_meter_id = "";
 let PPTable = {};
 
 let pp_recent_list = null;
+let pp_recent_filtered = [];
 let pp_recent_matching = null;
 let pp_recent_matching_time = null;
 let upload_queue_matching = null;
@@ -128,6 +128,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   pp_recent_list = await axios
     .get(apiRecentUrl)
     .then((res) => {
+      // change for debugging status codes from API
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Recent Data List");
       }
@@ -140,7 +141,17 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     });
 
   if (pp_recent_list) {
-    console.log(`${pp_recent_list.length} meters in Recent Data List`);
+    console.log(
+      `${pp_recent_list.length} total datapoints in PacificPower Recent Data List (no duplicates)`,
+    );
+    const uniqueIds = new Set();
+    pp_recent_list.forEach((item) => {
+      uniqueIds.add(item.pacific_power_meter_id);
+    });
+    const numberOfUniqueIds = uniqueIds.size;
+    console.log(
+      `${numberOfUniqueIds} unique meter ID's in PacificPower Recent Data List`,
+    );
   } else {
     console.log(
       "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
@@ -572,7 +583,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
               } catch (error) {
                 console.log(
-                  `Meter data for ${actual_days} days ago not found, likely due to this being a new meter. Exiting early.`,
+                  `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
                 );
                 console.error(error);
                 prevDayFlag = true;
@@ -639,9 +650,30 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   String(o.time_seconds) === String(END_TIME_SECONDS),
               );
               if (pp_recent_list) {
-                pp_recent_matching = pp_recent_list.find(
-                  (o) => o.pacific_power_meter_id === pp_meter_id,
+                pp_recent_filtered = pp_recent_list.filter(
+                  (o) =>
+                    String(o.pacific_power_meter_id) === String(pp_meter_id),
                 );
+
+                let closestMatch = 864000; // 10 days in seconds initial value, which should be higher than the 7 day threshold
+                for (let i = 0; i < pp_recent_filtered.length; i++) {
+                  if (
+                    Number(END_TIME_SECONDS) >=
+                    Number(pp_recent_filtered[i].time_seconds)
+                  ) {
+                    if (
+                      Number(END_TIME_SECONDS) -
+                        Number(pp_recent_filtered[i].time_seconds) <
+                      closestMatch
+                    ) {
+                      closestMatch =
+                        Number(END_TIME_SECONDS) -
+                        Number(pp_recent_filtered[i].time_seconds);
+                      pp_recent_matching = pp_recent_filtered[i];
+                    }
+                  }
+                }
+
                 pp_recent_matching_time = moment
                   .tz(
                     pp_recent_matching.time_seconds * 1000, // moment.tz expects milliseconds
@@ -665,7 +697,8 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
               if (pp_recent_list) {
                 if (pp_recent_matching) {
                   console.log(
-                    "Latest date in SQL database: " + pp_recent_matching_time,
+                    "Latest matching date from SQL database (relative to pacific power site): " +
+                      pp_recent_matching_time,
                   );
                 } else {
                   console.log(
@@ -677,10 +710,8 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   pp_recent_matching_time === actualDate
                 ) {
                   console.log(
-                    "Data for this day already exists in SQL database, skipping upload",
+                    "Data for this day already exists in SQL database, skipping upload, going to next day",
                   );
-                  prevDayFlag = true;
-                  break;
                 }
               }
               PPTable = {
@@ -702,25 +733,11 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   "Valid data found for this day found; queuing upload.",
                 );
 
-                // Supposed to check for "wrong date" uploads older than the first (valid) date shown on
-                // Pacific Power site. Tracked separately because this usually means that "2 days or older" data was
-                // only uploaded to Pacific Power site today, and a "gap" in data has been filled.
-                if (upload_queue_matching && date && date === actualDate) {
-                  wrongDateGapArray.push({
-                    meter_selector_num,
-                    pp_meter_id,
-                    time: END_TIME,
-                    time_seconds: END_TIME_SECONDS,
-                  });
-                }
-                // Supposed to check for "wrong date" uploads matching the first (valid) date shown on
-                // pacific power site.
-                else if (
-                  !upload_queue_matching &&
-                  date &&
-                  date !== actualDate
+                // Check for wrong date uploads
+                if (
+                  date !== String(getActualDate(actual_days_const).actualDate)
                 ) {
-                  wrongDateFirstArray.push({
+                  wrongDateArray.push({
                     meter_selector_num,
                     pp_meter_id,
                     time: END_TIME,
@@ -813,7 +830,16 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
           }
         })
         .catch((err) => {
-          console.log(err);
+          if (
+            err.response.status === 400 &&
+            err.response.data === "redundant upload detected, skipping"
+          ) {
+            console.log(
+              `RESPONSE: ${err.response.status}, TEXT: ${err.response.statusText}, ERROR: ${err.response.data}`,
+            );
+          } else {
+            console.log(err);
+          }
         });
     }
   }
@@ -825,16 +851,10 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
-  if (wrongDateFirstArray.length > 0) {
-    console.log("\nWrong Date Meters (First Occurence, Monthly): ");
-    for (let i = 0; i < wrongDateFirstArray.length; i++) {
-      console.log(wrongDateFirstArray[i]);
-    }
-  }
-  if (wrongDateGapArray.length > 0) {
-    console.log("\nWrong Date Meters (Older Occurences aka 'Gap', Monthly): ");
-    for (let i = 0; i < wrongDateGapArray.length; i++) {
-      console.log(wrongDateGapArray[i]);
+  if (wrongDateArray.length > 0) {
+    console.log("\nWrong Date Meters (Monthly): ");
+    for (let i = 0; i < wrongDateArray.length; i++) {
+      console.log(wrongDateArray[i]);
     }
   }
   if (unAvailableErrorArray.length > 0) {
@@ -868,9 +888,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     process.env.SAVE_OUTPUT === "true"
   ) {
     PPArray.push("Wrong Date Meters (Monthly): ");
-    PPArray.push(wrongDateFirstArray);
-    PPArray.push("Wrong Date Gap Meters (Monthly): ");
-    PPArray.push(wrongDateGapArray);
+    PPArray.push(wrongDateArray);
     PPArray.push("Unavailable Meters (Monthly): ");
     PPArray.push(unAvailableErrorArray);
     PPArray.push("Yearly Meters: ");
