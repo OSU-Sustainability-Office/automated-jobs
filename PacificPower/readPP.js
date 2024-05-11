@@ -9,7 +9,6 @@ const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
 require("dotenv").config();
 const startDate = moment().unix();
-const apiRecentUrl = process.env.DASHBOARD_API + "/pprecent";
 const actual_days_const = 1; // change for testing or debug on an older date
 const row_days_const = 1;
 const maxPrevDayCount = 7;
@@ -199,8 +198,10 @@ async function addNewMetersToDatabase() {
 }
 
 (async () => {
-  pp_recent_list = await axios
-    .get(apiRecentUrl)
+  pp_recent_list = await axios({
+    method: "get",
+    url: `${process.env.DASHBOARD_API}/pprecent`,
+  })
     .then((res) => {
       // change for debugging status codes from API
       if (res.status < 200 || res.status >= 300) {
@@ -238,6 +239,7 @@ async function addNewMetersToDatabase() {
     url: `${process.env.DASHBOARD_API}/ppexclude`,
   })
     .then((res) => {
+      // change for debugging status codes from API
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Meter Exclusion List");
       }
