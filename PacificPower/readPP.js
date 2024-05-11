@@ -60,7 +60,6 @@ let PPArray = [];
 let unAvailableErrorArray = [];
 let deliveredErrorArray = [];
 let otherErrorArray = [];
-let wrongDateArray = [];
 let yearlyArray = [];
 let continueDetailsFlag = false;
 let successDetailsFlag = false;
@@ -79,6 +78,11 @@ let pp_recent_matching = null;
 let pp_recent_matching_time = null;
 let upload_queue_matching = null;
 let upload_queue_matching_time = null;
+
+let pp_meters_exclusion_list = null;
+let pp_meters_exclude = [];
+let pp_meters_include = [];
+let pp_meters_exclude_not_found = [];
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
@@ -124,6 +128,76 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
+function compareMeterAgainstExclusionList(PPTable) {
+  const meter = pp_meters_exclusion_list.find(
+    (meter) => meter.pp_meter_id === PPTable.pp_meter_id,
+  );
+
+  if (!meter) {
+    console.log(
+      `Meter ${PPTable.pp_meter_id} is not in the exclusion list: NEW METER`,
+    );
+    // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+    if (!pp_meters_exclude_not_found.includes(PPTable.pp_meter_id)) {
+      pp_meters_exclude_not_found.push(PPTable.pp_meter_id);
+    }
+    return;
+  }
+
+  switch (meter.status) {
+    case "exclude":
+      console.log(`Meter ${PPTable.pp_meter_id} is excluded from db`);
+      // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!pp_meters_exclude.includes(PPTable.pp_meter_id)) {
+        pp_meters_exclude.push(PPTable.pp_meter_id);
+      }
+      break;
+    case "include":
+      console.log(`Meter ${PPTable.pp_meter_id} is included in db`);
+      pp_meters_include.push(PPTable.pp_meter_id);
+      // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!pp_meters_include.includes(PPTable.pp_meter_id)) {
+        pp_meters_include.push(PPTable.pp_meter_id);
+      }
+      break;
+    case "new":
+      console.log(
+        `Meter ${PPTable.pp_meter_id} status needs updating, include in db for now.`,
+      );
+      // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!pp_meters_include.includes(PPTable.pp_meter_id)) {
+        pp_meters_include.push(PPTable.pp_meter_id);
+      }
+      break;
+    default:
+      console.log(`Meter ${PPTable.pp_meter_id} unrecognized status`);
+  }
+}
+
+async function addNewMetersToDatabase() {
+  for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
+    await axios({
+      method: "post",
+      url: `${process.env.DASHBOARD_API}/ppupload`,
+      data: {
+        id: pp_meters_exclude_not_found[i],
+        pwd: process.env.API_PWD,
+      },
+    })
+      .then((res) => {
+        console.log(`\nRESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+        if (res.status === 200) {
+          console.log(
+            `${pp_meters_exclude_not_found[i]} uploaded to database.`,
+          );
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }
+}
+
 (async () => {
   pp_recent_list = await axios
     .get(apiRecentUrl)
@@ -142,7 +216,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
   if (pp_recent_list) {
     console.log(
-      `${pp_recent_list.length} total datapoints in PacificPower Recent Data List (no duplicates)`,
+      `${pp_recent_list.length} total datapoints in PP Recent Data List (no duplicates)`,
     );
     const uniqueIds = new Set();
     pp_recent_list.forEach((item) => {
@@ -150,11 +224,36 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     });
     const numberOfUniqueIds = uniqueIds.size;
     console.log(
-      `${numberOfUniqueIds} unique meter ID's in PacificPower Recent Data List`,
+      `${numberOfUniqueIds} unique meter ID's in PP Recent Data List`,
     );
   } else {
     console.log(
       "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
+    );
+  }
+
+  // fetch the meter exclusion list
+  pp_meters_exclusion_list = await axios({
+    method: "get",
+    url: `${process.env.DASHBOARD_API}/ppexclude`,
+  })
+    .then((res) => {
+      if (res.status < 200 || res.status >= 300) {
+        throw new Error("Failed to fetch PP Meter Exclusion List");
+      }
+      return res.data;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+
+  if (pp_meters_exclusion_list) {
+    console.log(
+      `${pp_meters_exclusion_list.length} meters in PP Meter Exclusion List`,
+    );
+  } else {
+    console.log(
+      "Could not get PP Meter Exclusion List. All meter data will be uploaded.",
     );
   }
 
@@ -552,7 +651,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
           // Custom breakpoint for testing
           /*
-          if (meter_selector_num === 4) {
+          if (meter_selector_num === 10) {
             continueMetersFlag = true;
             break;
           }
@@ -566,6 +665,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
             console.log("Year Check Found, skipping to next meter");
             console.log("===");
             console.log(monthly_top_text);
+
+            // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
+            // so, log an error?
             yearlyArray.push({ meter_selector_num, pp_meter_id });
             meter_selector_num++;
             continueVarLoading = 0;
@@ -721,6 +823,10 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                 time: END_TIME,
                 time_seconds: END_TIME_SECONDS,
               };
+              // If recent data list was fetched, verify there are no matching meter ID + time_seconds values in SQL
+              // database, nor in upload queue (PPTable).
+              // If recent data list wasn't fetched, still verify there are no matching meter ID + time_seconds values
+              // in upload queue (PPTable).
               if (
                 ((pp_recent_matching &&
                   String(pp_recent_matching.time_seconds) !==
@@ -728,21 +834,27 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
                   !pp_recent_matching) &&
                 !upload_queue_matching_time
               ) {
-                PPArray.push(PPTable);
-                console.log(
-                  "Valid data found for this day found; queuing upload.",
-                );
-
-                // Check for wrong date uploads
-                if (
-                  date !== String(getActualDate(actual_days_const).actualDate)
-                ) {
-                  wrongDateArray.push({
-                    meter_selector_num,
-                    pp_meter_id,
-                    time: END_TIME,
-                    time_seconds: END_TIME_SECONDS,
-                  });
+                // if exclusion list was fetched, compare the meter against it to exclude meters
+                // otherwise we will add all meter data to db
+                if (pp_meters_exclusion_list) {
+                  compareMeterAgainstExclusionList(PPTable);
+                  if (
+                    !pp_meters_exclude.includes(PPTable.pp_meter_id) &&
+                    (pp_meters_include.includes(PPTable.pp_meter_id) ||
+                      pp_meters_exclude_not_found.includes(PPTable.pp_meter_id))
+                  ) {
+                    // should only be logged for valid, unique data objects not in exclusion list
+                    console.log(
+                      "Valid data found for this day found; queuing upload.",
+                    );
+                    PPArray.push(PPTable);
+                  }
+                } else {
+                  PPArray.push(PPTable);
+                  // should only be logged for valid, unique data objects not in exclusion list
+                  console.log(
+                    "Valid data found for this day found; queuing upload.",
+                  );
                 }
               }
               if (actual_days === maxPrevDayCount) {
@@ -851,12 +963,6 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
-  if (wrongDateArray.length > 0) {
-    console.log("\nWrong Date Meters (Monthly): ");
-    for (let i = 0; i < wrongDateArray.length; i++) {
-      console.log(wrongDateArray[i]);
-    }
-  }
   if (unAvailableErrorArray.length > 0) {
     console.log("\nUnavailable Meters (Monthly): ");
     for (let i = 0; i < unAvailableErrorArray.length; i++) {
@@ -882,19 +988,51 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
     }
   }
 
+  if (pp_meters_exclude.length > 0) {
+    console.log("\nMeters Excluded: ");
+    for (let i = 0; i < pp_meters_exclude.length; i++) {
+      console.log(pp_meters_exclude[i]);
+    }
+  }
+
+  if (pp_meters_include.length > 0) {
+    console.log("\nMeters Included in DB: ");
+    for (let i = 0; i < pp_meters_include.length; i++) {
+      console.log(pp_meters_include[i]);
+    }
+  }
+
+  if (pp_meters_exclude_not_found.length > 0) {
+    console.log("\nMeters Not Found in Exclusion List (new meters): ");
+    for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
+      console.log(pp_meters_exclude_not_found[i]);
+    }
+  }
+
+  // add new meters to exclusion table in database if uploading
+  if (!process.argv.includes("--no-upload")) {
+    await addNewMetersToDatabase();
+  }
+
   // node readPP.js --save-output
   if (
     process.argv.includes("--save-output") ||
     process.env.SAVE_OUTPUT === "true"
   ) {
-    PPArray.push("Wrong Date Meters (Monthly): ");
-    PPArray.push(wrongDateArray);
     PPArray.push("Unavailable Meters (Monthly): ");
     PPArray.push(unAvailableErrorArray);
+    PPArray.push("Delivered Error Meters (Monthly): ");
+    PPArray.push(deliveredErrorArray);
     PPArray.push("Yearly Meters: ");
     PPArray.push(yearlyArray);
     PPArray.push("Other Errors: ");
     PPArray.push(otherErrorArray);
+    PPArray.push("Meters Excluded from DB: ");
+    PPArray.push(pp_meters_exclude);
+    PPArray.push("Meters Included in DB: ");
+    PPArray.push(pp_meters_include);
+    PPArray.push("Meters Not Found in Exclusion List (new meters): ");
+    PPArray.push(pp_meters_exclude_not_found);
     const jsonContent = JSON.stringify(PPArray, null, 2);
     fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
       if (err) {
