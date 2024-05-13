@@ -9,6 +9,9 @@ const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
 require("dotenv").config();
 const startDate = moment().unix();
+const actual_days_const = 1; // change for testing or debug on an older date
+const row_days_const = 1;
+const maxPrevDayCount = 7;
 
 const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
 const axios = require("axios");
@@ -29,36 +32,33 @@ const SIGN_IN_PASSWORD = "input#password";
 // This is the actual login button, as opposed to signin page button
 const LOGIN_BUTTON = "button#next";
 
-// This button takes you to a specific meter's page
-const USAGE_DETAILS = "a.usage-link";
-
 const GRAPH_TO_TABLE_BUTTON_MONTHLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
 const GRAPH_TO_TABLE_BUTTON_YEARLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
-const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
-const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
+const METER_MENU = "#mat-select-0 > div > div.mat-select-value > span";
+const TIME_MENU = "#mat-select-1 > div > div.mat-select-value > span";
 const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
 const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
 const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
 const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
 const MONTHLY_TOP =
-  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(1)";
+  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
+let monthly_top_text = "";
 let yearCheck = false;
+let prevDayFlag = false;
 let monthCheck = false;
 let weekCheck = false;
 let twoYearCheck = false;
 let continueMetersFlag = false;
 let continueLoadingFlag = false;
 let continueVarMonthlyFlag = false;
-let loggedInFlag = false;
 let graphButton = "";
 let first_selector_num = 0;
 let PPArray = [];
 let unAvailableErrorArray = [];
 let deliveredErrorArray = [];
 let otherErrorArray = [];
-let wrongDateArray = [];
 let yearlyArray = [];
 let continueDetailsFlag = false;
 let successDetailsFlag = false;
@@ -69,11 +69,63 @@ let continueVarLoading = 0;
 let continueVarMonthly = 0;
 let page = "";
 let pp_meter_id = "";
+let PPTable = {};
+
+let pp_recent_list = null;
+let pp_recent_filtered = [];
+let pp_recent_matching = null;
+let pp_recent_matching_time = null;
+let upload_queue_matching = null;
+let upload_queue_matching_time = null;
 
 let pp_meters_exclusion_list = null;
 let pp_meters_exclude = [];
 let pp_meters_include = [];
 let pp_meters_exclude_not_found = [];
+
+async function getRowText(monthly_top_const, row_days) {
+  monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
+  monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
+  return monthly_top_text;
+}
+
+function getActualDate(num_days) {
+  // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
+  // yesterday's date in PST timezone, YYYY-MM-DD format
+  let actualDate = moment
+    .tz(
+      new Date(new Date().getTime() - num_days * 24 * 60 * 60 * 1000),
+      "America/Los_Angeles",
+    )
+    .format("YYYY-MM-DD");
+  const actualDateObj = new Date(actualDate);
+
+  // unix time calc
+  actualDateObj.setUTCHours(23, 59, 59, 0);
+  const ACTUAL_DATE_UNIX = Math.floor(
+    actualDateObj.valueOf() / 1000,
+  ).toString();
+  return { actualDate, ACTUAL_DATE_UNIX };
+}
+
+async function getRowData(monthly_top_text, positionUsage, positionEst) {
+  let usage_kwh = parseFloat(
+    monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+  );
+
+  // get the date for the data
+  let positionPeriod = "Period";
+  let positionAve = "Average";
+  let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
+
+  const dateObj = new Date(date);
+  const END_TIME = `${date}T23:59:59`;
+
+  // unix time calc
+  dateObj.setUTCHours(23, 59, 59, 0);
+  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
+  return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
+}
 
 function compareMeterAgainstExclusionList(PPTable) {
   const meter = pp_meters_exclusion_list.find(
@@ -84,27 +136,37 @@ function compareMeterAgainstExclusionList(PPTable) {
     console.log(
       `Meter ${PPTable.pp_meter_id} is not in the exclusion list: NEW METER`,
     );
-    pp_meters_exclude_not_found.push(PPTable.pp_meter_id);
-    PPArray.push(PPTable);
+    // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+    if (!pp_meters_exclude_not_found.includes(PPTable.pp_meter_id)) {
+      pp_meters_exclude_not_found.push(PPTable.pp_meter_id);
+    }
     return;
   }
 
   switch (meter.status) {
     case "exclude":
       console.log(`Meter ${PPTable.pp_meter_id} is excluded from db`);
-      pp_meters_exclude.push(PPTable.pp_meter_id);
+      // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!pp_meters_exclude.includes(PPTable.pp_meter_id)) {
+        pp_meters_exclude.push(PPTable.pp_meter_id);
+      }
       break;
     case "include":
       console.log(`Meter ${PPTable.pp_meter_id} is included in db`);
       pp_meters_include.push(PPTable.pp_meter_id);
-      PPArray.push(PPTable);
+      // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!pp_meters_include.includes(PPTable.pp_meter_id)) {
+        pp_meters_include.push(PPTable.pp_meter_id);
+      }
       break;
     case "new":
       console.log(
         `Meter ${PPTable.pp_meter_id} status needs updating, include in db for now.`,
       );
-      pp_meters_include.push(PPTable.pp_meter_id);
-      PPArray.push(PPTable);
+      // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!pp_meters_include.includes(PPTable.pp_meter_id)) {
+        pp_meters_include.push(PPTable.pp_meter_id);
+      }
       break;
     default:
       console.log(`Meter ${PPTable.pp_meter_id} unrecognized status`);
@@ -136,15 +198,53 @@ async function addNewMetersToDatabase() {
 }
 
 (async () => {
+  pp_recent_list = await axios({
+    method: "get",
+    url: `${process.env.DASHBOARD_API}/pprecent`,
+  })
+    .then((res) => {
+      // change for debugging status codes from API
+      if (res.status < 200 || res.status >= 300) {
+        throw new Error("Failed to fetch PP Recent Data List");
+      }
+
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+      return res.data;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+
+  if (pp_recent_list) {
+    console.log(
+      `${pp_recent_list.length} total datapoints in PP Recent Data List (no duplicates)`,
+    );
+    const uniqueIds = new Set();
+    pp_recent_list.forEach((item) => {
+      uniqueIds.add(item.pacific_power_meter_id);
+    });
+    const numberOfUniqueIds = uniqueIds.size;
+    console.log(
+      `${numberOfUniqueIds} unique meter ID's in PP Recent Data List`,
+    );
+  } else {
+    console.log(
+      "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
+    );
+  }
+
   // fetch the meter exclusion list
   pp_meters_exclusion_list = await axios({
     method: "get",
     url: `${process.env.DASHBOARD_API}/ppexclude`,
   })
     .then((res) => {
+      // change for debugging status codes from API
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Meter Exclusion List");
       }
+
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
       return res.data;
     })
     .catch((err) => {
@@ -153,7 +253,7 @@ async function addNewMetersToDatabase() {
 
   if (pp_meters_exclusion_list) {
     console.log(
-      `${pp_meters_exclusion_list.length} meters in Meter Exclusion List`,
+      `${pp_meters_exclusion_list.length} meters in PP Meter Exclusion List`,
     );
   } else {
     console.log(
@@ -174,6 +274,8 @@ async function addNewMetersToDatabase() {
       // Create a page
       page = await browser.newPage();
       await page.setDefaultTimeout(TIMEOUT_BUFFER);
+      await page.setCacheEnabled(false);
+      await page.reload({ waitUntil: "networkidle2" });
 
       // Go to your site
       await page.goto(process.env.PP_LOGINPAGE, {
@@ -190,19 +292,16 @@ async function addNewMetersToDatabase() {
       );
       console.log(await page.title());
 
+      await page.waitForTimeout(25000);
       if (continueDetails === 0) {
-        await page.waitForTimeout(25000);
         await page.waitForSelector(ACCEPT_COOKIES);
         console.log("Cookies Button found");
 
         await page.click(ACCEPT_COOKIES);
         await page.click(LOCATION_BUTTON);
         console.log("Location Button clicked");
-      }
+        // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
-      // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
-
-      if (!loggedInFlag) {
         await page.click(SIGN_IN_PAGE_BUTTON);
         console.log("SignIn Page Button Clicked!");
 
@@ -229,22 +328,34 @@ async function addNewMetersToDatabase() {
 
         await frame.click(LOGIN_BUTTON);
         console.log("Login Button clicked");
-        loggedInFlag = true;
-      } else {
-        console.log("Already logged in, go to My Account");
-        // Go to your site
-        await page.goto(process.env.PP_ACCOUNTPAGE);
+        // this one needs more timeout, based on results from stresstest.sh
+        await page.waitForNavigation({
+          waitUntil: "networkidle0",
+          timeout: 60000,
+        });
+        console.log(await page.title());
+        console.log(
+          "First time logged in, continuing to Account > Energy Usage Page",
+        );
+
+        // uncomment for login error handling
+        // throw "testing login error handling try again";
+      } else if (continueDetails > 0) {
+        console.log(
+          "Already logged in, continuing to Account > Energy Usage Page",
+        );
       }
 
-      // this one needs more timeout, based on results from stresstest.sh
-      await page.waitForNavigation({
+      // Note changed accountpage URL from env file (now goes direct to energy usage page).
+      // The page.goto() as well as `await page.setCacheEnabled(false)` seems to improve reliability of getting
+      // to the energy usage page, but note some of the selector indices change from 1 to 0, "meter_selector_num"
+      // now starts from 0 instead of 500+, and that after logging in once, you will stay logged in on other pages.
+      // See `continueDetails` variable, and also run the scraper with `headless: false` to see the process.
+      await page.goto(process.env.PP_ACCOUNTPAGE, {
         waitUntil: "networkidle0",
-        timeout: 60000,
+        timeout: 120000,
       });
       console.log(await page.title());
-
-      await page.waitForTimeout(25000);
-
       await page.waitForSelector("#loader-temp-secure", {
         hidden: true,
         timeout: 25000,
@@ -264,24 +375,11 @@ async function addNewMetersToDatabase() {
           ),
       );
 
-      await page.waitForSelector(USAGE_DETAILS, { timeout: 60000 });
-      console.log("Usage Details Link found");
-
-      await page.click(USAGE_DETAILS);
-
-      // this one needs more timeout, based on results from stresstest.sh
-      await page.waitForNavigation({
-        waitUntil: "networkidle0",
-        timeout: 60000,
-      });
-      await page.waitForTimeout(25000);
-
       // it's theoretically possible to get yearly result for first meter, so check just in case
       // await page.waitForTimeout(25000);
       await page.waitForFunction(
         () => !document.querySelector("#loading-component > mat-spinner"),
       );
-      console.log(await page.title());
       [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
       [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
       console.log("Year / Month Check found");
@@ -317,7 +415,6 @@ async function addNewMetersToDatabase() {
       );
       meter_selector_num = parseInt(meter_selector_full.slice(11));
       first_selector_num = meter_selector_num;
-      // console.log(meter_selector_full);
       console.log("Meter ID Found");
 
       await page.click(METER_MENU);
@@ -338,7 +435,7 @@ async function addNewMetersToDatabase() {
     } catch (err) {
       console.error(err);
       console.log(
-        `Unknown Issue en route to Energy Usage Details Page, (Attempt ${
+        `Unknown Issue en route to Energy Usage Page, (Attempt ${
           continueDetails + 1
         } of ${maxAttempts}). Retrying...`,
       );
@@ -390,8 +487,6 @@ async function addNewMetersToDatabase() {
           );
 
           if (first_selector_num !== meter_selector_num) {
-            // console.log(first_selector_num);
-            // await page.waitForTimeout(500);
             while (!continueLoadingFlag && continueVarLoading === 0) {
               try {
                 await page.waitForFunction(
@@ -446,7 +541,7 @@ async function addNewMetersToDatabase() {
               pp_meter_full_trim.length - 2,
             ),
           );
-          console.log(pp_meter_id);
+          console.log("PP Meter ID: " + pp_meter_id.toString());
 
           // await page.waitForSelector(
           // "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
@@ -456,7 +551,7 @@ async function addNewMetersToDatabase() {
               await page.waitForSelector(
                 "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
               );
-              await page.waitForSelector(MONTHLY_TOP, {
+              await page.waitForSelector(MONTHLY_TOP + "1)", {
                 timeout: 25000,
               });
               console.log("Monthly Top Found");
@@ -547,20 +642,20 @@ async function addNewMetersToDatabase() {
             continue;
           }
 
-          monthly_top = await page.waitForSelector(MONTHLY_TOP);
+          let row_days = row_days_const;
+          monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+
+          // TODO in future PR: Fix this variable name to be just "top row" or something,
+          // rename "monthly" var names to be more clear on time interval vs total time frame
           console.log(
             "Monthly Data Top Row Found, getting table top row value",
           );
-          let monthly_top_text = await monthly_top.evaluate(
-            (el) => el.textContent,
-          );
-          console.log(monthly_top_text);
           let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
           let positionEst = "Est. Rounded";
 
           // Custom breakpoint for testing
           /*
-          if (meter_selector_num === 518) {
+          if (meter_selector_num === 10) {
             continueMetersFlag = true;
             break;
           }
@@ -568,113 +663,236 @@ async function addNewMetersToDatabase() {
 
           if (monthly_top_text.includes(positionEst)) {
             console.log("Data is not yearly. Data is probably monthly.");
+            console.log("===");
+            console.log(monthly_top_text);
           } else {
             console.log("Year Check Found, skipping to next meter");
+            console.log("===");
+            console.log(monthly_top_text);
+
+            // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
+            // so, log an error?
             yearlyArray.push({ meter_selector_num, pp_meter_id });
             meter_selector_num++;
             continueVarLoading = 0;
             continue;
           }
 
-          // potential TODO: If unavailable, get second row of data
-          // Then need to handle potential redundant data on upload, first of month case
-          // Difference between unavailable and just wrong date is that unavailable shows expected
-          // date (e.g. yesterday), just that the usage (kwh) data is "unavailable"
-          if (monthly_top_text.includes("Unavailable")) {
-            console.log(
-              "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
-            );
-            meter_selector_num++;
-            continueVarLoading = 0;
-            unAvailableErrorArray.push({ meter_selector_num, pp_meter_id });
-            continue;
-          }
-
-          // potential TODO: If delivered error, get second row of data
-          // Then need to handle potential redundant data on upload, first of month case
-          // Difference between delivered error and just wrong date is that unavailable shows expected
-          // date (e.g. yesterday), just that the usage seems to be completely wrong values
-          if (
-            monthly_top_text.includes("delivered to you") ||
-            monthly_top_text.includes("received from you")
-          ) {
-            console.log(
-              "Unavailable Usage (kwh) data for monthly time range, skipping to next meter",
-            );
-            meter_selector_num++;
-            continueVarLoading = 0;
-            deliveredErrorArray.push({ meter_selector_num, pp_meter_id });
-            continue;
-          }
-
           continueVarMonthlyFlag = false;
           continueVarMonthly = 0;
 
-          let usage_kwh = parseFloat(
-            monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-          );
-          console.log(usage_kwh);
+          let actual_days = actual_days_const;
 
-          // get the date for the data
-          let positionPeriod = "Period";
-          let positionAve = "Average";
-          let date = monthly_top_text
-            .split(positionPeriod)[1]
-            .split(positionAve)[0];
+          while (!prevDayFlag && actual_days <= maxPrevDayCount) {
+            try {
+              try {
+                monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+              } catch (error) {
+                console.log(
+                  `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
+                );
+                console.error(error);
+                prevDayFlag = true;
+              }
 
-          console.log("Latest date from PacificPower: " + date);
+              // Check upload queue (PPArray) for data that matches meter ID (does NOT check for matching time value).
+              // TODO in future PR: Rename PPArray and other variables to have clearer meaning
+              upload_queue_matching = PPArray.find(
+                (o) => String(o.pp_meter_id) === String(pp_meter_id),
+              );
+              if (upload_queue_matching && !pp_recent_list) {
+                console.log(
+                  "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
+                );
+                prevDayFlag = true;
+                break;
+              }
+              if (actual_days > actual_days_const) {
+                console.log(
+                  "Monthly Data Top Row Found, getting table top row value",
+                );
+                console.log("===");
+                console.log(monthly_top_text);
+              }
 
-          // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
-          // yesterday's date in PST timezone, YYYY-MM-DD format
-          let actualDate = moment
-            .tz(
-              new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-              "America/Los_Angeles",
-            )
-            .format("YYYY-MM-DD");
+              if (monthly_top_text.includes("Unavailable")) {
+                console.log(
+                  "'Unavailable' error detected for monthly time range, skipping to next day",
+                );
+                row_days += 1;
+                actual_days += 1;
+                unAvailableErrorArray.push({
+                  meter_selector_num,
+                  pp_meter_id,
+                });
+                continue;
+              }
 
-          console.log("Actual date: " + actualDate);
+              if (
+                monthly_top_text.includes("delivered to you") ||
+                monthly_top_text.includes("received from you")
+              ) {
+                console.log(
+                  "'delivered / received' error detected for monthly time range, skipping to next day",
+                );
+                row_days += 1;
+                actual_days += 1;
+                deliveredErrorArray.push({
+                  meter_selector_num,
+                  pp_meter_id,
+                });
+                continue;
+              }
 
-          const dateObj = new Date(date);
-          const END_TIME = `${date}T23:59:59`;
-          console.log("Time is " + END_TIME);
+              let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+                await getRowData(monthly_top_text, positionUsage, positionEst);
+              let actualDate = getActualDate(actual_days).actualDate;
 
-          // unix time calc
-          dateObj.setUTCHours(23, 59, 59, 0);
-          const END_TIME_SECONDS = Math.floor(
-            dateObj.valueOf() / 1000,
-          ).toString();
-          console.log("Unix time is " + END_TIME_SECONDS);
+              // Check upload queue (PPArray) for data that matches meter ID AND time, before uploading.
+              // TODO in future PR: Rename PPArray and other variables to have clearer meaning
+              upload_queue_matching_time = PPArray.find(
+                (o) =>
+                  String(o.pp_meter_id) === String(pp_meter_id) &&
+                  String(o.time_seconds) === String(END_TIME_SECONDS),
+              );
+              if (pp_recent_list) {
+                pp_recent_filtered = pp_recent_list.filter(
+                  (o) =>
+                    String(o.pacific_power_meter_id) === String(pp_meter_id),
+                );
 
-          // potential TODO: handle potential redundant data on upload, first of month case
-          // wrong date (usually) means the most recent data is 2 days old
-          // current wrongdate meter (that is in meters table): 74264319
-          if (date !== actualDate) {
-            wrongDateArray.push({
-              meter_selector_num,
-              pp_meter_id,
-              time: END_TIME,
-              time_seconds: END_TIME_SECONDS,
-            });
-            console.log("Does not match yesterday's date");
-            // TBD if we just log the warning or if we should stop the scraper if this happens
+                let closestMatch = 864000; // 10 days in seconds initial value, which should be higher than the 7 day threshold
+                for (let i = 0; i < pp_recent_filtered.length; i++) {
+                  if (
+                    Number(END_TIME_SECONDS) >=
+                    Number(pp_recent_filtered[i].time_seconds)
+                  ) {
+                    if (
+                      Number(END_TIME_SECONDS) -
+                        Number(pp_recent_filtered[i].time_seconds) <
+                      closestMatch
+                    ) {
+                      closestMatch =
+                        Number(END_TIME_SECONDS) -
+                        Number(pp_recent_filtered[i].time_seconds);
+                      pp_recent_matching = pp_recent_filtered[i];
+                    }
+                  }
+                }
+
+                pp_recent_matching_time = moment
+                  .tz(
+                    pp_recent_matching.time_seconds * 1000, // moment.tz expects milliseconds
+                    "America/Los_Angeles",
+                  )
+                  .format("YYYY-MM-DD");
+              }
+              console.log("Actual date: " + actualDate);
+              console.log(
+                "Date shown on Pacific Power site: " + date.toString(),
+              );
+              if (date && date !== actualDate) {
+                console.log(
+                  "Actual date and date on pacific power site are out of sync.",
+                );
+              } else if (date && date === actualDate) {
+                console.log(
+                  "Actual date and date on pacific power site are in sync.",
+                );
+              }
+              if (pp_recent_list) {
+                if (pp_recent_matching) {
+                  console.log(
+                    "Latest matching date from SQL database (relative to pacific power site): " +
+                      pp_recent_matching_time,
+                  );
+                } else {
+                  console.log(
+                    "No matching data for this day found yet in SQL database",
+                  );
+                }
+                if (
+                  pp_recent_matching_time &&
+                  pp_recent_matching_time === actualDate
+                ) {
+                  console.log(
+                    "Data for this day already exists in SQL database, skipping upload, going to next day",
+                  );
+                }
+              }
+              PPTable = {
+                meter_selector_num,
+                pp_meter_id,
+                usage_kwh,
+                time: END_TIME,
+                time_seconds: END_TIME_SECONDS,
+              };
+              // If recent data list was fetched, verify there are no matching meter ID + time_seconds values in SQL
+              // database, nor in upload queue (PPTable).
+              // If recent data list wasn't fetched, still verify there are no matching meter ID + time_seconds values
+              // in upload queue (PPTable).
+              if (
+                ((pp_recent_matching &&
+                  String(pp_recent_matching.time_seconds) !==
+                    END_TIME_SECONDS) ||
+                  !pp_recent_matching) &&
+                !upload_queue_matching_time
+              ) {
+                // if exclusion list was fetched, compare the meter against it to exclude meters
+                // otherwise we will add all meter data to db
+                if (pp_meters_exclusion_list) {
+                  compareMeterAgainstExclusionList(PPTable);
+                  if (
+                    !pp_meters_exclude.includes(PPTable.pp_meter_id) &&
+                    (pp_meters_include.includes(PPTable.pp_meter_id) ||
+                      pp_meters_exclude_not_found.includes(PPTable.pp_meter_id))
+                  ) {
+                    // should only be logged for valid, unique data objects not in exclusion list
+                    console.log(
+                      "Valid data found for this day found; queuing upload.",
+                    );
+                    PPArray.push(PPTable);
+                  }
+                } else {
+                  PPArray.push(PPTable);
+                  // should only be logged for valid, unique data objects not in exclusion list
+                  console.log(
+                    "Valid data found for this day found; queuing upload.",
+                  );
+                }
+              }
+              if (actual_days === maxPrevDayCount) {
+                console.log(
+                  `Reached max day count of ${maxPrevDayCount} days, exiting`,
+                );
+                prevDayFlag = true;
+                break;
+              }
+              if (date && date !== actualDate) {
+                console.log(
+                  "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
+                );
+                actual_days += 1;
+                let ACTUAL_DATE_UNIX =
+                  getActualDate(actual_days).ACTUAL_DATE_UNIX;
+                if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
+                  console.log(
+                    "Synced actual date and date from Pacific Power site, go to equalled if loop",
+                  );
+                  continue;
+                }
+              } else if (date && date === actualDate) {
+                row_days += 1;
+                actual_days += 1;
+              }
+            } catch (error) {
+              console.log("Some other error occurred, skipping to next meter");
+              console.error(error);
+              otherErrorArray.push({ meter_selector_num, pp_meter_id });
+              prevDayFlag = true;
+            }
           }
-
-          const PPTable = {
-            meter_selector_num,
-            pp_meter_id,
-            usage_kwh,
-            time: END_TIME,
-            time_seconds: END_TIME_SECONDS,
-          };
-
-          // if exclusion list was fetched, compare the meter against it to exclude meters
-          // otherwise we will add all meter data to db
-          if (pp_meters_exclusion_list) {
-            compareMeterAgainstExclusionList(PPTable);
-          } else {
-            PPArray.push(PPTable);
-          }
+          prevDayFlag = false;
 
           // If "Est. Rounded" is found, then the data is monthly.
           if (monthly_top_text.includes(positionEst)) {
@@ -694,7 +912,6 @@ async function addNewMetersToDatabase() {
           if (continueMeters === maxAttempts) {
             console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
           }
-          // continue;
         }
       }
     }
@@ -702,6 +919,11 @@ async function addNewMetersToDatabase() {
 
   const pacificPowerMeters = "pacific_power_data";
 
+  if (PPArray.length > 0) {
+    console.log("\nData to be uploaded: ");
+  } else if (PPArray.length === 0) {
+    console.log("\nNo data to be uploaded, SQL database is already up to date");
+  }
   for (let i = 0; i < PPArray.length; i++) {
     console.log(PPArray[i]);
 
@@ -724,45 +946,64 @@ async function addNewMetersToDatabase() {
           }
         })
         .catch((err) => {
-          console.log(err);
+          if (
+            err.response.status === 400 &&
+            err.response.data === "redundant upload detected, skipping"
+          ) {
+            console.log(
+              `RESPONSE: ${err.response.status}, TEXT: ${err.response.statusText}, ERROR: ${err.response.data}`,
+            );
+          } else {
+            console.log(err);
+          }
         });
     }
   }
   console.log(
-    "Timestamp (approximate): " +
+    "\nTimestamp (approximate): " +
       moment
         .unix(startDate)
         .tz("America/Los_Angeles")
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
-  console.log("\nWrong Date Meters (Monthly): ");
-  for (let i = 0; i < wrongDateArray.length; i++) {
-    console.log(wrongDateArray[i]);
+  if (unAvailableErrorArray.length > 0) {
+    console.log("\nUnavailable Meters (Monthly): ");
+    for (let i = 0; i < unAvailableErrorArray.length; i++) {
+      console.log(unAvailableErrorArray[i]);
+    }
   }
-  console.log("\nUnavailable Meters (Monthly): ");
-  for (let i = 0; i < unAvailableErrorArray.length; i++) {
-    console.log(unAvailableErrorArray[i]);
+  if (deliveredErrorArray.length > 0) {
+    console.log("\nDelivered Error Meters (Monthly): ");
+    for (let i = 0; i < deliveredErrorArray.length; i++) {
+      console.log(deliveredErrorArray[i]);
+    }
   }
-  console.log("\nDelivered Error Meters (Monthly): ");
-  for (let i = 0; i < deliveredErrorArray.length; i++) {
-    console.log(deliveredErrorArray[i]);
+  if (yearlyArray.length > 0) {
+    console.log("\nYearly Meters: ");
+    for (let i = 0; i < yearlyArray.length; i++) {
+      console.log(yearlyArray[i]);
+    }
   }
-  console.log("\nYearly Meters: ");
-  for (let i = 0; i < yearlyArray.length; i++) {
-    console.log(yearlyArray[i]);
+  if (otherErrorArray.length > 0) {
+    console.log("\nOther Errors: ");
+    for (let i = 0; i < otherErrorArray.length; i++) {
+      console.log(otherErrorArray[i]);
+    }
   }
-  console.log("\nOther Errors: ");
-  for (let i = 0; i < otherErrorArray.length; i++) {
-    console.log(otherErrorArray[i]);
+
+  if (pp_meters_exclude.length > 0) {
+    console.log("\nMeters Excluded: ");
+    for (let i = 0; i < pp_meters_exclude.length; i++) {
+      console.log(pp_meters_exclude[i]);
+    }
   }
-  console.log("\nMeters Excluded: ");
-  for (let i = 0; i < pp_meters_exclude.length; i++) {
-    console.log(pp_meters_exclude[i]);
-  }
-  console.log("\nMeters Included in DB: ");
-  for (let i = 0; i < pp_meters_include.length; i++) {
-    console.log(pp_meters_include[i]);
+
+  if (pp_meters_include.length > 0) {
+    console.log("\nMeters Included in DB: ");
+    for (let i = 0; i < pp_meters_include.length; i++) {
+      console.log(pp_meters_include[i]);
+    }
   }
 
   if (pp_meters_exclude_not_found.length > 0) {
@@ -782,10 +1023,10 @@ async function addNewMetersToDatabase() {
     process.argv.includes("--save-output") ||
     process.env.SAVE_OUTPUT === "true"
   ) {
-    PPArray.push("Wrong Date Meters (Monthly): ");
-    PPArray.push(wrongDateArray);
     PPArray.push("Unavailable Meters (Monthly): ");
     PPArray.push(unAvailableErrorArray);
+    PPArray.push("Delivered Error Meters (Monthly): ");
+    PPArray.push(deliveredErrorArray);
     PPArray.push("Yearly Meters: ");
     PPArray.push(yearlyArray);
     PPArray.push("Other Errors: ");
@@ -801,7 +1042,7 @@ async function addNewMetersToDatabase() {
       if (err) {
         return console.log(err);
       }
-      console.log("The file was saved!");
+      console.log("\nFile Saved: Yes");
     });
   }
 
