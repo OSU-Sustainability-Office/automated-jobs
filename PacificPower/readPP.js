@@ -243,6 +243,8 @@ async function addNewMetersToDatabase() {
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Meter Exclusion List");
       }
+
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
       return res.data;
     })
     .catch((err) => {
