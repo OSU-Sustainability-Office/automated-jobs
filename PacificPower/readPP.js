@@ -1,5 +1,6 @@
-// TODO: Add comments on all the iterators (continueVarMonthly etc) to make them easier to keep track of
+// TODO (IN PROGRESS): Add comments on all the iterators (continueVarMonthly etc) to make them easier to keep track of
 // TODO (IN PROGRESS): Enforce a consistent "DEBUG: " comment syntax
+// TODO comments below about renaming variables will probably go to a separate PR (unless it is a new variable added by this PR)
 
 // Local Testing (TODO: Move to README later): node readPP.js --no-upload > logs/something.txt
 
