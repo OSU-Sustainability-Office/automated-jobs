@@ -609,7 +609,7 @@ async function addNewMetersToDatabase() {
                 timeout: 25000,
               });
               if (weekCheck) {
-                console.log("One Week Option Found");
+                console.log("One Week Option Found, Data is probably monthly");
 
                 // odd timeframeIterator (0,2,4, etc) = One Month
                 timeframeChoices = [
