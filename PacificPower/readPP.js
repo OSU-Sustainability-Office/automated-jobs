@@ -588,6 +588,9 @@ async function addNewMetersToDatabase() {
               }
             } catch (error) {
               // console.error(error);
+
+              // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
+              // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
               console.log(`Monthly Top not found.`);
 
               // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
@@ -663,6 +666,8 @@ async function addNewMetersToDatabase() {
           // This increases in value every time we try to read a given meter's data (assuming scraper got past loading screen check)
           timeframeIterator++;
           if (continueVarMonthlyFlag) {
+            // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
+            // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
             console.log("Monthly Top not found, try again");
             console.log(
               "Attempt " +
