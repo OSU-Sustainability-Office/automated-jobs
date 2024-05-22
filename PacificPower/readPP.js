@@ -1,6 +1,8 @@
 // TODO: Add comments on all the iterators (continueVarMonthly etc) to make them easier to keep track of
 // TODO (IN PROGRESS): Enforce a consistent "DEBUG: " comment syntax
 
+// Local Testing (TODO: Move to README later): node readPP.js --no-upload > logs/something.txt
+
 // https://pptr.dev/guides/evaluate-javascript
 
 // total runtime with current parameters: As fast as 4 minutes not counting last noData checks, or 9 minutes with noData checks
@@ -8,6 +10,7 @@
 // The various timeouts and while loops + try/catch blocks on this page are probably overkill, but the errors seem to show up at
 // random (based on Internet speed etc), so better safe than sorry for production. You can lower the timeouts for debug.
 
+// Misc Constants / imports
 const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
 require("dotenv").config();
@@ -15,26 +18,20 @@ const startDate = moment().unix();
 const actual_days_const = 1; // DEBUG: change for testing an older date
 const row_days_const = 1;
 const maxPrevDayCount = 7;
-
 const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
 const axios = require("axios");
 const fs = require("fs");
-const maxAttempts = 8;
-let meter_selector_full = "";
-let meter_selector_num = "";
+const maxAttempts = 8; // needs to be at least 8 with current code because we check these timeframes (monthly): [2 year, 1 month, 1 year, 1 month, 1 day, 1 month, 1 week, 1 month]
+
+// PacificPower Selectors (chrome debug instructions: inspect element > element > copy selector / Xpath)
 const ACCEPT_COOKIES = "button.cookie-accept-button";
 const LOCATION_BUTTON = "a.modalCloseButton"; // button for closing a popup about what state you're in
-
-// This is the button that takes you to the sign in page, not the button you press to actually log in
-const SIGN_IN_PAGE_BUTTON = "a.link.link--default.link--size-default.signin";
-
+const SIGN_IN_PAGE_BUTTON = "a.link.link--default.link--size-default.signin"; // This is the button that takes you to the sign in page, not the button you press to actually log in
 const SIGN_IN_IFRAME = 'iframe[src="/oauth2/authorization/B2C_1A_PAC_SIGNIN"]';
 const SIGN_IN_INPUT = "input#signInName"; // aka username
 const SIGN_IN_PASSWORD = "input#password";
-
-// This is the actual login button, as opposed to signin page button
-const LOGIN_BUTTON = "button#next";
-
+const LOGIN_BUTTON = "button#next"; // This is the actual login button, as opposed to signin page button
+// The next two selectors below correspond to a button that converts line graph data on PacificPower to table format
 const GRAPH_TO_TABLE_BUTTON_MONTHLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
 const GRAPH_TO_TABLE_BUTTON_YEARLY =
@@ -46,49 +43,60 @@ const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
 const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
 const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
 const DAY_IDENTIFIER = "//span[contains(., 'One Day')]";
+// Selector below corresponds to top row of meter data (TODO: rename)
 const MONTHLY_TOP =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
-let monthly_top_text = "";
-let yearCheck = false;
-let prevDayFlag = false;
-let monthCheck = false;
-let weekCheck = false;
-let twoYearCheck = false;
-let timeframeCheck = false;
-let continueMetersFlag = false;
-let continueLoadingFlag = false;
-let continueVarMonthlyFlag = false;
-let graphButton = "";
-let first_selector_num = 0;
-let timeframeChoices = [];
-let PPArray = [];
-let unAvailableErrorArray = [];
-let deliveredErrorArray = [];
-let otherErrorArray = [];
-let yearlyArray = [];
-let continueDetailsFlag = false;
-let successDetailsFlag = false;
-let monthly_top = "";
-let continueDetails = 0;
-let continueMeters = 0;
-let continueVarLoading = 0;
-let continueVarMonthly = 0;
-let timeframeIterator = 0;
-let page = "";
-let pp_meter_id = "";
-let PPTable = {};
 
-let pp_recent_list = null;
-let pp_recent_filtered = [];
-let pp_recent_matching = null;
-let pp_recent_matching_time = null;
-let upload_queue_matching = null;
-let upload_queue_matching_time = null;
+// timeframe related variables
+let yearCheck = false; // true = "One Year" text detected in timeframe dropdown menu for current meter
+let prevDayFlag = false; // true = continue to check previous days' data, false = stop checking previous days' data (for current meter id)
+let monthCheck = false; // true = "One Month" text detected in timeframe dropdown menu for current meter
+let weekCheck = false; // true = "One Week" text detected in timeframe dropdown menu for current meter
+let timeframeCheck = false; // generic boolean for any type of timeframe (similar logic as yearCheck, weekCheck, etc)
+let timeframeChoices = []; // list of valid timeframes per meter ("1 year", "1 month", etc). NOTE: Can be different for yearly vs monthly meter type
+let timeframeIterator = 0; // increment this every time invalid top row meter data is detected, and we need to try another timeframe
 
-let pp_meters_exclusion_list = null;
-let pp_meters_exclude = [];
-let pp_meters_include = [];
-let pp_meters_exclude_not_found = [];
+// control flow flags (booleans)
+let continueDetailsFlag = false; // true = some kind of error en route to the first meter's page (e.g. login error)
+let continueMetersFlag = false; // true = generic error detected, see otherErrorArray (highest level flag for meter checking)
+let continueLoadingFlag = false; // true = loading screen not yet detected for the current meter (highest level flag for meter checking)
+let continueVarMonthlyFlag = false; // true = errors detected when reading meter data top row ("monthly_top"). (second highest level flag)
+
+// control flow iterators (counters)
+let continueDetails = 0; // increment this every time there is an error en route to the first meter's page (e.g. login error)
+let continueMeters = 0; // increment this every time there is a generic error detected, see otherErrorArray (highest level flag for meter checking)
+let continueVarLoading = 0; // increment this every time loading screen not yet detected for the current meter (highest level flag for meter checking)
+let continueVarMonthly = 0; // increment this every time errors are detected when reading meter data top row ("monthly_top"). (second highest level flag)
+
+// Misc Variables (initialization)
+let page = ""; // current browser page being used by Puppeteer (set headless: false for a visual explanation)
+let graphButton = ""; // button on PacificPower site that converts data from line graph to table format (see GRAPH_TO_TABLE_BUTTON_MONTHLY / YEARLY)
+let pp_meter_id = ""; // A meter's PacificPower meter ID (e.g. 78645606)
+let first_selector_num = 0; // keeps track of the "meter_selector_num" value of the first detected meter
+let monthly_top = ""; // NOTE: different variable from MONTHLY_TOP constant, although they should probably be combined (TODO)
+let monthly_top_text = ""; // text string extracted from the top row of meter data (MONTHLY_TOP selector)
+let meter_selector_full = ""; // full text of the current meter from meter dropdown menu, e.g. "34306 NE ELECTRIC RD CORVALLIS OR (Item #224) (Meter #78645606)"
+let meter_selector_num = ""; // inspect element > see div with ID "#mat-option-<meter_selector_num>", e.g. "#mat-option-1"
+let PPTable = {}; // individual meter data object contained within PPArray. TODO: Rename this variable
+let PPArray = []; // Array of Objects (PPTable), with valid data queued to be uploaded (TODO: Rename this variable to something more clear)
+let unAvailableErrorArray = []; // list of meters with "unavailable" in top row text (error)
+let deliveredErrorArray = []; // list of meters with "delivered" in top row text (error)
+let otherErrorArray = []; // list of meters with generic highest level error detected (see continueMeters / continueMetersFlag)
+let yearlyArray = []; // list of yearly type meters (only shows "1 year" and "2 years" in timeframe dropdown menu)
+
+// PP Recent variables (missing data detection)
+let pp_recent_list = null; // list of meters from ppRecent endpoint (SQL database)
+let pp_recent_filtered = []; // list of meters on PacificPower page, with matching meter ID with ppRecent endpoint
+let pp_recent_matching = null; // list of meters on PacificPower page, with matching meter ID with ppRecent endpoint
+let pp_recent_matching_time = null; // check if current meter exists on ppRecent endpoint
+let upload_queue_matching = null; // check if current meter ID exists in upload queue (PPArray)
+let upload_queue_matching_time = null; // check if current meter ID and time_seconds value exists in upload queue (PPArray)
+
+// PP Exclusion variables (blacklist excluded meters, detect new meters)
+let pp_meters_exclusion_list = null; // list of meters from ppExclude endpoint
+let pp_meters_exclude = []; // list of meters on PacificPower page we have excluded based on ppExclude endpoint
+let pp_meters_include = []; // list of meters on PacificPower page we have included based on ppExclude endpoint
+let pp_meters_exclude_not_found = []; // list of (new) meters on PacificPower page we have excluded based on ppExclude endpoint
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
@@ -435,6 +443,7 @@ async function addNewMetersToDatabase() {
       // one time pause after closing menu before the while loops, just in case
       // await page.waitForTimeout(10000);
 
+      // flag / variables below are reset after successfully getting to the first meter's page
       console.log("\nLogs are recurring after this line");
       continueDetailsFlag = true;
       continueDetails = 0;
@@ -465,6 +474,8 @@ async function addNewMetersToDatabase() {
       while (!continueMetersFlag && continueMeters < maxAttempts) {
         try {
           console.log("\n" + meter_selector_num.toString());
+
+          // After the first time a loading screen is detected for a meter, don't need to check again
           if (continueVarLoading === 0) {
             await page.waitForFunction(
               () =>
@@ -552,9 +563,6 @@ async function addNewMetersToDatabase() {
           );
           console.log("PP Meter ID: " + pp_meter_id.toString());
 
-          // await page.waitForSelector(
-          // "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
-          // );
           while (!continueVarMonthlyFlag && continueVarMonthly < maxAttempts) {
             try {
               await page.waitForSelector(
@@ -566,9 +574,12 @@ async function addNewMetersToDatabase() {
               });
 
               console.log("Monthly Top Found");
+
+              // Early throw for odd timeframeIterator values (otherwise the meter might try to read yearly etc data
+              // from monthly meters)
               if (timeframeIterator % 2 === 1) {
                 console.log(
-                  "throwing for odd timeframeiterator, not reading this value although valid",
+                  "throwing for odd timeframeIterator, not reading this value although it is valid",
                 );
                 throw "odd timeframeIterator";
               } else {
@@ -596,7 +607,7 @@ async function addNewMetersToDatabase() {
               if (weekCheck) {
                 console.log("One Week Option Found");
 
-                // odd timeIterator (0,2,4, etc) = One Month
+                // odd timeframeIterator (0,2,4, etc) = One Month
                 timeframeChoices = [
                   { id: YEAR_IDENTIFIER, label: "One Year" },
                   { id: MONTH_IDENTIFIER, label: "One Month" },
@@ -610,7 +621,7 @@ async function addNewMetersToDatabase() {
               } else {
                 console.log("One Week Option Not Found, Data probably yearly");
 
-                // odd timeIterator (0,2,4, etc) = One Year
+                // odd timeframeIterator (0,2,4, etc) = One Year
                 timeframeChoices = [
                   { id: TWO_YEAR_IDENTIFIER, label: "Two Year" },
                   { id: YEAR_IDENTIFIER, label: "One Year" },
@@ -638,12 +649,17 @@ async function addNewMetersToDatabase() {
                   timeframeChoices[timeframeIterator % timeframeChoices.length]
                     .label + " Not Found",
                 );
+
+                // Monthly meters have 2 year, 1 year, 1 month, 1 week, 1 day
+                // Yearly meters have 2 year, 1 year
+                // So every meter's timeframe options *should* be accounted for, but just in case, we have a break statement here
                 console.log("Some Other Issue");
                 break;
               }
             }
           }
 
+          // This increases in value every time we try to read a given meter's data (assuming scraper got past loading screen check)
           timeframeIterator++;
           if (continueVarMonthlyFlag) {
             console.log("Monthly Top not found, try again");
@@ -665,6 +681,7 @@ async function addNewMetersToDatabase() {
             continue;
           }
 
+          // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
           let row_days = row_days_const;
           monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
 
@@ -695,6 +712,7 @@ async function addNewMetersToDatabase() {
 
             // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
             // so, log an error?
+            // "'Yearly Meter type' Valid Data detected scenario" exit path here, reset flags
             yearlyArray.push({ meter_selector_num, pp_meter_id });
             meter_selector_num++;
             continueVarLoading = 0;
@@ -702,9 +720,13 @@ async function addNewMetersToDatabase() {
             continue;
           }
 
+          // The point of continueVarMonthly (probably rename this variable later) is to keep track of number of retries
+          // needed before valid data is detected, so this variable is reset as long as valid data was detected, regardless
+          // of if the meter was monthly or yearly type
           continueVarMonthlyFlag = false;
           continueVarMonthly = 0;
 
+          // Always reset actual_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
           let actual_days = actual_days_const;
 
           while (!prevDayFlag && actual_days <= maxPrevDayCount) {
@@ -919,6 +941,7 @@ async function addNewMetersToDatabase() {
           prevDayFlag = false;
 
           // If "Est. Rounded" is found, then the data is monthly.
+          // "Best Case Scenario" (valid data from 'Monthly' meter type) exit path here, reset flags
           if (monthly_top_text.includes(positionEst)) {
             meter_selector_num++;
             continueVarLoading = 0;
@@ -932,8 +955,11 @@ async function addNewMetersToDatabase() {
             meter_selector_num.toString() +
               " Unknown Issue, Skipping to next meter",
           );
-          meter_selector_num++;
+
+          // In general, timeframeIterator should be reset on every exit path for the current meter ID
+          // (unlike some other flags that keep track of number of errors, that we may want to persist between different meters)
           timeframeIterator = 0;
+          meter_selector_num++;
           continueMeters++;
           if (continueMeters === maxAttempts) {
             console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
