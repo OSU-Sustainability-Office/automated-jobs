@@ -1,3 +1,6 @@
+// TODO: Add comments on all the iterators (continueVarMonthly etc) to make them easier to keep track of
+// TODO (IN PROGRESS): Enforce a consistent "DEBUG: " comment syntax
+
 // https://pptr.dev/guides/evaluate-javascript
 
 // total runtime with current parameters: As fast as 4 minutes not counting last noData checks, or 9 minutes with noData checks
@@ -9,14 +12,14 @@ const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
 require("dotenv").config();
 const startDate = moment().unix();
-const actual_days_const = 1; // change for testing or debug on an older date
+const actual_days_const = 1; // DEBUG: change for testing an older date
 const row_days_const = 1;
 const maxPrevDayCount = 7;
 
 const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
 const axios = require("axios");
 const fs = require("fs");
-const maxAttempts = 5;
+const maxAttempts = 8;
 let meter_selector_full = "";
 let meter_selector_num = "";
 const ACCEPT_COOKIES = "button.cookie-accept-button";
@@ -42,6 +45,7 @@ const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
 const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
 const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
 const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
+const DAY_IDENTIFIER = "//span[contains(., 'One Day')]";
 const MONTHLY_TOP =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
 let monthly_top_text = "";
@@ -50,11 +54,13 @@ let prevDayFlag = false;
 let monthCheck = false;
 let weekCheck = false;
 let twoYearCheck = false;
+let timeframeCheck = false;
 let continueMetersFlag = false;
 let continueLoadingFlag = false;
 let continueVarMonthlyFlag = false;
 let graphButton = "";
 let first_selector_num = 0;
+let timeframeChoices = [];
 let PPArray = [];
 let unAvailableErrorArray = [];
 let deliveredErrorArray = [];
@@ -67,6 +73,7 @@ let continueDetails = 0;
 let continueMeters = 0;
 let continueVarLoading = 0;
 let continueVarMonthly = 0;
+let timeframeIterator = 0;
 let page = "";
 let pp_meter_id = "";
 let PPTable = {};
@@ -203,7 +210,7 @@ async function addNewMetersToDatabase() {
     url: `${process.env.DASHBOARD_API}/pprecent`,
   })
     .then((res) => {
-      // change for debugging status codes from API
+      // DEBUG: change to test specific status codes from API
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Recent Data List");
       }
@@ -239,7 +246,7 @@ async function addNewMetersToDatabase() {
     url: `${process.env.DASHBOARD_API}/ppexclude`,
   })
     .then((res) => {
-      // change for debugging status codes from API
+      // DEBUG: change to test specific status codes from API
       if (res.status < 200 || res.status >= 300) {
         throw new Error("Failed to fetch PP Meter Exclusion List");
       }
@@ -263,7 +270,7 @@ async function addNewMetersToDatabase() {
 
   // Launch the browser
   const browser = await puppeteer.launch({
-    headless: "new", // set to false (no quotes) for debug. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
+    headless: "new", // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
@@ -452,39 +459,41 @@ async function addNewMetersToDatabase() {
     if (process.argv.includes("--testing")) {
       console.log(meter_selector_num);
     } else {
-      // testing at specific meter ID, e.g. to see if termination behavior works
-      // meter_selector_num = 621;
+      // DEBUG: testing at specific meter ID, e.g. to see if termination behavior works
+      // meter_selector_num = 110;
 
       while (!continueMetersFlag && continueMeters < maxAttempts) {
         try {
           console.log("\n" + meter_selector_num.toString());
-          await page.waitForFunction(
-            () =>
-              !document.querySelector(
+          if (continueVarLoading === 0) {
+            await page.waitForFunction(
+              () =>
+                !document.querySelector(
+                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+                ),
+            );
+            await page.click(METER_MENU);
+            console.log("Meter Menu Opened");
+
+            // await page.waitForTimeout(10000);
+            await page.waitForFunction(() =>
+              document.querySelector(
                 "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
               ),
-          );
-          await page.click(METER_MENU);
-          console.log("Meter Menu Opened");
+            );
+            await page.waitForSelector(
+              "#" +
+                meter_selector_full.slice(0, 11) +
+                meter_selector_num.toString(),
+            );
+            console.log("New Meter Opened");
 
-          // await page.waitForTimeout(10000);
-          await page.waitForFunction(() =>
-            document.querySelector(
-              "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-            ),
-          );
-          await page.waitForSelector(
-            "#" +
-              meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString(),
-          );
-          console.log("New Meter Opened");
-
-          await page.click(
-            "#" +
-              meter_selector_full.slice(0, 11) +
-              meter_selector_num.toString(),
-          );
+            await page.click(
+              "#" +
+                meter_selector_full.slice(0, 11) +
+                meter_selector_num.toString(),
+            );
+          }
 
           if (first_selector_num !== meter_selector_num) {
             while (!continueLoadingFlag && continueVarLoading === 0) {
@@ -551,19 +560,26 @@ async function addNewMetersToDatabase() {
               await page.waitForSelector(
                 "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
               );
+
               await page.waitForSelector(MONTHLY_TOP + "1)", {
                 timeout: 25000,
               });
+
               console.log("Monthly Top Found");
-              break;
+              if (timeframeIterator % 2 === 1) {
+                console.log(
+                  "throwing for odd timeframeiterator, not reading this value although valid",
+                );
+                throw "odd timeframeIterator";
+              } else {
+                break;
+              }
             } catch (error) {
               // console.error(error);
               console.log(`Monthly Top not found.`);
 
               // return to the previous meter and start again, seems only way to avoid the "no data" (when there actually is data) glitch
               // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
-              // meter_selector_num -= 1;
-              prev_meter_flag = true;
               continueVarMonthlyFlag = true;
               await page.waitForSelector(TIME_MENU);
 
@@ -574,54 +590,61 @@ async function addNewMetersToDatabase() {
                   "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
                 ),
               );
-              if (continueVarMonthly % 2 === 0) {
-                [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
-                  timeout: 25000,
-                });
-                if (weekCheck) {
-                  console.log("Week Option Found");
-                  await weekCheck.click();
-                  console.log("Week Option Clicked");
-                } else {
-                  console.log("Week Option Not Found");
-                  [twoYearCheck] = await page.$x(TWO_YEAR_IDENTIFIER, {
-                    timeout: 25000,
-                  });
-                  if (twoYearCheck) {
-                    console.log("Two Year Option Found");
-                    await twoYearCheck.click();
-                    console.log("Two Year Option Clicked");
-                  } else {
-                    console.log("Some other issue");
-                    break;
-                  }
-                }
+              [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
+                timeout: 25000,
+              });
+              if (weekCheck) {
+                console.log("One Week Option Found");
+
+                // odd timeIterator (0,2,4, etc) = One Month
+                timeframeChoices = [
+                  { id: YEAR_IDENTIFIER, label: "One Year" },
+                  { id: MONTH_IDENTIFIER, label: "One Month" },
+                  { id: TWO_YEAR_IDENTIFIER, label: "Two Year" },
+                  { id: MONTH_IDENTIFIER, label: "One Month" },
+                  { id: DAY_IDENTIFIER, label: "One Day" },
+                  { id: MONTH_IDENTIFIER, label: "One Month" },
+                  { id: WEEK_IDENTIFIER, label: "One Week" },
+                  { id: MONTH_IDENTIFIER, label: "One Month" },
+                ];
               } else {
-                [monthCheck] = await page.$x(MONTH_IDENTIFIER, {
+                console.log("One Week Option Not Found, Data probably yearly");
+
+                // odd timeIterator (0,2,4, etc) = One Year
+                timeframeChoices = [
+                  { id: TWO_YEAR_IDENTIFIER, label: "Two Year" },
+                  { id: YEAR_IDENTIFIER, label: "One Year" },
+                ];
+              }
+              [timeframeCheck] = await page.$x(
+                timeframeChoices[timeframeIterator % timeframeChoices.length]
+                  .id,
+                {
                   timeout: 25000,
-                });
-                if (monthCheck) {
-                  console.log("Month Option Found");
-                  await monthCheck.click();
-                  console.log("Month Option Clicked");
-                } else {
-                  console.log("Month Option Not Found");
-                  [yearCheck] = await page.$x(YEAR_IDENTIFIER, {
-                    timeout: 25000,
-                  });
-                  if (yearCheck) {
-                    console.log("Year Option Found");
-                    await yearCheck.click();
-                    console.log("Year Option Clicked");
-                  } else {
-                    console.log("Some other issue");
-                    break;
-                  }
-                }
+                },
+              );
+              if (timeframeCheck) {
+                console.log(
+                  timeframeChoices[timeframeIterator % timeframeChoices.length]
+                    .label + " Found",
+                );
+                await timeframeCheck.click();
+                console.log(
+                  timeframeChoices[timeframeIterator % timeframeChoices.length]
+                    .label + " Clicked",
+                );
+              } else {
+                console.log(
+                  timeframeChoices[timeframeIterator % timeframeChoices.length]
+                    .label + " Not Found",
+                );
+                console.log("Some Other Issue");
+                break;
               }
             }
           }
 
+          timeframeIterator++;
           if (continueVarMonthlyFlag) {
             console.log("Monthly Top not found, try again");
             console.log(
@@ -630,7 +653,6 @@ async function addNewMetersToDatabase() {
                 " of " +
                 maxAttempts,
             );
-            continueVarMonthlyFlag = false;
             continueVarMonthly++;
             if (continueVarMonthly === maxAttempts) {
               console.log(
@@ -639,6 +661,7 @@ async function addNewMetersToDatabase() {
               continueMetersFlag = true;
               break;
             }
+            continueVarMonthlyFlag = false;
             continue;
           }
 
@@ -675,6 +698,7 @@ async function addNewMetersToDatabase() {
             yearlyArray.push({ meter_selector_num, pp_meter_id });
             meter_selector_num++;
             continueVarLoading = 0;
+            timeframeIterator = 0;
             continue;
           }
 
@@ -898,6 +922,7 @@ async function addNewMetersToDatabase() {
           if (monthly_top_text.includes(positionEst)) {
             meter_selector_num++;
             continueVarLoading = 0;
+            timeframeIterator = 0;
           }
         } catch (error) {
           // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
@@ -908,6 +933,7 @@ async function addNewMetersToDatabase() {
               " Unknown Issue, Skipping to next meter",
           );
           meter_selector_num++;
+          timeframeIterator = 0;
           continueMeters++;
           if (continueMeters === maxAttempts) {
             console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
