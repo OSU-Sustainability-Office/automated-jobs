@@ -590,7 +590,7 @@ async function addNewMetersToDatabase() {
               // console.error(error);
               console.log(`Monthly Top not found.`);
 
-              // return to the previous meter and start again, seems only way to avoid the "no data" (when there actually is data) glitch
+              // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
               // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
               continueVarMonthlyFlag = true;
               await page.waitForSelector(TIME_MENU);
