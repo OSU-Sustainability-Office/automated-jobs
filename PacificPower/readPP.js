@@ -475,7 +475,7 @@ async function addNewMetersToDatabase() {
         try {
           console.log("\n" + meter_selector_num.toString());
 
-          // After the first time a loading screen is detected for a meter, don't need to check again
+          // After the first time a loading screen is detected, don't need to open meter menu again (for current meter ID)
           if (continueVarLoading === 0) {
             await page.waitForFunction(
               () =>
