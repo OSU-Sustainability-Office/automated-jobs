@@ -189,15 +189,6 @@ axios
       }
       for (let i = 0; i < allMeters.length; i++) {
         for (let j = 0; j < allMeters[i].points.length; j++) {
-          // TODO: fix in backend meter point labels ("instant" for Gas energy type)
-          if (allMeters[i].points[j].value === "instant") {
-            allMeters[i].points[j] = {
-              label: "Instant",
-              value: "instant",
-            };
-          }
-          if (allMeters[i].type !== "Electricity") {
-          }
           if (allMeters[i].points[j] === undefined) {
             console.log("undefined point");
             console.log(j);
@@ -311,12 +302,13 @@ axios
                         }
                         */
 
-                    // TODO: Remove the 2 below lines of logs assuming the PR looks good?
-                    // Or keep them in as commented out logs for debug, idk
+                    // uncomment for debug - test pacific power meters
+                    /* 
                     if (batchedMeterObject.classInt === 9990002) {
                       console.log(batchedMeterObject);
                       console.log(timeDifferenceNoData); // remember this is given in seconds
                     }
+                    */
 
                     if (timeDifferenceNoData > minDate) {
                       let timeDifferenceNoDataText = "";
