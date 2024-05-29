@@ -359,7 +359,6 @@ axios
                       if (timeDifferenceNoData <= maxDate) {
                         batchedMeterObject.noDataPointsRecent = true;
                       }
-                      // TODO: handle solar power later by updating energy dashboard backend
                       if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
@@ -378,7 +377,6 @@ axios
                         obj.meter_id ===
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
                       if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
@@ -451,7 +449,6 @@ axios
                         obj.meter_id ===
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
                       if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
@@ -535,7 +532,6 @@ axios
                           obj.meter_id ===
                             parseInt(batchedMeterObject.meter_id) &&
                           obj.currentPoint === batchedMeterObject.currentPoint;
-                        // TODO: handle solar power later by updating energy dashboard backend
                         if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                           nonMergedFinalData.push(batchedMeterObject);
                         }
@@ -553,7 +549,6 @@ axios
                         obj.meter_id ===
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
                       if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
@@ -571,7 +566,6 @@ axios
                     const checkDupMeterAndPoints = (obj) =>
                       obj.meter_id === parseInt(batchedMeterObject.meter_id) &&
                       obj.currentPoint === batchedMeterObject.currentPoint;
-                    // TODO: handle solar power later by updating energy dashboard backend
                     if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                       nonMergedFinalData.push(batchedMeterObject);
                     }
