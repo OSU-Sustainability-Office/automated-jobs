@@ -30,7 +30,7 @@ const formattedTotalDuration = `${daysDuration} day${
 
 // List of meter IDs for summary logs
 let totalNoDataPoints = [];
-let totalNoDataPoints3or4Days = [];
+let totalNoDataPointsRecent = [];
 let totalNoChangePoints = [];
 let totalNegPoints = [];
 let totalSomePhasesNegative = [];
@@ -189,15 +189,6 @@ axios
       }
       for (let i = 0; i < allMeters.length; i++) {
         for (let j = 0; j < allMeters[i].points.length; j++) {
-          // TODO: fix in backend meter point labels ("instant" for Gas energy type)
-          if (allMeters[i].points[j].value === "instant") {
-            allMeters[i].points[j] = {
-              label: "Instant",
-              value: "instant",
-            };
-          }
-          if (allMeters[i].type !== "Electricity") {
-          }
           if (allMeters[i].points[j] === undefined) {
             console.log("undefined point");
             console.log(j);
@@ -217,15 +208,6 @@ axios
             currentPoint: allMeters[i].points[j].value,
             currentPointLabel: allMeters[i].points[j].label,
           };
-
-          // TODO: fix solar panel logic on backend
-          if (
-            (expandedMeterObject.type === "Solar Panel" &&
-              expandedMeterObject.currentPoint !== "energy_change") ||
-            expandedMeterObject.classInt === 9990002 // TODO: remove when pacific power meter logic is merged to prod backend
-          ) {
-            continue;
-          }
           allExpandedMeters.push(expandedMeterObject);
         }
       }
@@ -279,6 +261,16 @@ axios
                   if (parsedData.length > 0) {
                     const timeValues = [];
 
+                    // 7 days (604800 seconds) minimum cutoff for "missing data" / "nochange data", for Pacific Power meters
+                    // 3 days (259200 seconds) minimum cutoff for "missing data" / "nochange data", for all other meters
+                    const minDate =
+                      batchedMeterObject.classInt === 9990002 ? 604800 : 259200;
+
+                    // 8 days (691200 seconds) minimum cutoff for "missing data" / "nochange data", for Pacific Power meters
+                    // 4 days (345600 seconds) minimum cutoff for "missing data" / "nochange data", for all other meters
+                    const maxDate =
+                      batchedMeterObject.classInt === 9990002 ? 691200 : 345600;
+
                     for (const obj of parsedData) {
                       timeValues.push(obj.time);
                     }
@@ -289,9 +281,9 @@ axios
                     });
 
                     /*
-                        the first data point and its timestamp is checked. If the first data point is older than 3 days, it is
-                        considered "missing", and anything between 3 and 4 days (259200 to 345600 seconds) is also flagged as
-                        "recent" missing data
+                        The first data point and its timestamp are checked. If the first data point is older than 3 days, it is
+                        considered "missing", and anything between 3 and 4 days (259200 to 345600 seconds), or between 7 and 8
+                        days for Pacific Power meters (604800 to 691200 seconds) is also flagged as "recent" missing data
                         */
                     let timeDifferenceNoData = "";
                     if (dataValues[0] || dataValues[0] === 0) {
@@ -300,7 +292,8 @@ axios
                         "seconds",
                       );
                     }
-                    // uncomment for debug (test no data value slightly over 3 days, vs over 4 days)
+                    // uncomment for debug (test "no data value" slightly over 3 days, vs over 4 days)
+                    // or test "no data value" slightly over 7 days, vs over 8 days, for Pacific Power meters
                     /*
                         if (batchedMeterObject.meter_id === 1) {
                           timeDifferenceNoData = 269200;
@@ -308,7 +301,16 @@ axios
                           timeDifferenceNoData = 400000;
                         }
                         */
-                    if (timeDifferenceNoData > 259200) {
+
+                    // uncomment for debug - test pacific power meters
+                    /* 
+                    if (batchedMeterObject.classInt === 9990002) {
+                      console.log(batchedMeterObject);
+                      console.log(timeDifferenceNoData); // remember this is given in seconds
+                    }
+                    */
+
+                    if (timeDifferenceNoData > minDate) {
                       let timeDifferenceNoDataText = "";
 
                       if (timeDifferenceNoData && timeDifferenceNoData < 3600) {
@@ -330,6 +332,7 @@ axios
                           days > 1 ? "s" : ""
                         }`;
                       }
+
                       // uncomment for debug
                       /*
                           console.log("\n" + batchedMeterObject.meter_id)
@@ -337,7 +340,8 @@ axios
                             return el === dataValues[0];
                           }))
                           console.log(timeDifferenceNoData)
-                          */
+                      */
+
                       batchedMeterObject.noDataPoints = [
                         batchedMeterObject.currentPointLabel +
                           " (point: " +
@@ -352,14 +356,10 @@ axios
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
 
-                      if (timeDifferenceNoData <= 345600) {
-                        batchedMeterObject.noDataPoints3or4Days = true;
+                      if (timeDifferenceNoData <= maxDate) {
+                        batchedMeterObject.noDataPointsRecent = true;
                       }
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
+                      if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
                     }
@@ -377,11 +377,7 @@ axios
                         obj.meter_id ===
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
+                      if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
                     }
@@ -453,17 +449,13 @@ axios
                         obj.meter_id ===
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
+                      if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
                     }
                     /* 
                         the first data point with a measurement different from the first datapoint is checked. If the timestamp
-                        is older than 3 days, it is considered "non-changing". If no data values different from the first
+                        is older than 3 days (or over 7 days for PacificPower meters), it is considered "non-changing". If no data values different from the first
                         datapoint are found, it is assumed the data is identical for the total time period of the previous 2 months
                         */
                     let timeDifferenceNoChange = "";
@@ -495,7 +487,7 @@ axios
                         return el !== dataValues[0];
                       }) !== -1
                     ) {
-                      if (timeDifferenceNoChange > 259200) {
+                      if (timeDifferenceNoChange > minDate) {
                         let timeDifferenceNoChangeText = "";
 
                         if (
@@ -540,11 +532,7 @@ axios
                           obj.meter_id ===
                             parseInt(batchedMeterObject.meter_id) &&
                           obj.currentPoint === batchedMeterObject.currentPoint;
-                        // TODO: handle solar power later by updating energy dashboard backend
-                        if (
-                          !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                          batchedMeterObject.type !== "Solar Panel"
-                        ) {
+                        if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                           nonMergedFinalData.push(batchedMeterObject);
                         }
                       }
@@ -561,11 +549,7 @@ axios
                         obj.meter_id ===
                           parseInt(batchedMeterObject.meter_id) &&
                         obj.currentPoint === batchedMeterObject.currentPoint;
-                      // TODO: handle solar power later by updating energy dashboard backend
-                      if (
-                        !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                        batchedMeterObject.type !== "Solar Panel"
-                      ) {
+                      if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                         nonMergedFinalData.push(batchedMeterObject);
                       }
                     }
@@ -582,11 +566,7 @@ axios
                     const checkDupMeterAndPoints = (obj) =>
                       obj.meter_id === parseInt(batchedMeterObject.meter_id) &&
                       obj.currentPoint === batchedMeterObject.currentPoint;
-                    // TODO: handle solar power later by updating energy dashboard backend
-                    if (
-                      !nonMergedFinalData.some(checkDupMeterAndPoints) &&
-                      batchedMeterObject.type !== "Solar Panel"
-                    ) {
+                    if (!nonMergedFinalData.some(checkDupMeterAndPoints)) {
                       nonMergedFinalData.push(batchedMeterObject);
                     }
                   }
@@ -703,10 +683,10 @@ function cleanUp() {
             foundMeter.noDataPoints = nonMergedFinalData[i].noDataPoints;
           }
         }
-        if (nonMergedFinalData[i].noDataPoints3or4Days) {
-          if (!foundMeter.noDataPoints3or4Days) {
-            foundMeter.noDataPoints3or4Days =
-              nonMergedFinalData[i].noDataPoints3or4Days;
+        if (nonMergedFinalData[i].noDataPointsRecent) {
+          if (!foundMeter.noDataPointsRecent) {
+            foundMeter.noDataPointsRecent =
+              nonMergedFinalData[i].noDataPointsRecent;
           }
         }
         if (nonMergedFinalData[i].noChangePoints) {
@@ -740,11 +720,11 @@ function cleanUp() {
       mergedFinalData[i].noDataPoints = tempnoDataPoints;
       totalNoDataPoints.push(mergedFinalData[i].meter_id);
     }
-    if (mergedFinalData[i].noDataPoints3or4Days) {
-      let tempnoDataPoints3or4Days = mergedFinalData[i].noDataPoints3or4Days;
-      delete mergedFinalData[i].noDataPoints3or4Days;
-      mergedFinalData[i].noDataPoints3or4Days = tempnoDataPoints3or4Days;
-      totalNoDataPoints3or4Days.push(mergedFinalData[i].meter_id);
+    if (mergedFinalData[i].noDataPointsRecent) {
+      let tempnoDataPointsRecent = mergedFinalData[i].noDataPointsRecent;
+      delete mergedFinalData[i].noDataPointsRecent;
+      mergedFinalData[i].noDataPointsRecent = tempnoDataPointsRecent;
+      totalNoDataPointsRecent.push(mergedFinalData[i].meter_id);
     }
     if (mergedFinalData[i].noChangePoints) {
       let tempNoChangePoints = mergedFinalData[i].noChangePoints;
@@ -825,13 +805,16 @@ function cleanUp() {
   if (
     non200Arr.length > 0 ||
     totalNoDataPoints.length > 0 ||
-    totalNoDataPoints3or4Days.length > 0 ||
-    totalNoDataPoints3or4Days.length > 0 ||
+    totalNoDataPointsRecent.length > 0 ||
+    totalNoDataPointsRecent.length > 0 ||
     totalNegPoints.length > 0 ||
     totalSomePhasesNegative.length > 0
   ) {
     outputLogs.push(
       "The lines below are just a summary. Refer to data / logs above, based on the corresponding meter_id values, for details (e.g. specific point values).",
+    );
+    outputLogs.push(
+      "If applicable, see the 'minDate' and 'maxDate' values of check-acq.js file for details on date cutoffs.",
     );
   }
   if (non200Arr.length > 0) {
@@ -840,12 +823,13 @@ function cleanUp() {
     );
   }
   if (totalNoDataPoints.length > 0) {
-    outputLogs.push("Meters with no data: " + totalNoDataPoints.join(", "));
-  }
-  if (totalNoDataPoints3or4Days.length > 0) {
     outputLogs.push(
-      "Meters with no data for 3 or 4 days: " +
-        totalNoDataPoints3or4Days.join(", "),
+      "Meters with no data (for a long time): " + totalNoDataPoints.join(", "),
+    );
+  }
+  if (totalNoDataPointsRecent.length > 0) {
+    outputLogs.push(
+      "Meters with no data (recent): " + totalNoDataPointsRecent.join(", "),
     );
   }
   if (totalNoChangePoints.length > 0) {
