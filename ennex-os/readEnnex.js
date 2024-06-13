@@ -260,6 +260,8 @@ const meterlist = require("./meterlist.json");
           (el) => el.innerText,
           lastMonthReading,
         );
+        // remove any commas if they exist so that parseFloat can handle values over 1,000
+        totalYieldYesterday = totalYieldYesterday.replace(/,/g, "");
         console.log(totalYieldYesterday);
 
         let [lastDate] = await page.$x(
