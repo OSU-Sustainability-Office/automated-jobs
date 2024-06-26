@@ -183,9 +183,9 @@ const meterlist = require("./meterlist.json");
     await page.waitForTimeout(25000);
 
     // monthly tab
-    await page.waitForSelector("#mat-tab-label-0-2 > div > div");
+    await page.waitForSelector("#mat-tab-label-0-2");
     console.log("Monthly Tab found");
-    await page.click("#mat-tab-label-0-2 > div > div");
+    await page.click("#mat-tab-label-0-2");
     await page.waitForTimeout(25000);
 
     let [ennexMeterName] = await page.$x(
@@ -208,11 +208,11 @@ const meterlist = require("./meterlist.json");
     ];
 
     // change month tab to previous month if necessary - Date functions are used to conver from numeric <-> string formats
-    await page.waitForSelector(".mat-select-min-line");
+    await page.waitForSelector(".mat-mdc-select-min-line");
 
     // get currently selected month and convert to numeric format
     let selectedMonth = await page.evaluate(
-      () => document.querySelector(".mat-select-min-line").innerText,
+      () => document.querySelector(".mat-mdc-select-min-line").innerText,
     );
     selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
     console.log("Currently selected month found");
