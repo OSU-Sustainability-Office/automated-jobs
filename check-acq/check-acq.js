@@ -73,6 +73,10 @@ axios
             let meterObject = {
               meter_id: parseInt(buildings.meterGroups[i].meters[j].id),
               meter_name: buildings.meterGroups[i].meters[j].name,
+              pacific_power_meter_id:
+                buildings.meterGroups[i].meters[j].pacificPowerID === null
+                  ? "N/A"
+                  : buildings.meterGroups[i].meters[j].pacificPowerID,
               building_id: parseInt(buildings.id),
               building_name: buildings.name,
               meterGroups: [
@@ -120,6 +124,9 @@ axios
               if (!allMeters.some(checkDupMeter)) {
                 delete foundBlacklistMeter.meter_name;
                 foundBlacklistMeter.meter_name = meterObject.meter_name;
+                delete foundBlacklistMeter.pacific_power_meter_id;
+                foundBlacklistMeter.pacific_power_meter_id =
+                  meterObject.pacificPowerID;
                 delete foundBlacklistMeter.building_id;
                 foundBlacklistMeter.building_id = meterObject.building_id;
                 delete foundBlacklistMeter.building_name;
@@ -199,6 +206,7 @@ axios
           let expandedMeterObject = {
             meter_id: parseInt(allMeters[i].meter_id),
             meter_name: allMeters[i].meter_name,
+            pacific_power_meter_id: allMeters[i].pacific_power_meter_id,
             building_id: allMeters[i].building_id,
             building_name: allMeters[i].building_name,
             meterGroups: allMeters[i].meterGroups,
