@@ -58,13 +58,14 @@ let timeframeChoices = []; // list of valid timeframes per meter ("1 year", "1 m
 let timeframeIterator = 0; // increment this every time invalid top row meter data is detected, and we need to try another timeframe
 
 // control flow flags (booleans)
-let continueDetailsFlag = false; // true = some kind of error en route to the first meter's page (e.g. login error)
+let loginErrorFlag = false; // true = some kind of error en route to the first meter's page (e.g. login error)
+let loginSuccessFlag = false; // true = successfully logged in to Pacific Power website and retrieved meter selector number
 let continueMetersFlag = false; // true = generic error detected, see otherErrorArray (highest level flag for meter checking)
 let continueLoadingFlag = false; // true = loading screen not yet detected for the current meter (highest level flag for meter checking)
 let continueVarMonthlyFlag = false; // true = errors detected when reading meter data top row ("monthly_top"). (second highest level flag)
 
 // control flow iterators (counters)
-let continueDetails = 0; // increment this every time there is an error en route to the first meter's page (e.g. login error)
+let loginErrorCount = 0; // increment this every time there is an error en route to the first meter's page (e.g. login error)
 let continueMeters = 0; // increment this every time there is a generic error detected, see otherErrorArray (highest level flag for meter checking)
 let continueVarLoading = 0; // increment this every time loading screen not yet detected for the current meter (highest level flag for meter checking)
 let continueVarMonthly = 0; // increment this every time errors are detected when reading meter data top row ("monthly_top"). (second highest level flag)
@@ -86,7 +87,7 @@ let otherErrorArray = []; // list of meters with generic highest level error det
 let yearlyArray = []; // list of yearly type meters (only shows "1 year" and "2 years" in timeframe dropdown menu)
 
 // PP Recent variables (missing data detection)
-let pp_recent_list = null; // list of meters from ppRecent endpoint (SQL database)
+let pp_recent_data = null; // list of meters from ppRecent endpoint (SQL database)
 let pp_recent_filtered = []; // list of meters on PacificPower page, with matching meter ID with ppRecent endpoint
 let pp_recent_matching = null; // list of meters on PacificPower page, with matching meter ID with ppRecent endpoint
 let pp_recent_matching_time = null; // check if current meter exists on ppRecent endpoint
@@ -98,6 +99,184 @@ let pp_meters_exclusion_list = null; // list of meters from ppExclude endpoint
 let pp_meters_exclude = []; // list of meters on PacificPower page we have excluded based on ppExclude endpoint
 let pp_meters_include = []; // list of meters on PacificPower page we have included based on ppExclude endpoint
 let pp_meters_exclude_not_found = []; // list of (new) meters on PacificPower page we have excluded based on ppExclude endpoint
+
+// -------------------------------- Sign-in/Navigation functions ---------------------------- //
+
+/**
+ * Sign in to the Pacific Power website.
+ */
+async function signInToPacificPower() {
+  console.log("Accessing Pacific Power Web Page...");
+
+  // Go to your site
+  await page.goto(process.env.PP_LOGINPAGE, {
+    waitUntil: "networkidle0",
+    timeout: 25000,
+  });
+
+  // next two lines to make sure it works the same with headless on or off: https://github.com/puppeteer/puppeteer/issues/665#issuecomment-481094738
+  await page.setExtraHTTPHeaders({
+    "Accept-Language": "en-US,en;q=0.9",
+  });
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
+  );
+  console.log(await page.title());
+
+  await page.waitForTimeout(25000);
+
+  // if first time logging in
+  if (loginErrorCount === 0) {
+    await page.waitForSelector(ACCEPT_COOKIES);
+    console.log("Cookies Button found");
+
+    await page.click(ACCEPT_COOKIES);
+    await page.click(LOCATION_BUTTON);
+    console.log("Location Button clicked");
+    // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
+
+    await page.click(SIGN_IN_PAGE_BUTTON);
+    console.log("SignIn Page Button Clicked!");
+
+    // this one needs more timeout, based on results from stresstest.sh
+    await page.waitForNavigation({
+      waitUntil: "networkidle0",
+      timeout: 60000,
+    });
+    console.log(await page.title());
+    console.log("waiting for iframe with form to be ready.");
+    await page.waitForTimeout(25000);
+    await page.waitForSelector("iframe", { timeout: 60000 });
+    console.log("iframe is ready. Loading iframe content");
+
+    const signin_iframe = await page.$(SIGN_IN_IFRAME);
+    const frame = await signin_iframe.contentFrame();
+
+    console.log("filling username in iframe");
+
+    await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
+
+    console.log("filling password in iframe");
+    await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
+
+    await frame.click(LOGIN_BUTTON);
+    console.log("Login Button clicked");
+    // this one needs more timeout, based on results from stresstest.sh
+    await page.waitForNavigation({
+      waitUntil: "networkidle0",
+      timeout: 60000,
+    });
+    console.log(await page.title());
+    console.log(
+      "First time logged in, continuing to Account > Energy Usage Page",
+    );
+
+    // uncomment for login error handling
+    // throw "testing login error handling try again";
+  } else if (loginErrorCount > 0) {
+    console.log("Already logged in, continuing to Account > Energy Usage Page");
+  }
+}
+
+/**
+ * Navigate to the first meter's page and wait for it to finish loading.
+ */
+async function navigateToFirstMeterPage() {
+  // The page.goto() as well as `await page.setCacheEnabled(false)` seems to improve reliability of getting
+  // to the energy usage page, but note some of the selector indices change from 1 to 0, "meter_selector_num"
+  // now starts from 0 instead of 500+, and that after logging in once, you will stay logged in on other pages.
+  // See `loginErrorCount` variable, and also run the scraper with `headless: false` to see the process.
+  await page.goto(process.env.PP_ACCOUNTPAGE, {
+    waitUntil: "networkidle0",
+    timeout: 120000,
+  });
+  console.log(await page.title());
+
+  // wait for the page to load
+  await page.waitForSelector("#loader-temp-secure", {
+    hidden: true,
+    timeout: 25000,
+  });
+
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(
+        "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading",
+      ),
+  );
+
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(
+        "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
+      ),
+  );
+}
+
+/**
+ * Get the meter selector number from the first meter on the page to use for navigating
+ * between meters (this number can change from login to login):
+ * inspect element > see div with ID "#mat-option-<meter_selector_num>", e.g. "#mat-option-1"
+ */
+async function getMeterSelectorNumberFromFirstMeter() {
+  // it's theoretically possible to get yearly result for first meter, so check just in case
+  // await page.waitForTimeout(25000);
+  await page.waitForFunction(
+    () => !document.querySelector("#loading-component > mat-spinner"),
+  );
+
+  [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
+  [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
+
+  console.log("Year / Month Check found");
+  if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
+    throw "try again";
+  }
+
+  if (yearCheck && !monthCheck) {
+    graphButton = GRAPH_TO_TABLE_BUTTON_YEARLY;
+  } else if (!yearCheck && monthCheck) {
+    graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
+  }
+
+  await page.waitForTimeout(25000);
+  await page.waitForSelector(graphButton, { timeout: 25000 });
+  console.log("Graph to Table Button clicked");
+
+  await page.click(graphButton);
+
+  await page.waitForTimeout(25000);
+  await page.waitForSelector(METER_MENU);
+
+  await page.click(METER_MENU);
+
+  await page.waitForFunction(() =>
+    document.querySelector(
+      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+    ),
+  );
+  console.log("Meter Menu Opened");
+  meter_selector_full = await page.$eval("mat-option", (el) =>
+    el.getAttribute("id"),
+  );
+  meter_selector_num = parseInt(meter_selector_full.slice(11));
+  first_selector_num = meter_selector_num;
+  console.log("Meter ID Found");
+
+  await page.click(METER_MENU);
+  console.log("Meter Menu Closed");
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(
+        "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+      ),
+  );
+
+  // one time pause after closing menu before the while loops, just in case
+  // await page.waitForTimeout(10000);
+}
+
+// -------------------------------- Misc helper functions ---------------------------- //
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
@@ -143,6 +322,13 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
+/**
+ * Compares the given meter against the exclusion list to determine if its data
+ * should be uploaded to the database. If the meter is not found in the list,
+ * it is considered a new meter and is added to the exclusion list with "new" status.
+ * New and included meters will have their data uploaded to the database.
+ *
+ */
 function compareMeterAgainstExclusionList(PPTable) {
   const meter = pp_meters_exclusion_list.find(
     (meter) => meter.pp_meter_id === PPTable.pp_meter_id,
@@ -189,6 +375,11 @@ function compareMeterAgainstExclusionList(PPTable) {
   }
 }
 
+// -------------------------------- Energy Dashboard API functions ---------------------------- //
+
+/**
+ * Uploads any new meters to the database.
+ */
 async function addNewMetersToDatabase() {
   for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
     await axios({
@@ -213,8 +404,13 @@ async function addNewMetersToDatabase() {
   }
 }
 
-(async () => {
-  pp_recent_list = await axios({
+/**
+ * Retrieve the most recent data from the Pacific Power Recent Data List.
+ * Used to avoid uploading redundant data to the database and for uploading
+ * missing data. /pprecent API currently returns the last 7 days of data.
+ */
+async function getPacificPowerRecentData() {
+  let recent_data = await axios({
     method: "get",
     url: `${process.env.DASHBOARD_API}/pprecent`,
   })
@@ -231,12 +427,12 @@ async function addNewMetersToDatabase() {
       console.log(err);
     });
 
-  if (pp_recent_list) {
+  if (recent_data) {
     console.log(
-      `${pp_recent_list.length} total datapoints in PP Recent Data List (no duplicates)`,
+      `${recent_data.length} total datapoints in PP Recent Data List (no duplicates)`,
     );
     const uniqueIds = new Set();
-    pp_recent_list.forEach((item) => {
+    recent_data.forEach((item) => {
       uniqueIds.add(item.pacific_power_meter_id);
     });
     const numberOfUniqueIds = uniqueIds.size;
@@ -249,8 +445,17 @@ async function addNewMetersToDatabase() {
     );
   }
 
-  // fetch the meter exclusion list
-  pp_meters_exclusion_list = await axios({
+  return recent_data;
+}
+
+/**
+ * Retrieve the Pacific Power Meter Exclusion List from the database.
+ * Meters will have status of 'exclude', 'include', or 'new'.
+ * 'exclude' meters will not have their data uploaded to the database,
+ * 'include' and 'new' meters will.
+ */
+async function getPacificPowerMeterExclusionList() {
+  let exclusion_list = await axios({
     method: "get",
     url: `${process.env.DASHBOARD_API}/ppexclude`,
   })
@@ -267,205 +472,65 @@ async function addNewMetersToDatabase() {
       console.log(err);
     });
 
-  if (pp_meters_exclusion_list) {
-    console.log(
-      `${pp_meters_exclusion_list.length} meters in PP Meter Exclusion List`,
-    );
+  if (exclusion_list) {
+    console.log(`${exclusion_list.length} meters in PP Meter Exclusion List`);
   } else {
     console.log(
       "Could not get PP Meter Exclusion List. All meter data will be uploaded.",
     );
   }
 
+  return exclusion_list;
+}
+
+(async () => {
+  pp_recent_data = await getPacificPowerRecentData();
+  pp_meters_exclusion_list = await getPacificPowerMeterExclusionList();
+
   // Launch the browser
   const browser = await puppeteer.launch({
-    headless: "new", // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
+    headless: false, // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
-  while (!continueDetailsFlag && continueDetails < maxAttempts) {
-    try {
-      console.log("Accessing Pacific Power Web Page...");
 
+  // Login and get meter selector number
+  while (!loginErrorFlag && loginErrorCount < maxAttempts) {
+    try {
       // Create a page
       page = await browser.newPage();
       await page.setDefaultTimeout(TIMEOUT_BUFFER);
       await page.setCacheEnabled(false);
       await page.reload({ waitUntil: "networkidle2" });
 
-      // Go to your site
-      await page.goto(process.env.PP_LOGINPAGE, {
-        waitUntil: "networkidle0",
-        timeout: 25000,
-      });
-
-      // next two lines to make sure it works the same with headless on or off: https://github.com/puppeteer/puppeteer/issues/665#issuecomment-481094738
-      await page.setExtraHTTPHeaders({
-        "Accept-Language": "en-US,en;q=0.9",
-      });
-      await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
-      );
-      console.log(await page.title());
-
-      await page.waitForTimeout(25000);
-      if (continueDetails === 0) {
-        await page.waitForSelector(ACCEPT_COOKIES);
-        console.log("Cookies Button found");
-
-        await page.click(ACCEPT_COOKIES);
-        await page.click(LOCATION_BUTTON);
-        console.log("Location Button clicked");
-        // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
-
-        await page.click(SIGN_IN_PAGE_BUTTON);
-        console.log("SignIn Page Button Clicked!");
-
-        // this one needs more timeout, based on results from stresstest.sh
-        await page.waitForNavigation({
-          waitUntil: "networkidle0",
-          timeout: 60000,
-        });
-        console.log(await page.title());
-        console.log("waiting for iframe with form to be ready.");
-        await page.waitForTimeout(25000);
-        await page.waitForSelector("iframe", { timeout: 60000 });
-        console.log("iframe is ready. Loading iframe content");
-
-        const signin_iframe = await page.$(SIGN_IN_IFRAME);
-        const frame = await signin_iframe.contentFrame();
-
-        console.log("filling username in iframe");
-
-        await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
-
-        console.log("filling password in iframe");
-        await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
-
-        await frame.click(LOGIN_BUTTON);
-        console.log("Login Button clicked");
-        // this one needs more timeout, based on results from stresstest.sh
-        await page.waitForNavigation({
-          waitUntil: "networkidle0",
-          timeout: 60000,
-        });
-        console.log(await page.title());
-        console.log(
-          "First time logged in, continuing to Account > Energy Usage Page",
-        );
-
-        // uncomment for login error handling
-        // throw "testing login error handling try again";
-      } else if (continueDetails > 0) {
-        console.log(
-          "Already logged in, continuing to Account > Energy Usage Page",
-        );
-      }
-
-      // Note changed accountpage URL from env file (now goes direct to energy usage page).
-      // The page.goto() as well as `await page.setCacheEnabled(false)` seems to improve reliability of getting
-      // to the energy usage page, but note some of the selector indices change from 1 to 0, "meter_selector_num"
-      // now starts from 0 instead of 500+, and that after logging in once, you will stay logged in on other pages.
-      // See `continueDetails` variable, and also run the scraper with `headless: false` to see the process.
-      await page.goto(process.env.PP_ACCOUNTPAGE, {
-        waitUntil: "networkidle0",
-        timeout: 120000,
-      });
-      console.log(await page.title());
-      await page.waitForSelector("#loader-temp-secure", {
-        hidden: true,
-        timeout: 25000,
-      });
-
-      await page.waitForFunction(
-        () =>
-          !document.querySelector(
-            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading",
-          ),
-      );
-
-      await page.waitForFunction(
-        () =>
-          !document.querySelector(
-            "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
-          ),
-      );
-
-      // it's theoretically possible to get yearly result for first meter, so check just in case
-      // await page.waitForTimeout(25000);
-      await page.waitForFunction(
-        () => !document.querySelector("#loading-component > mat-spinner"),
-      );
-      [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
-      [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
-      console.log("Year / Month Check found");
-      if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
-        throw "try again";
-      }
-
-      if (yearCheck && !monthCheck) {
-        graphButton = GRAPH_TO_TABLE_BUTTON_YEARLY;
-      } else if (!yearCheck && monthCheck) {
-        graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
-      }
-
-      await page.waitForTimeout(25000);
-      await page.waitForSelector(graphButton, { timeout: 25000 });
-      console.log("Graph to Table Button clicked");
-
-      await page.click(graphButton);
-
-      await page.waitForTimeout(25000);
-      await page.waitForSelector(METER_MENU);
-
-      await page.click(METER_MENU);
-
-      await page.waitForFunction(() =>
-        document.querySelector(
-          "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-        ),
-      );
-      console.log("Meter Menu Opened");
-      meter_selector_full = await page.$eval("mat-option", (el) =>
-        el.getAttribute("id"),
-      );
-      meter_selector_num = parseInt(meter_selector_full.slice(11));
-      first_selector_num = meter_selector_num;
-      console.log("Meter ID Found");
-
-      await page.click(METER_MENU);
-      console.log("Meter Menu Closed");
-      await page.waitForFunction(
-        () =>
-          !document.querySelector(
-            "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-          ),
-      );
-      // one time pause after closing menu before the while loops, just in case
-      // await page.waitForTimeout(10000);
+      // Sign in and get meter selector number for meter navigation
+      await signInToPacificPower();
+      await navigateToFirstMeterPage();
+      await getMeterSelectorNumberFromFirstMeter();
 
       // flag / variables below are reset after successfully getting to the first meter's page
       console.log("\nLogs are recurring after this line");
-      continueDetailsFlag = true;
-      continueDetails = 0;
-      successDetailsFlag = true;
+      loginErrorFlag = true;
+      loginErrorCount = 0;
+      loginSuccessFlag = true;
     } catch (err) {
       console.error(err);
       console.log(
         `Unknown Issue en route to Energy Usage Page, (Attempt ${
-          continueDetails + 1
+          loginErrorCount + 1
         } of ${maxAttempts}). Retrying...`,
       );
-      continueDetails++;
-      if (continueDetails === maxAttempts) {
+      loginErrorCount++;
+      if (loginErrorCount === maxAttempts) {
         console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
-        continueDetailsFlag = true;
+        loginErrorFlag = true;
         break;
       }
-      continueDetailsFlag = false;
+      loginErrorFlag = false;
     }
   }
-  if (successDetailsFlag) {
+
+  if (loginSuccessFlag) {
     if (process.argv.includes("--testing")) {
       console.log(meter_selector_num);
     } else {
@@ -752,7 +817,7 @@ async function addNewMetersToDatabase() {
               upload_queue_matching = PPArray.find(
                 (o) => String(o.pp_meter_id) === String(pp_meter_id),
               );
-              if (upload_queue_matching && !pp_recent_list) {
+              if (upload_queue_matching && !pp_recent_data) {
                 console.log(
                   "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
                 );
@@ -807,8 +872,8 @@ async function addNewMetersToDatabase() {
                   String(o.pp_meter_id) === String(pp_meter_id) &&
                   String(o.time_seconds) === String(END_TIME_SECONDS),
               );
-              if (pp_recent_list) {
-                pp_recent_filtered = pp_recent_list.filter(
+              if (pp_recent_data) {
+                pp_recent_filtered = pp_recent_data.filter(
                   (o) =>
                     String(o.pacific_power_meter_id) === String(pp_meter_id),
                 );
@@ -852,7 +917,7 @@ async function addNewMetersToDatabase() {
                   "Actual date and date on pacific power site are in sync.",
                 );
               }
-              if (pp_recent_list) {
+              if (pp_recent_data) {
                 if (pp_recent_matching) {
                   console.log(
                     "Latest matching date from SQL database (relative to pacific power site): " +
