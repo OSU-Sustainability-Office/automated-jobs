@@ -32,6 +32,10 @@ const SIGN_IN_IFRAME = 'iframe[src="/oauth2/authorization/B2C_1A_PAC_SIGNIN"]';
 const SIGN_IN_INPUT = "input#signInName"; // aka username
 const SIGN_IN_PASSWORD = "input#password";
 const LOGIN_BUTTON = "button#next"; // This is the actual login button, as opposed to signin page button
+const LOADING_BACKDROP_TRANSPARENT =
+  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing";
+const LOADING_BACKDROP_DARK =
+  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing";
 // The next two selectors below correspond to a button that converts line graph data on PacificPower to table format
 const GRAPH_TO_TABLE_BUTTON_MONTHLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
@@ -44,9 +48,12 @@ const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
 const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
 const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
 const DAY_IDENTIFIER = "//span[contains(., 'One Day')]";
-// Selector below corresponds to top row of meter data (TODO: rename)
-const MONTHLY_TOP =
-  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
+const GRAPH_SELECTOR =
+  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area";
+// Selector below corresponds to monthly meter data table, add row number to get specific row data (e.g. + "1)" for first row of data)
+const MONTHLY_TABLE_ROW_SELECTOR =
+  GRAPH_SELECTOR +
+  " > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
 
 // timeframe related variables
 let yearCheck = false; // true = "One Year" text detected in timeframe dropdown menu for current meter
@@ -58,7 +65,7 @@ let timeframeChoices = []; // list of valid timeframes per meter ("1 year", "1 m
 let timeframeIterator = 0; // increment this every time invalid top row meter data is detected, and we need to try another timeframe
 
 // control flow flags (booleans)
-let loginErrorFlag = false; // true = some kind of error en route to the first meter's page (e.g. login error)
+let attemptLoginFlag = true; // false = some kind of error en route to the first meter's page (e.g. login error)
 let loginSuccessFlag = false; // true = successfully logged in to Pacific Power website and retrieved meter selector number
 let continueMetersFlag = false; // true = generic error detected, see otherErrorArray (highest level flag for meter checking)
 let continueLoadingFlag = false; // true = loading screen not yet detected for the current meter (highest level flag for meter checking)
@@ -67,7 +74,7 @@ let continueVarMonthlyFlag = false; // true = errors detected when reading meter
 // control flow iterators (counters)
 let loginErrorCount = 0; // increment this every time there is an error en route to the first meter's page (e.g. login error)
 let continueMeters = 0; // increment this every time there is a generic error detected, see otherErrorArray (highest level flag for meter checking)
-let continueVarLoading = 0; // increment this every time loading screen not yet detected for the current meter (highest level flag for meter checking)
+let loadingScreenErrorCount = 0; // increment this every time loading screen not yet detected for the current meter (highest level flag for meter checking)
 let continueVarMonthly = 0; // increment this every time errors are detected when reading meter data top row ("monthly_top"). (second highest level flag)
 
 // Misc Variables (initialization)
@@ -75,8 +82,8 @@ let page = ""; // current browser page being used by Puppeteer (set headless: fa
 let graphButton = ""; // button on PacificPower site that converts data from line graph to table format (see GRAPH_TO_TABLE_BUTTON_MONTHLY / YEARLY)
 let pp_meter_id = ""; // A meter's PacificPower meter ID (e.g. 78645606)
 let first_selector_num = 0; // keeps track of the "meter_selector_num" value of the first detected meter
-let monthly_top = ""; // NOTE: different variable from MONTHLY_TOP constant, although they should probably be combined (TODO)
-let monthly_top_text = ""; // text string extracted from the top row of meter data (MONTHLY_TOP selector)
+let monthly_top = ""; // NOTE: different variable from MONTHLY_TABLE_ROW_SELECTOR constant, although they should probably be combined (TODO)
+let monthly_top_text = ""; // text string extracted from the top row of meter data (MONTHLY_TABLE_ROW_SELECTOR selector)
 let meter_selector_full = ""; // full text of the current meter from meter dropdown menu, e.g. "34306 NE ELECTRIC RD CORVALLIS OR (Item #224) (Meter #78645606)"
 let meter_selector_num = ""; // inspect element > see div with ID "#mat-option-<meter_selector_num>", e.g. "#mat-option-1"
 let PPTable = {}; // individual meter data object contained within PPArray. TODO: Rename this variable
@@ -100,7 +107,7 @@ let pp_meters_exclude = []; // list of meters on PacificPower page we have exclu
 let pp_meters_include = []; // list of meters on PacificPower page we have included based on ppExclude endpoint
 let pp_meters_exclude_not_found = []; // list of (new) meters on PacificPower page we have excluded based on ppExclude endpoint
 
-// -------------------------------- Sign-in/Navigation functions ---------------------------- //
+// -------------------------------- Sign-in functions ---------------------------- //
 
 /**
  * Sign in to the Pacific Power website.
@@ -250,11 +257,8 @@ async function getMeterSelectorNumberFromFirstMeter() {
 
   await page.click(METER_MENU);
 
-  await page.waitForFunction(() =>
-    document.querySelector(
-      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-    ),
-  );
+  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
+
   console.log("Meter Menu Opened");
   meter_selector_full = await page.$eval("mat-option", (el) =>
     el.getAttribute("id"),
@@ -265,15 +269,91 @@ async function getMeterSelectorNumberFromFirstMeter() {
 
   await page.click(METER_MENU);
   console.log("Meter Menu Closed");
-  await page.waitForFunction(
-    () =>
-      !document.querySelector(
-        "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-      ),
-  );
+  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT, { hidden: true });
 
   // one time pause after closing menu before the while loops, just in case
   // await page.waitForTimeout(10000);
+}
+
+// -------------------------------- Meter processing functions ---------------------------- //
+
+/**
+ * Select a meter from the dropdown menu.
+ */
+async function selectMeterFromDropdownMenu() {
+  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT, { hidden: true });
+
+  await page.click(METER_MENU);
+  console.log("Meter Menu Opened");
+
+  // await page.waitForTimeout(10000);
+  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
+
+  await page.waitForSelector(
+    "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
+  );
+  console.log("New Meter Opened");
+
+  await page.click(
+    "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
+  );
+}
+
+/**
+ * Handle the loading screen that appears when switching between meters.
+ */
+async function handleMeterLoadingScreen() {
+  while (!continueLoadingFlag && loadingScreenErrorCount === 0) {
+    try {
+      await page.waitForSelector(LOADING_BACKDROP_DARK, { timeout: 25000 });
+      console.log("Loading Screen Found");
+      break;
+    } catch (error) {
+      // console.error(error);
+      console.log(`Loading Screen not found.`);
+      continueLoadingFlag = true;
+    }
+  }
+
+  if (continueLoadingFlag) {
+    console.log("Loading Screen not found, trying again");
+    continueLoadingFlag = false;
+    loadingScreenErrorCount++;
+
+    // throwing the error will prompt a retry (in the form of continuing the while loop)
+    throw new Error("Retrying due to loading screen not found");
+  }
+
+  continueLoadingFlag = false;
+
+  // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
+  if (loadingScreenErrorCount === 0) {
+    await page.waitForSelector(LOADING_BACKDROP_DARK, { hidden: true });
+  }
+}
+
+/**
+ * Get the meter ID from the meter dropdown menu text, e.g.
+ * "1234 NE ELECTRIC RD CORVALLIS OR (Item #123) (Meter #1234567)"
+ * returns the meter ID 1234567.
+ */
+async function getMeterIdFromMeterMenu() {
+  const pp_meter_element = await page.waitForSelector(METER_MENU);
+  const pp_meter_full = await pp_meter_element.evaluate((el) => el.textContent);
+
+  let pp_meter_full_trim = pp_meter_full.trim();
+  console.log(pp_meter_full_trim);
+
+  let positionMeter = "(Meter #";
+  let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
+  meter_id = parseInt(
+    pp_meter_full_trim.slice(
+      meterStringIndex + 8,
+      pp_meter_full_trim.length - 2,
+    ),
+  );
+
+  return meter_id;
 }
 
 // -------------------------------- Misc helper functions ---------------------------- //
@@ -494,8 +574,8 @@ async function getPacificPowerMeterExclusionList() {
     // executablePath: 'google-chrome-stable'
   });
 
-  // Login and get meter selector number
-  while (!loginErrorFlag && loginErrorCount < maxAttempts) {
+  // Login and get meter selector number (needed for navigating between meters)
+  while (attemptLoginFlag && loginErrorCount < maxAttempts) {
     try {
       // Create a page
       page = await browser.newPage();
@@ -510,7 +590,7 @@ async function getPacificPowerMeterExclusionList() {
 
       // flag / variables below are reset after successfully getting to the first meter's page
       console.log("\nLogs are recurring after this line");
-      loginErrorFlag = true;
+      attemptLoginFlag = false;
       loginErrorCount = 0;
       loginSuccessFlag = true;
     } catch (err) {
@@ -523,10 +603,10 @@ async function getPacificPowerMeterExclusionList() {
       loginErrorCount++;
       if (loginErrorCount === maxAttempts) {
         console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
-        loginErrorFlag = true;
+        attemptLoginFlag = false;
         break;
       }
-      loginErrorFlag = false;
+      attemptLoginFlag = true;
     }
   }
 
@@ -542,100 +622,29 @@ async function getPacificPowerMeterExclusionList() {
           console.log("\n" + meter_selector_num.toString());
 
           // After the first time a loading screen is detected, don't need to open meter menu again (for current meter ID)
-          if (continueVarLoading === 0) {
-            await page.waitForFunction(
-              () =>
-                !document.querySelector(
-                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-                ),
-            );
-            await page.click(METER_MENU);
-            console.log("Meter Menu Opened");
-
-            // await page.waitForTimeout(10000);
-            await page.waitForFunction(() =>
-              document.querySelector(
-                "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-              ),
-            );
-            await page.waitForSelector(
-              "#" +
-                meter_selector_full.slice(0, 11) +
-                meter_selector_num.toString(),
-            );
-            console.log("New Meter Opened");
-
-            await page.click(
-              "#" +
-                meter_selector_full.slice(0, 11) +
-                meter_selector_num.toString(),
-            );
+          if (loadingScreenErrorCount === 0) {
+            await selectMeterFromDropdownMenu();
           }
 
+          // if we're past the first meter, we need to wait for the loading screen to disappear
           if (first_selector_num !== meter_selector_num) {
-            while (!continueLoadingFlag && continueVarLoading === 0) {
-              try {
-                await page.waitForFunction(
-                  () =>
-                    document.querySelector(
-                      "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
-                    ),
-                  { timeout: 25000 },
-                );
-                console.log("Loading Screen Found");
-                break;
-              } catch (error) {
-                // console.error(error);
-                console.log(`Loading Screen not found.`);
-                continueLoadingFlag = true;
-              }
-            }
-
-            if (continueLoadingFlag) {
-              console.log("Loading Screen not found, trying again");
-              continueLoadingFlag = false;
-              continueVarLoading++;
+            try {
+              await handleMeterLoadingScreen();
+            } catch (err) {
+              // an error occurred with the loading screen, try again
               continue;
             }
-
-            continueLoadingFlag = false;
-
-            // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
-            if (continueVarLoading === 0) {
-              await page.waitForFunction(
-                () =>
-                  !document.querySelector(
-                    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
-                  ),
-              );
-            }
           }
 
-          const pp_meter_element = await page.waitForSelector(METER_MENU);
-          const pp_meter_full = await pp_meter_element.evaluate(
-            (el) => el.textContent,
-          );
-
-          let pp_meter_full_trim = pp_meter_full.trim();
-          console.log(pp_meter_full_trim);
-
-          let positionMeter = "(Meter #";
-          let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
-          pp_meter_id = parseInt(
-            pp_meter_full_trim.slice(
-              meterStringIndex + 8,
-              pp_meter_full_trim.length - 2,
-            ),
-          );
+          // Get Pacific Power Meter ID
+          pp_meter_id = await getMeterIdFromMeterMenu();
           console.log("PP Meter ID: " + pp_meter_id.toString());
 
           while (!continueVarMonthlyFlag && continueVarMonthly < maxAttempts) {
             try {
-              await page.waitForSelector(
-                "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
-              );
+              await page.waitForSelector(GRAPH_SELECTOR);
 
-              await page.waitForSelector(MONTHLY_TOP + "1)", {
+              await page.waitForSelector(MONTHLY_TABLE_ROW_SELECTOR + "1)", {
                 timeout: 25000,
               });
 
@@ -665,11 +674,8 @@ async function getPacificPowerMeterExclusionList() {
 
               await page.click(TIME_MENU);
               // await page.waitForTimeout(10000);
-              await page.waitForFunction(() =>
-                document.querySelector(
-                  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
-                ),
-              );
+              await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
+
               [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
                 timeout: 25000,
               });
@@ -754,7 +760,10 @@ async function getPacificPowerMeterExclusionList() {
 
           // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
           let row_days = row_days_const;
-          monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+          monthly_top_text = await getRowText(
+            MONTHLY_TABLE_ROW_SELECTOR,
+            row_days,
+          );
 
           // TODO in future PR: Fix this variable name to be just "top row" or something,
           // rename "monthly" var names to be more clear on time interval vs total time frame
@@ -786,7 +795,7 @@ async function getPacificPowerMeterExclusionList() {
             // "'Yearly Meter type' Valid Data detected scenario" exit path here, reset flags
             yearlyArray.push({ meter_selector_num, pp_meter_id });
             meter_selector_num++;
-            continueVarLoading = 0;
+            loadingScreenErrorCount = 0;
             timeframeIterator = 0;
             continue;
           }
@@ -803,7 +812,10 @@ async function getPacificPowerMeterExclusionList() {
           while (!prevDayFlag && actual_days <= maxPrevDayCount) {
             try {
               try {
-                monthly_top_text = await getRowText(MONTHLY_TOP, row_days);
+                monthly_top_text = await getRowText(
+                  MONTHLY_TABLE_ROW_SELECTOR,
+                  row_days,
+                );
               } catch (error) {
                 console.log(
                   `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
@@ -1015,7 +1027,7 @@ async function getPacificPowerMeterExclusionList() {
           // "Best Case Scenario" (valid data from 'Monthly' meter type) exit path here, reset flags
           if (monthly_top_text.includes(positionEst)) {
             meter_selector_num++;
-            continueVarLoading = 0;
+            loadingScreenErrorCount = 0;
             timeframeIterator = 0;
           }
         } catch (error) {
