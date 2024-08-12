@@ -455,6 +455,89 @@ function compareMeterAgainstExclusionList(PPTable) {
   }
 }
 
+/**
+ * Prints out the final results of the meter data processing.
+ * This includes the unavailable, delivered error, yearly, and
+ * other error meters.
+ */
+function printFinalArraysResults() {
+  if (unAvailableErrorArray.length > 0) {
+    console.log("\nUnavailable Meters (Monthly): ");
+    for (let i = 0; i < unAvailableErrorArray.length; i++) {
+      console.log(unAvailableErrorArray[i]);
+    }
+  }
+  if (deliveredErrorArray.length > 0) {
+    console.log("\nDelivered Error Meters (Monthly): ");
+    for (let i = 0; i < deliveredErrorArray.length; i++) {
+      console.log(deliveredErrorArray[i]);
+    }
+  }
+  if (yearlyArray.length > 0) {
+    console.log("\nYearly Meters: ");
+    for (let i = 0; i < yearlyArray.length; i++) {
+      console.log(yearlyArray[i]);
+    }
+  }
+  if (otherErrorArray.length > 0) {
+    console.log("\nOther Errors: ");
+    for (let i = 0; i < otherErrorArray.length; i++) {
+      console.log(otherErrorArray[i]);
+    }
+  }
+
+  if (pp_meters_exclude.length > 0) {
+    console.log("\nMeters Excluded: ");
+    for (let i = 0; i < pp_meters_exclude.length; i++) {
+      console.log(pp_meters_exclude[i]);
+    }
+  }
+
+  if (pp_meters_include.length > 0) {
+    console.log("\nMeters Included in DB: ");
+    for (let i = 0; i < pp_meters_include.length; i++) {
+      console.log(pp_meters_include[i]);
+    }
+  }
+
+  if (pp_meters_exclude_not_found.length > 0) {
+    console.log("\nMeters Not Found in Exclusion List (new meters): ");
+    for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
+      console.log(pp_meters_exclude_not_found[i]);
+    }
+  }
+}
+
+/**
+ * Saves the various arrays to a JSON file.
+ * This includes the unavailable, delivered error, yearly, and
+ * other error meters, as well as the meters excluded/included/not found
+ * in the database.
+ */
+function saveOutputToFile() {
+  PPArray.push("Unavailable Meters (Monthly): ");
+  PPArray.push(unAvailableErrorArray);
+  PPArray.push("Delivered Error Meters (Monthly): ");
+  PPArray.push(deliveredErrorArray);
+  PPArray.push("Yearly Meters: ");
+  PPArray.push(yearlyArray);
+  PPArray.push("Other Errors: ");
+  PPArray.push(otherErrorArray);
+  PPArray.push("Meters Excluded from DB: ");
+  PPArray.push(pp_meters_exclude);
+  PPArray.push("Meters Included in DB: ");
+  PPArray.push(pp_meters_include);
+  PPArray.push("Meters Not Found in Exclusion List (new meters): ");
+  PPArray.push(pp_meters_exclude_not_found);
+  const jsonContent = JSON.stringify(PPArray, null, 2);
+  fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
+    if (err) {
+      return console.log(err);
+    }
+    console.log("\nFile Saved: Yes");
+  });
+}
+
 // -------------------------------- Energy Dashboard API functions ---------------------------- //
 
 /**
@@ -561,6 +644,42 @@ async function getPacificPowerMeterExclusionList() {
   }
 
   return exclusion_list;
+}
+
+/**
+ * Uploads the meter data to the database, logs response.
+ */
+async function uploadDatatoDatabase(meterData) {
+  const pacificPowerMeters = "pacific_power_data";
+
+  await axios({
+    method: "post",
+    url: `${process.env.DASHBOARD_API}/upload`,
+    data: {
+      id: pacificPowerMeters,
+      body: meterData,
+      pwd: process.env.API_PWD,
+      type: "pacific_power",
+    },
+  })
+    .then((res) => {
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
+      if (res.status === 200) {
+        console.log(`${meterData.pp_meter_id} uploaded to database.`);
+      }
+    })
+    .catch((err) => {
+      if (
+        err.response.status === 400 &&
+        err.response.data === "redundant upload detected, skipping"
+      ) {
+        console.log(
+          `RESPONSE: ${err.response.status}, TEXT: ${err.response.statusText}, ERROR: ${err.response.data}`,
+        );
+      } else {
+        console.log(err);
+      }
+    });
 }
 
 (async () => {
@@ -1052,48 +1171,22 @@ async function getPacificPowerMeterExclusionList() {
     }
   }
 
-  const pacificPowerMeters = "pacific_power_data";
-
+  // log all data to be uploaded
   if (PPArray.length > 0) {
     console.log("\nData to be uploaded: ");
   } else if (PPArray.length === 0) {
     console.log("\nNo data to be uploaded, SQL database is already up to date");
   }
+
   for (let i = 0; i < PPArray.length; i++) {
     console.log(PPArray[i]);
 
     // to prevent uploading data to API: node readPP.js --no-upload
     if (!process.argv.includes("--no-upload")) {
-      await axios({
-        method: "post",
-        url: `${process.env.DASHBOARD_API}/upload`,
-        data: {
-          id: pacificPowerMeters,
-          body: PPArray[i],
-          pwd: process.env.API_PWD,
-          type: "pacific_power",
-        },
-      })
-        .then((res) => {
-          console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
-          if (res.status === 200) {
-            console.log(`${PPArray[i].pp_meter_id} uploaded to database.`);
-          }
-        })
-        .catch((err) => {
-          if (
-            err.response.status === 400 &&
-            err.response.data === "redundant upload detected, skipping"
-          ) {
-            console.log(
-              `RESPONSE: ${err.response.status}, TEXT: ${err.response.statusText}, ERROR: ${err.response.data}`,
-            );
-          } else {
-            console.log(err);
-          }
-        });
+      await uploadDatatoDatabase(PPArray[i]);
     }
   }
+
   console.log(
     "\nTimestamp (approximate): " +
       moment
@@ -1102,51 +1195,9 @@ async function getPacificPowerMeterExclusionList() {
         .format("MM-DD-YYYY hh:mm a") +
       " PST",
   );
-  if (unAvailableErrorArray.length > 0) {
-    console.log("\nUnavailable Meters (Monthly): ");
-    for (let i = 0; i < unAvailableErrorArray.length; i++) {
-      console.log(unAvailableErrorArray[i]);
-    }
-  }
-  if (deliveredErrorArray.length > 0) {
-    console.log("\nDelivered Error Meters (Monthly): ");
-    for (let i = 0; i < deliveredErrorArray.length; i++) {
-      console.log(deliveredErrorArray[i]);
-    }
-  }
-  if (yearlyArray.length > 0) {
-    console.log("\nYearly Meters: ");
-    for (let i = 0; i < yearlyArray.length; i++) {
-      console.log(yearlyArray[i]);
-    }
-  }
-  if (otherErrorArray.length > 0) {
-    console.log("\nOther Errors: ");
-    for (let i = 0; i < otherErrorArray.length; i++) {
-      console.log(otherErrorArray[i]);
-    }
-  }
 
-  if (pp_meters_exclude.length > 0) {
-    console.log("\nMeters Excluded: ");
-    for (let i = 0; i < pp_meters_exclude.length; i++) {
-      console.log(pp_meters_exclude[i]);
-    }
-  }
-
-  if (pp_meters_include.length > 0) {
-    console.log("\nMeters Included in DB: ");
-    for (let i = 0; i < pp_meters_include.length; i++) {
-      console.log(pp_meters_include[i]);
-    }
-  }
-
-  if (pp_meters_exclude_not_found.length > 0) {
-    console.log("\nMeters Not Found in Exclusion List (new meters): ");
-    for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
-      console.log(pp_meters_exclude_not_found[i]);
-    }
-  }
+  // print final results of arrays (meters with errors, meters excluded, etc)
+  printFinalArraysResults();
 
   // add new meters to exclusion table in database if uploading
   if (!process.argv.includes("--no-upload")) {
@@ -1158,27 +1209,7 @@ async function getPacificPowerMeterExclusionList() {
     process.argv.includes("--save-output") ||
     process.env.SAVE_OUTPUT === "true"
   ) {
-    PPArray.push("Unavailable Meters (Monthly): ");
-    PPArray.push(unAvailableErrorArray);
-    PPArray.push("Delivered Error Meters (Monthly): ");
-    PPArray.push(deliveredErrorArray);
-    PPArray.push("Yearly Meters: ");
-    PPArray.push(yearlyArray);
-    PPArray.push("Other Errors: ");
-    PPArray.push(otherErrorArray);
-    PPArray.push("Meters Excluded from DB: ");
-    PPArray.push(pp_meters_exclude);
-    PPArray.push("Meters Included in DB: ");
-    PPArray.push(pp_meters_include);
-    PPArray.push("Meters Not Found in Exclusion List (new meters): ");
-    PPArray.push(pp_meters_exclude_not_found);
-    const jsonContent = JSON.stringify(PPArray, null, 2);
-    fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
-      if (err) {
-        return console.log(err);
-      }
-      console.log("\nFile Saved: Yes");
-    });
+    saveOutputToFile();
   }
 
   // Close browser.
