@@ -279,24 +279,35 @@ async function getMeterSelectorNumberFromFirstMeter() {
 
 /**
  * Wait for the top row data to load and confirm that it is monthly data.
- * Throws an error if data is not monthly
+ * Throws an error if data is not monthly, which will trigger a switch to a different timeframe
+ * to try to force the data to load
  */
 async function waitForTopRowDataAndConfirmItsMonthly() {
-  await page.waitForSelector(GRAPH_SELECTOR);
+  while (!monthlyDataTopRowErrorFlag && monthlyDataTopRowError < maxAttempts) {
+    try {
+      await page.waitForSelector(GRAPH_SELECTOR);
 
-  await page.waitForSelector(MONTHLY_TABLE_ROW_SELECTOR + "1)", {
-    timeout: 25000,
-  });
+      await page.waitForSelector(MONTHLY_TABLE_ROW_SELECTOR + "1)", {
+        timeout: 25000,
+      });
 
-  console.log("Monthly Top Found");
+      console.log("Monthly Top Found");
 
-  // Early throw for odd timeframeIterator values (otherwise the meter might try to read yearly etc data
-  // from monthly meters)
-  if (timeframeIterator % 2 === 1) {
-    console.log(
-      "throwing for odd timeframeIterator, not reading this value although it is valid",
-    );
-    throw "odd timeframeIterator";
+      // Early throw for odd timeframeIterator values (otherwise the meter might try to read yearly etc data
+      // from monthly meters)
+      if (timeframeIterator % 2 === 1) {
+        console.log(
+          "throwing for odd timeframeIterator, not reading this value although it is valid",
+        );
+        throw "odd timeframeIterator";
+      }
+
+      //if no errors are thrown, break out of loop
+      return;
+    } catch (error) {
+      // console.error(error);
+      await switchTimeFrameOptionToForceDataToLoad();
+    }
   }
 }
 
@@ -881,13 +892,266 @@ async function uploadDatatoDatabase(meterData) {
     });
 }
 
+// -------------------------------- Top Level functions ---------------------------- //
+
+/**
+ * Main function to get meter data from the Pacific Power website. Loops through all
+ * meters in the meter dropdown menu that have data available.
+ */
+async function getMeterData() {
+  // DEBUG: testing at specific meter ID, e.g. to see if termination behavior works
+  // meter_selector_num = 110;
+
+  while (!meterErrorsFlag && meterErrorCount < maxAttempts) {
+    try {
+      console.log("\n" + meter_selector_num.toString());
+
+      // After the first time a loading screen is detected, don't need to open meter menu again (for current meter ID)
+      if (loadingScreenErrorCount === 0) {
+        await selectMeterFromDropdownMenu();
+      }
+
+      // if we're past the first meter, we need to wait for the loading screen to disappear
+      if (first_selector_num !== meter_selector_num) {
+        try {
+          await handleMeterLoadingScreen();
+        } catch (err) {
+          // an error occurred with the loading screen, try again
+          continue;
+        }
+      }
+
+      // Get Pacific Power Meter ID
+      pp_meter_id = await getMeterIdFromMeterMenu();
+      console.log("PP Meter ID: " + pp_meter_id.toString());
+
+      // Check if top row monthly data is available
+      await waitForTopRowDataAndConfirmItsMonthly();
+
+      // This increases in value every time we try to read a given meter's data (assuming scraper got past loading screen check)
+      timeframeIterator++;
+      if (monthlyDataTopRowErrorFlag) {
+        // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
+        // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
+        console.log("Monthly Top not found, try again");
+        console.log(
+          "Attempt " +
+            (monthlyDataTopRowError + 1).toString() +
+            " of " +
+            maxAttempts,
+        );
+        monthlyDataTopRowError++;
+        if (monthlyDataTopRowError === maxAttempts) {
+          console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
+          meterErrorsFlag = true;
+          break;
+        }
+        monthlyDataTopRowErrorFlag = false;
+        continue;
+      }
+
+      // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
+      let row_days = row_days_const;
+      monthly_top_text = await getRowText(MONTHLY_TABLE_ROW_SELECTOR, row_days);
+
+      // TODO in future PR: Fix this variable name to be just "top row" or something,
+      // rename "monthly" var names to be more clear on time interval vs total time frame
+      console.log("Monthly Data Top Row Found, getting table top row value");
+      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
+      let positionEst = "Est. Rounded";
+
+      // Custom breakpoint for testing
+      /*
+      if (meter_selector_num === 10) {
+        meterErrorsFlag = true;
+        break;
+      }
+      */
+
+      if (monthly_top_text.includes(positionEst)) {
+        console.log("Data is not yearly. Data is probably monthly.");
+        console.log("===");
+        console.log(monthly_top_text);
+      } else {
+        console.log("Year Check Found, skipping to next meter");
+        console.log("===");
+        console.log(monthly_top_text);
+
+        // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
+        // so, log an error?
+        // "'Yearly Meter type' Valid Data detected scenario" exit path here, reset flags
+        yearlyArray.push({ meter_selector_num, pp_meter_id });
+        meter_selector_num++;
+        loadingScreenErrorCount = 0;
+        timeframeIterator = 0;
+        continue;
+      }
+
+      // The point of monthlyDataTopRowError is to keep track of number of retries
+      // needed before valid data is detected, so this variable is reset as long as valid data was detected, regardless
+      // of if the meter was monthly or yearly type
+      monthlyDataTopRowErrorFlag = false;
+      monthlyDataTopRowError = 0;
+
+      // Always reset actual_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
+      let actual_days = actual_days_const;
+
+      while (!prevDayFlag && actual_days <= maxPrevDayCount) {
+        try {
+          try {
+            monthly_top_text = await getRowText(
+              MONTHLY_TABLE_ROW_SELECTOR,
+              row_days,
+            );
+          } catch (error) {
+            console.log(
+              `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
+            );
+            console.error(error);
+            prevDayFlag = true;
+          }
+
+          // Check upload queue (PPArray) for data that matches meter ID (does NOT check for matching time value).
+          // TODO in future PR: Rename PPArray and other variables to have clearer meaning
+          upload_queue_matching = PPArray.find(
+            (o) => String(o.pp_meter_id) === String(pp_meter_id),
+          );
+          if (upload_queue_matching && !pp_recent_data) {
+            console.log(
+              "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
+            );
+            prevDayFlag = true;
+            break;
+          }
+          if (actual_days > actual_days_const) {
+            console.log(
+              "Monthly Data Top Row Found, getting table top row value",
+            );
+            console.log("===");
+            console.log(monthly_top_text);
+          }
+
+          if (monthly_top_text.includes("Unavailable")) {
+            console.log(
+              "'Unavailable' error detected for monthly time range, skipping to next day",
+            );
+            row_days += 1;
+            actual_days += 1;
+            unAvailableErrorArray.push({
+              meter_selector_num,
+              pp_meter_id,
+            });
+            continue;
+          }
+
+          if (
+            monthly_top_text.includes("delivered to you") ||
+            monthly_top_text.includes("received from you")
+          ) {
+            console.log(
+              "'delivered / received' error detected for monthly time range, skipping to next day",
+            );
+            row_days += 1;
+            actual_days += 1;
+            deliveredErrorArray.push({
+              meter_selector_num,
+              pp_meter_id,
+            });
+            continue;
+          }
+
+          let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+            await getRowData(monthly_top_text, positionUsage, positionEst);
+          let actualDate = getActualDate(actual_days).actualDate;
+
+          // Check upload queue (PPArray) for data that matches meter ID AND time, before uploading.
+          // TODO in future PR: Rename PPArray and other variables to have clearer meaning
+          lookForDuplicateDataInPPArray(date, actualDate, END_TIME_SECONDS);
+
+          PPTable = {
+            meter_selector_num,
+            pp_meter_id,
+            usage_kwh,
+            time: END_TIME,
+            time_seconds: END_TIME_SECONDS,
+          };
+
+          // If recent data list was fetched, verify there are no matching meter ID + time_seconds values in SQL
+          // database, nor in upload queue (PPTable).
+          // If recent data list wasn't fetched, still verify there are no matching meter ID + time_seconds values
+          // in upload queue (PPTable).
+          if (
+            ((pp_recent_matching &&
+              String(pp_recent_matching.time_seconds) !== END_TIME_SECONDS) ||
+              !pp_recent_matching) &&
+            !upload_queue_matching_time
+          ) {
+            // if exclusion list was fetched, compare the meter against it to exclude meters
+            // otherwise we will add all meter data to db
+            if (pp_meters_exclusion_list) {
+              compareMeterAgainstExclusionList(PPTable);
+            } else {
+              PPArray.push(PPTable);
+              // should only be logged for valid, unique data objects not in exclusion list
+              console.log(
+                "Valid data found for this day found; queuing upload.",
+              );
+            }
+          }
+
+          if (actual_days === maxPrevDayCount) {
+            console.log(
+              `Reached max day count of ${maxPrevDayCount} days, exiting`,
+            );
+            prevDayFlag = true;
+            break;
+          }
+          if (date && date !== actualDate) {
+            console.log(
+              "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
+            );
+            actual_days += 1;
+            let ACTUAL_DATE_UNIX = getActualDate(actual_days).ACTUAL_DATE_UNIX;
+            if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
+              console.log(
+                "Synced actual date and date from Pacific Power site, go to equalled if loop",
+              );
+              continue;
+            }
+          } else if (date && date === actualDate) {
+            row_days += 1;
+            actual_days += 1;
+          }
+        } catch (error) {
+          console.log("Some other error occurred, skipping to next meter");
+          console.error(error);
+          otherErrorArray.push({ meter_selector_num, pp_meter_id });
+          prevDayFlag = true;
+        }
+      }
+      prevDayFlag = false;
+
+      // If "Est. Rounded" is found, then the data is monthly.
+      // "Best Case Scenario" (valid data from 'Monthly' meter type) exit path here, reset flags
+      if (monthly_top_text.includes(positionEst)) {
+        meter_selector_num++;
+        loadingScreenErrorCount = 0;
+        timeframeIterator = 0;
+      }
+    } catch (error) {
+      // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
+      handleUnkownMeterError(error);
+    }
+  }
+}
+
 (async () => {
   pp_recent_data = await getPacificPowerRecentData();
   pp_meters_exclusion_list = await getPacificPowerMeterExclusionList();
 
   // Launch the browser
   const browser = await puppeteer.launch({
-    headless: false, // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
+    headless: "new", // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
@@ -929,276 +1193,7 @@ async function uploadDatatoDatabase(meterData) {
   }
 
   if (loginSuccessFlag) {
-    if (process.argv.includes("--testing")) {
-      console.log(meter_selector_num);
-    } else {
-      // DEBUG: testing at specific meter ID, e.g. to see if termination behavior works
-      // meter_selector_num = 110;
-
-      while (!meterErrorsFlag && meterErrorCount < maxAttempts) {
-        try {
-          console.log("\n" + meter_selector_num.toString());
-
-          // After the first time a loading screen is detected, don't need to open meter menu again (for current meter ID)
-          if (loadingScreenErrorCount === 0) {
-            await selectMeterFromDropdownMenu();
-          }
-
-          // if we're past the first meter, we need to wait for the loading screen to disappear
-          if (first_selector_num !== meter_selector_num) {
-            try {
-              await handleMeterLoadingScreen();
-            } catch (err) {
-              // an error occurred with the loading screen, try again
-              continue;
-            }
-          }
-
-          // Get Pacific Power Meter ID
-          pp_meter_id = await getMeterIdFromMeterMenu();
-          console.log("PP Meter ID: " + pp_meter_id.toString());
-
-          // Check if top row monthly data is available
-          while (
-            !monthlyDataTopRowErrorFlag &&
-            monthlyDataTopRowError < maxAttempts
-          ) {
-            try {
-              await waitForTopRowDataAndConfirmItsMonthly();
-
-              //if no errors are thrown, break out of loop
-              break;
-            } catch (error) {
-              // console.error(error);
-              await switchTimeFrameOptionToForceDataToLoad();
-            }
-          }
-
-          // This increases in value every time we try to read a given meter's data (assuming scraper got past loading screen check)
-          timeframeIterator++;
-          if (monthlyDataTopRowErrorFlag) {
-            // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
-            // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
-            console.log("Monthly Top not found, try again");
-            console.log(
-              "Attempt " +
-                (monthlyDataTopRowError + 1).toString() +
-                " of " +
-                maxAttempts,
-            );
-            monthlyDataTopRowError++;
-            if (monthlyDataTopRowError === maxAttempts) {
-              console.log(
-                `Re-Checked ${maxAttempts} times, Stopping Webscraper`,
-              );
-              meterErrorsFlag = true;
-              break;
-            }
-            monthlyDataTopRowErrorFlag = false;
-            continue;
-          }
-
-          // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
-          let row_days = row_days_const;
-          monthly_top_text = await getRowText(
-            MONTHLY_TABLE_ROW_SELECTOR,
-            row_days,
-          );
-
-          // TODO in future PR: Fix this variable name to be just "top row" or something,
-          // rename "monthly" var names to be more clear on time interval vs total time frame
-          console.log(
-            "Monthly Data Top Row Found, getting table top row value",
-          );
-          let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
-          let positionEst = "Est. Rounded";
-
-          // Custom breakpoint for testing
-          /*
-          if (meter_selector_num === 10) {
-            meterErrorsFlag = true;
-            break;
-          }
-          */
-
-          if (monthly_top_text.includes(positionEst)) {
-            console.log("Data is not yearly. Data is probably monthly.");
-            console.log("===");
-            console.log(monthly_top_text);
-          } else {
-            console.log("Year Check Found, skipping to next meter");
-            console.log("===");
-            console.log(monthly_top_text);
-
-            // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
-            // so, log an error?
-            // "'Yearly Meter type' Valid Data detected scenario" exit path here, reset flags
-            yearlyArray.push({ meter_selector_num, pp_meter_id });
-            meter_selector_num++;
-            loadingScreenErrorCount = 0;
-            timeframeIterator = 0;
-            continue;
-          }
-
-          // The point of monthlyDataTopRowError is to keep track of number of retries
-          // needed before valid data is detected, so this variable is reset as long as valid data was detected, regardless
-          // of if the meter was monthly or yearly type
-          monthlyDataTopRowErrorFlag = false;
-          monthlyDataTopRowError = 0;
-
-          // Always reset actual_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
-          let actual_days = actual_days_const;
-
-          while (!prevDayFlag && actual_days <= maxPrevDayCount) {
-            try {
-              try {
-                monthly_top_text = await getRowText(
-                  MONTHLY_TABLE_ROW_SELECTOR,
-                  row_days,
-                );
-              } catch (error) {
-                console.log(
-                  `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
-                );
-                console.error(error);
-                prevDayFlag = true;
-              }
-
-              // Check upload queue (PPArray) for data that matches meter ID (does NOT check for matching time value).
-              // TODO in future PR: Rename PPArray and other variables to have clearer meaning
-              upload_queue_matching = PPArray.find(
-                (o) => String(o.pp_meter_id) === String(pp_meter_id),
-              );
-              if (upload_queue_matching && !pp_recent_data) {
-                console.log(
-                  "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
-                );
-                prevDayFlag = true;
-                break;
-              }
-              if (actual_days > actual_days_const) {
-                console.log(
-                  "Monthly Data Top Row Found, getting table top row value",
-                );
-                console.log("===");
-                console.log(monthly_top_text);
-              }
-
-              if (monthly_top_text.includes("Unavailable")) {
-                console.log(
-                  "'Unavailable' error detected for monthly time range, skipping to next day",
-                );
-                row_days += 1;
-                actual_days += 1;
-                unAvailableErrorArray.push({
-                  meter_selector_num,
-                  pp_meter_id,
-                });
-                continue;
-              }
-
-              if (
-                monthly_top_text.includes("delivered to you") ||
-                monthly_top_text.includes("received from you")
-              ) {
-                console.log(
-                  "'delivered / received' error detected for monthly time range, skipping to next day",
-                );
-                row_days += 1;
-                actual_days += 1;
-                deliveredErrorArray.push({
-                  meter_selector_num,
-                  pp_meter_id,
-                });
-                continue;
-              }
-
-              let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
-                await getRowData(monthly_top_text, positionUsage, positionEst);
-              let actualDate = getActualDate(actual_days).actualDate;
-
-              // Check upload queue (PPArray) for data that matches meter ID AND time, before uploading.
-              // TODO in future PR: Rename PPArray and other variables to have clearer meaning
-              lookForDuplicateDataInPPArray(date, actualDate, END_TIME_SECONDS);
-
-              PPTable = {
-                meter_selector_num,
-                pp_meter_id,
-                usage_kwh,
-                time: END_TIME,
-                time_seconds: END_TIME_SECONDS,
-              };
-
-              // If recent data list was fetched, verify there are no matching meter ID + time_seconds values in SQL
-              // database, nor in upload queue (PPTable).
-              // If recent data list wasn't fetched, still verify there are no matching meter ID + time_seconds values
-              // in upload queue (PPTable).
-              if (
-                ((pp_recent_matching &&
-                  String(pp_recent_matching.time_seconds) !==
-                    END_TIME_SECONDS) ||
-                  !pp_recent_matching) &&
-                !upload_queue_matching_time
-              ) {
-                // if exclusion list was fetched, compare the meter against it to exclude meters
-                // otherwise we will add all meter data to db
-                if (pp_meters_exclusion_list) {
-                  compareMeterAgainstExclusionList(PPTable);
-                } else {
-                  PPArray.push(PPTable);
-                  // should only be logged for valid, unique data objects not in exclusion list
-                  console.log(
-                    "Valid data found for this day found; queuing upload.",
-                  );
-                }
-              }
-
-              if (actual_days === maxPrevDayCount) {
-                console.log(
-                  `Reached max day count of ${maxPrevDayCount} days, exiting`,
-                );
-                prevDayFlag = true;
-                break;
-              }
-              if (date && date !== actualDate) {
-                console.log(
-                  "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
-                );
-                actual_days += 1;
-                let ACTUAL_DATE_UNIX =
-                  getActualDate(actual_days).ACTUAL_DATE_UNIX;
-                if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
-                  console.log(
-                    "Synced actual date and date from Pacific Power site, go to equalled if loop",
-                  );
-                  continue;
-                }
-              } else if (date && date === actualDate) {
-                row_days += 1;
-                actual_days += 1;
-              }
-            } catch (error) {
-              console.log("Some other error occurred, skipping to next meter");
-              console.error(error);
-              otherErrorArray.push({ meter_selector_num, pp_meter_id });
-              prevDayFlag = true;
-            }
-          }
-          prevDayFlag = false;
-
-          // If "Est. Rounded" is found, then the data is monthly.
-          // "Best Case Scenario" (valid data from 'Monthly' meter type) exit path here, reset flags
-          if (monthly_top_text.includes(positionEst)) {
-            meter_selector_num++;
-            loadingScreenErrorCount = 0;
-            timeframeIterator = 0;
-          }
-        } catch (error) {
-          // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
-          handleUnkownMeterError(error);
-        }
-      }
-    }
+    await getMeterData();
   }
 
   // log all data to be uploaded
