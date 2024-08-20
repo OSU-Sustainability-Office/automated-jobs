@@ -269,15 +269,15 @@ axios
                   if (parsedData.length > 0) {
                     const timeValues = [];
 
-                    // 7 days (604800 seconds) minimum cutoff for "missing data" / "nochange data", for Pacific Power meters
+                    // 6 days (518400 seconds) minimum cutoff for "missing data" / "nochange data", for Pacific Power meters
                     // 3 days (259200 seconds) minimum cutoff for "missing data" / "nochange data", for all other meters
                     const minDate =
-                      batchedMeterObject.classInt === 9990002 ? 604800 : 259200;
+                      batchedMeterObject.classInt === 9990002 ? 518400 : 259200;
 
-                    // 8 days (691200 seconds) minimum cutoff for "missing data" / "nochange data", for Pacific Power meters
+                    // 9 days (777600 seconds) minimum cutoff for "missing data" / "nochange data", for Pacific Power meters
                     // 4 days (345600 seconds) minimum cutoff for "missing data" / "nochange data", for all other meters
                     const maxDate =
-                      batchedMeterObject.classInt === 9990002 ? 691200 : 345600;
+                      batchedMeterObject.classInt === 9990002 ? 777600 : 345600;
 
                     for (const obj of parsedData) {
                       timeValues.push(obj.time);
@@ -291,7 +291,7 @@ axios
                     /*
                         The first data point and its timestamp are checked. If the first data point is older than 3 days, it is
                         considered "missing", and anything between 3 and 4 days (259200 to 345600 seconds), or between 7 and 8
-                        days for Pacific Power meters (604800 to 691200 seconds) is also flagged as "recent" missing data
+                        days for Pacific Power meters (518400 to 777600 seconds) is also flagged as "recent" missing data
                         */
                     let timeDifferenceNoData = "";
                     if (dataValues[0] || dataValues[0] === 0) {
@@ -301,7 +301,7 @@ axios
                       );
                     }
                     // uncomment for debug (test "no data value" slightly over 3 days, vs over 4 days)
-                    // or test "no data value" slightly over 7 days, vs over 8 days, for Pacific Power meters
+                    // or test "no data value" slightly over 6 days, vs over 9 days, for Pacific Power meters
                     /*
                         if (batchedMeterObject.meter_id === 1) {
                           timeDifferenceNoData = 269200;
@@ -463,7 +463,7 @@ axios
                     }
                     /* 
                         the first data point with a measurement different from the first datapoint is checked. If the timestamp
-                        is older than 3 days (or over 7 days for PacificPower meters), it is considered "non-changing". If no data values different from the first
+                        is older than 3 days (or over 6 days for PacificPower meters), it is considered "non-changing". If no data values different from the first
                         datapoint are found, it is assumed the data is identical for the total time period of the previous 2 months
                         */
                     let timeDifferenceNoChange = "";
