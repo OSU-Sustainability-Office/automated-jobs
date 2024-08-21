@@ -2,8 +2,9 @@
 
 Retrieves some solar panel data from OSU Operations. Email alerts integrated for failed upload.
 
-- `node readEnnex.js --no-upload`
+- `node readEnnex.js --no-upload --headful`
   - `--no-upload` Optional argument. Runs the webscraper as normal but does not upload the data to the database.
+  - `--headful` Optional argument for debugging. Runs the browser in headful mode, meaning that you can see the browser. Without this flag, the browser isn't visible. [Reference](https://developer.chrome.com/docs/chromium/new-headless).
 
 ### Debugging
 

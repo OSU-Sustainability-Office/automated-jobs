@@ -14,7 +14,9 @@ const axios = require("axios");
 
   // Launch the browser
   browser = await puppeteer.launch({
-    headless: "new", // set to false (no quotes) for debug | reference: https://developer.chrome.com/articles/new-headless/
+    // DEBUG: use --headful flag (node readSEC.js --headful), browser will be visible
+    // reference: https://developer.chrome.com/articles/new-headless/
+    headless: process.argv.includes("--headful") ? false : "new",
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });

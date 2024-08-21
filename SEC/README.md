@@ -2,8 +2,9 @@
 
 Retrieves some solar panel data from Student Experience Center. Email alerts integrated for failed upload.
 
-- `node readSEC.js --no-upload`
+- `node readSEC.js --no-upload --headful`
   - `--no-upload` Optional argument. Runs the webscraper as normal but does not upload the data to the database.
+  - `--headful` Optional argument for debugging. Runs the browser in headful mode, meaning that you can see the browser. Without this flag, the browser isn't visible. [Reference](https://developer.chrome.com/docs/chromium/new-headless).
 
 ### Debugging
 

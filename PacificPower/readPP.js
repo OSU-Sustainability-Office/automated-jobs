@@ -1151,7 +1151,9 @@ async function getMeterData() {
 
   // Launch the browser
   const browser = await puppeteer.launch({
-    headless: "new", // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
+    // DEBUG: use --headful flag (node readPP.js --headful), browser will be visible
+    // reference: https://developer.chrome.com/articles/new-headless/
+    headless: process.argv.includes("--headful") ? false : "new",
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
