@@ -17,11 +17,16 @@ All console commands below should be run from the directory unless stated otherw
   - `node readEnnex.js`
 - **Check-Acq** (Deployed): Checks for Acquisuite and Pacific Power (not solar panel) meter status. Email alerts integrated for missing or unchanging data.
   - `node check-acq.js`
+- **PacificPower** (Deployed): Retrieves energy data for several meters from Pacific Power website. Emails alerts integrated for new meters and failed uploads.
+  - `node readPP.js`
 
 ## Deprecated
 
 - **TeslaSolarCity** (Not Deployed): This webscraper is deprecated due to Tesla deprecation of service, now we are using iframes on a different public endpoint also provided by Tesla.
 - **SunnyWebBox** (Not Deployed): Can't access web-box without VPN access.
+
+## Formatting
+- `npm run format` in the appropriate directory
 
 ## Important References for development
 
