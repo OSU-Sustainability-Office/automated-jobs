@@ -35,8 +35,9 @@ let totalNoChangePoints = [];
 let totalNegPoints = [];
 let totalSomePhasesNegative = [];
 
-const apiUrl =
-  "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
+const apiUrl = process.argv.includes("--local-api")
+  ? "http://localhost:3000/allbuildings"
+  : "https://api.sustainability.oregonstate.edu/v2/energy/allbuildings";
 
 /**
  * Cleans up the final data and logs, and saves the output to a file if the --save-output flag is included

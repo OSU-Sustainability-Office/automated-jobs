@@ -1,8 +1,4 @@
-// TODO (IN PROGRESS): Add comments on all the iterators (monthlyDataTopRowError etc) to make them easier to keep track of
-// TODO (IN PROGRESS): Enforce a consistent "DEBUG: " comment syntax
 // TODO comments below about renaming variables will probably go to a separate PR (unless it is a new variable added by this PR)
-
-// Local Testing (TODO: Move to README later): node readPP.js --no-upload > logs/something.txt
 
 // https://pptr.dev/guides/evaluate-javascript
 
@@ -23,6 +19,9 @@ const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), 
 const axios = require("axios");
 const fs = require("fs");
 const maxAttempts = 8; // needs to be at least 8 with current code because we check these timeframes (monthly): [2 year, 1 month, 1 year, 1 month, 1 day, 1 month, 1 week, 1 month]
+const DASHBOARD_API = process.argv.includes("--local-api")
+  ? process.env.LOCAL_API
+  : process.env.DASHBOARD_API;
 
 // PacificPower Selectors (chrome debug instructions: inspect element > element > copy selector / Xpath)
 const ACCEPT_COOKIES = "button.cookie-accept-button";
@@ -178,7 +177,7 @@ async function signInToPacificPower() {
       "First time logged in, continuing to Account > Energy Usage Page",
     );
 
-    // uncomment for login error handling
+    // DEBUG: uncomment for login error handling
     // throw "testing login error handling try again";
   } else if (loginErrorCount > 0) {
     console.log("Already logged in, continuing to Account > Energy Usage Page");
@@ -757,7 +756,7 @@ async function addNewMetersToDatabase() {
   for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
     await axios({
       method: "post",
-      url: `${process.env.DASHBOARD_API}/ppupload`,
+      url: `${DASHBOARD_API}/ppupload`,
       data: {
         id: pp_meters_exclude_not_found[i],
         pwd: process.env.API_PWD,
@@ -785,7 +784,7 @@ async function addNewMetersToDatabase() {
 async function getPacificPowerRecentData() {
   let recent_data = await axios({
     method: "get",
-    url: `${process.env.DASHBOARD_API}/pprecent`,
+    url: `${DASHBOARD_API}/pprecent`,
   })
     .then((res) => {
       // DEBUG: change to test specific status codes from API
@@ -830,7 +829,7 @@ async function getPacificPowerRecentData() {
 async function getPacificPowerMeterExclusionList() {
   let exclusion_list = await axios({
     method: "get",
-    url: `${process.env.DASHBOARD_API}/ppexclude`,
+    url: `${DASHBOARD_API}/ppexclude`,
   })
     .then((res) => {
       // DEBUG: change to test specific status codes from API
@@ -864,7 +863,7 @@ async function uploadDatatoDatabase(meterData) {
 
   await axios({
     method: "post",
-    url: `${process.env.DASHBOARD_API}/upload`,
+    url: `${DASHBOARD_API}/upload`,
     data: {
       id: pacificPowerMeters,
       body: meterData,
@@ -1151,7 +1150,9 @@ async function getMeterData() {
 
   // Launch the browser
   const browser = await puppeteer.launch({
-    headless: "new", // DEBUG: set to false (no quotes) for testing. Leave as "new" (with quotes) for production | reference: https://developer.chrome.com/articles/new-headless/
+    // DEBUG: use --headful flag (node readPP.js --headful), browser will be visible
+    // reference: https://developer.chrome.com/articles/new-headless/
+    headless: process.argv.includes("--headful") ? false : "new",
     args: ["--no-sandbox"],
     // executablePath: 'google-chrome-stable'
   });
