@@ -5,7 +5,9 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 const meterlist = require("./meterlist.json");
-
+const DASHBOARD_API = process.argv.includes("--local-api")
+  ? process.env.LOCAL_API
+  : process.env.DASHBOARD_API;
 const TIMEOUT_BUFFER = 600000; // lower to 10000 for debug
 const axios = require("axios");
 
@@ -193,7 +195,7 @@ const axios = require("axios");
     if (!process.argv.includes("--no-upload")) {
       await axios({
         method: "post",
-        url: `${process.env.DASHBOARD_API}/upload`,
+        url: `${DASHBOARD_API}/upload`,
         data: {
           id: solarmeter,
           body: PV_tableData[i],

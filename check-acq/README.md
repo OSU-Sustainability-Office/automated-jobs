@@ -2,9 +2,10 @@
 
 Checks for Acquisuite and Pacific Power (not solar panel) meter status. Email alerts integrated for missing or unchanging data. Originally only checked for Acquisuite meters, hence the name.
 
-- `node check-acq.js --<measurement> --save-output --debug-logs`
+- `node check-acq.js --<measurement> --save-output --debug-logs --local-api`
   - `--debug-logs` Optional argument, logs various data throughout the runtime (including meter times and data). Can be found in code by searching `DEBUG:` or `--debug-logs`.
   - `--save-output` Optional argument, saves output to `check-acq/mergedFinalDataOutput.json` or `check-acq/mergedFinalDataOutput.txt` (note that this output.json file is in .gitignore, it is not tracked on remote)
+  - `--local-api` Optional argument. Must be running the [Energy Dashboard](https://github.com/OSU-Sustainability-Office/energy-dashboard) backend locally, and the scraper will use the localhost API instead of the production API.
   - `--<measurement>` Optional argument. Choose `--negative`, `--nodata`, or `--nochange`. This restricts the script to only collect info on one specified measurement of negative data, missing data (`--nodata` flag), non-changing data
     - e.g. `node check-acq.js --negative --save-output` to filter for negative data only
     - Combining this with `--save-output` will add `Negative`, `NoData`, or `NoChange` to the output file name, e.g. `check-acq/mergedFinalDataOutputNegative.json`
