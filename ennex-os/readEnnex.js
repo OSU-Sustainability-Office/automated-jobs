@@ -7,7 +7,7 @@ require("dotenv").config();
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
   : process.env.DASHBOARD_API;
-const TIMEOUT_BUFFER = 600000; // lower to 25000 for debug
+const TIMEOUT_BUFFER = 600000; //DEBUG: lower to 25000 for faster testing
 const axios = require("axios");
 const meterlist = require("./meterlist.json");
 

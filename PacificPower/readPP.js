@@ -1,5 +1,3 @@
-// TODO (IN PROGRESS): Add comments on all the iterators (monthlyDataTopRowError etc) to make them easier to keep track of
-// TODO (IN PROGRESS): Enforce a consistent "DEBUG: " comment syntax
 // TODO comments below about renaming variables will probably go to a separate PR (unless it is a new variable added by this PR)
 
 // https://pptr.dev/guides/evaluate-javascript
@@ -179,7 +177,7 @@ async function signInToPacificPower() {
       "First time logged in, continuing to Account > Energy Usage Page",
     );
 
-    // uncomment for login error handling
+    // DEBUG: uncomment for login error handling
     // throw "testing login error handling try again";
   } else if (loginErrorCount > 0) {
     console.log("Already logged in, continuing to Account > Energy Usage Page");
