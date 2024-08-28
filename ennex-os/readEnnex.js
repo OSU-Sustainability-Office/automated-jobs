@@ -1,32 +1,49 @@
 // https://pptr.dev/guides/evaluate-javascript
 
-// Import puppeteer
-
+// Imports
 const puppeteer = require("puppeteer");
 require("dotenv").config();
+const axios = require("axios");
+const meterlist = require("./meterlist.json");
+
+// Constants
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
   : process.env.DASHBOARD_API;
 const TIMEOUT_BUFFER = 600000; //DEBUG: lower to 25000 for faster testing
-const axios = require("axios");
-const meterlist = require("./meterlist.json");
+const PV_tableData = [];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
-(async () => {
-  console.log("Accessing EnnexOS Web Page...");
+// Selectors
+const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
+const LOGIN_BUTTON = "#login > button";
+const USERNAME_SELECTOR = "#mat-input-0";
+const PASSWORD_SELECTOR = "#mat-input-1";
+const DETAILS_TAB_SELECTOR =
+  "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
+const MONTHLY_TAB_SELECTOR = "#mat-tab-label-0-2";
+const MONTH_DROPDOWN_SELECTOR = ".mat-mdc-select-min-line";
 
-  // Launch the browser
-  browser = await puppeteer.launch({
-    // DEBUG: use --headful flag (node readEnnex.js --headful), browser will be visible
-    // reference: https://developer.chrome.com/articles/new-headless/
-    headless: process.argv.includes("--headful") ? false : "new",
-    args: ["--no-sandbox"],
-    // executablePath: 'google-chrome-stable'
-  });
+//Non-constants
+let page = "";
 
-  // Create a page
-  const page = await browser.newPage();
-  await page.setDefaultTimeout(TIMEOUT_BUFFER);
-
+/**
+ * Logs into the EnnexOS website
+ */
+async function login() {
   // Go to your site
   await page.goto(process.env.SEC_LOGINPAGE, { waitUntil: "networkidle0" });
 
@@ -39,10 +56,6 @@ const meterlist = require("./meterlist.json");
   );
   console.log(await page.title());
 
-  const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
-  const LOGIN_BUTTON = "#login > button";
-  const PV_tableData = [];
-
   await page.waitForTimeout(25000);
   await page.waitForSelector(ACCEPT_COOKIES);
   console.log("Cookies Button found");
@@ -52,81 +65,16 @@ const meterlist = require("./meterlist.json");
   await page.waitForTimeout(25000);
 
   // login to ennexOS
-  const USERNAME_SELECTOR = "#mat-input-0";
   await page.waitForSelector(USERNAME_SELECTOR);
   console.log("found username selector");
   await page.type(USERNAME_SELECTOR, process.env.SEC_USERNAME);
 
-  const PASSWORD_SELECTOR = "#mat-input-1";
   await page.waitForSelector(PASSWORD_SELECTOR);
   console.log("found password selector");
   await page.type(PASSWORD_SELECTOR, process.env.SEC_PWD);
 
   const maxAttempts = 5;
   let attempt = 0;
-
-  // non-unix time calc
-  const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-  const localeTime = dateObj
-    .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
-    .match(/\d+/g);
-  const DATE =
-    localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
-  const END_TIME = `${DATE}T23:59:59`;
-  console.log(END_TIME);
-
-  let ENNEX_MONTH = "";
-  if (parseInt(localeTime[0]) < 10) {
-    ENNEX_MONTH = "0" + parseInt(localeTime[0]).toString();
-  } else {
-    ENNEX_MONTH = localeTime[0];
-  }
-
-  let ENNEX_DAY = "";
-  if (parseInt(localeTime[1]) < 10) {
-    ENNEX_DAY = "0" + parseInt(localeTime[1]).toString();
-  } else {
-    ENNEX_DAY = localeTime[1];
-  }
-
-  // Date is also shown on EnnexOS page in the format MM/DD/YYYY
-  let ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
-  console.log(ENNEX_DATE);
-
-  // Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
-  // https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
-  const getOffset = (timeZone) => {
-    const timeZoneName = Intl.DateTimeFormat("ia", {
-      timeZoneName: "shortOffset",
-      timeZone,
-    })
-      .formatToParts()
-      .find((i) => i.type === "timeZoneName").value;
-    const offset = timeZoneName.slice(3);
-    if (!offset) return 0;
-
-    const matchData = offset.match(/([+-])(\d+)(?::(\d+))?/);
-    if (!matchData) throw `cannot parse timezone name: ${timeZoneName}`;
-
-    const [, sign, hour, minute] = matchData;
-    let result = parseInt(hour) * 60;
-    if (sign === "+") result *= -1;
-    if (minute) result += parseInt(minute);
-
-    return result;
-  };
-
-  console.log(getOffset("US/Pacific"));
-  const dateObjUnix = new Date(
-    new Date().getTime() -
-      (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000),
-  );
-
-  // unix time calc
-  dateObjUnix.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
-
-  console.log(END_TIME_SECONDS);
 
   while (attempt < maxAttempts) {
     try {
@@ -150,167 +98,244 @@ const meterlist = require("./meterlist.json");
   attempt = 0;
 
   console.log("Logged in!");
-  console.log(await page.title());
+}
+
+// Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
+// https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
+function getOffset(timeZone) {
+  const timeZoneName = Intl.DateTimeFormat("ia", {
+    timeZoneName: "shortOffset",
+    timeZone,
+  })
+    .formatToParts()
+    .find((i) => i.type === "timeZoneName").value;
+  const offset = timeZoneName.slice(3);
+  if (!offset) return 0;
+
+  const matchData = offset.match(/([+-])(\d+)(?::(\d+))?/);
+  if (!matchData) throw `cannot parse timezone name: ${timeZoneName}`;
+
+  const [, sign, hour, minute] = matchData;
+  let result = parseInt(hour) * 60;
+  if (sign === "+") result *= -1;
+  if (minute) result += parseInt(minute);
+
+  return result;
+}
+
+/**
+ * returns an object of yesterday's date in a variety of formats:
+ * {
+ *    localeTime: [ '10', '7', '2021', '11', '00', '00' ],
+ *    END_TIME: '2021-10-07T23:59:59',
+ *    END_TIME_SECONDS: '1633622399',
+ *    ENNEX_MONTH: '10',
+ *    ENNEX_DAY: '07',
+ *    ENNEX_DATE: '10/07/2021'
+ * }
+ */
+function formatDateAndTime() {
+  // non-unix time calc
+  const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+  const localeTime = dateObj
+    .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+    .match(/\d+/g);
+  const DATE =
+    localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
+  const END_TIME = `${DATE}T23:59:59`;
+
+  // get month and day in the correct format for ennex website
+  let ENNEX_MONTH = "";
+  if (parseInt(localeTime[0]) < 10) {
+    ENNEX_MONTH = "0" + parseInt(localeTime[0]).toString();
+  } else {
+    ENNEX_MONTH = localeTime[0];
+  }
+
+  let ENNEX_DAY = "";
+  if (parseInt(localeTime[1]) < 10) {
+    ENNEX_DAY = "0" + parseInt(localeTime[1]).toString();
+  } else {
+    ENNEX_DAY = localeTime[1];
+  }
+
+  // Date is also shown on EnnexOS page in the format MM/DD/YYYY
+  let ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
+
+  console.log("Offset: ", getOffset("US/Pacific"));
+
+  const dateObjUnix = new Date(
+    new Date().getTime() -
+      (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000),
+  );
+
+  // unix time calc
+  dateObjUnix.setUTCHours(23, 59, 59, 0);
+  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
+
+  return {
+    localeTime,
+    END_TIME,
+    END_TIME_SECONDS,
+    ENNEX_MONTH,
+    ENNEX_DAY,
+    ENNEX_DATE,
+  };
+}
+
+/**
+ * If today is the first day of the month, selects the previous month in the
+ * dropdown in order to get yesterday's data to show up
+ */
+async function selectPreviousMonthIfNeeded(formattedDate) {
+  // change month tab to previous month if necessary - Date functions are used to conver from numeric <-> string formats
+  const monthDropdown = await page.waitForSelector(MONTH_DROPDOWN_SELECTOR);
+
+  // get currently selected month and convert to numeric format
+  let selectedMonth = await page.evaluate(
+    (month) => month.innerText,
+    monthDropdown,
+  );
+
+  selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
+  console.log("Currently selected month found");
+
+  if (selectedMonth != formattedDate.ENNEX_MONTH) {
+    console.log("Changing month selector to previous month");
+    await page.waitForSelector(
+      "#timeline-picker-element_" +
+        MONTHS[formattedDate.ENNEX_MONTH - 1] +
+        "\\ " +
+        formattedDate.localeTime[2],
+    );
+    await page.click(
+      "#timeline-picker-element_" +
+        MONTHS[ENNEX_MONTH - 1] +
+        "\\ " +
+        formattedDate.localeTime[2],
+    );
+    await page.waitForTimeout(25000);
+  }
+}
+
+/**
+ * Gets the meter data for a given meter and adds it to the PV_tableData array
+ */
+async function getMeterData(meter, formattedDate) {
+  const meterName = meter.meterName;
+  const meterID = meter.meterID;
+  const time = formattedDate.END_TIME;
+  const time_seconds = formattedDate.END_TIME_SECONDS;
+
+  await page.goto(
+    process.env.SEC_LOGINPAGE +
+      "/" +
+      meter.linkSuffix +
+      "/monitoring/view-energy-and-power",
+    {
+      waitUntil: "networkidle0",
+    },
+  );
+
+  console.log("\n" + (await page.title()));
   await page.waitForTimeout(25000);
 
-  for (let j = 0; j < meterlist.length; j++) {
-    const meterName = meterlist[j].meterName;
+  // details tab
+  await page.waitForSelector(DETAILS_TAB_SELECTOR);
+  console.log("Details Tab found");
+  await page.click(DETAILS_TAB_SELECTOR);
+  await page.waitForTimeout(25000);
 
-    const meterID = meterlist[j].meterID;
+  // monthly tab
+  await page.waitForSelector(MONTHLY_TAB_SELECTOR);
+  console.log("Monthly Tab found");
+  await page.click(MONTHLY_TAB_SELECTOR);
+  await page.waitForTimeout(25000);
 
-    const time = END_TIME;
+  let [ennexMeterName] = await page.$x(
+    '//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span',
+  );
 
-    const time_seconds = END_TIME_SECONDS;
+  await selectPreviousMonthIfNeeded(formattedDate);
 
-    await page.goto(
-      process.env.SEC_LOGINPAGE +
-        "/" +
-        meterlist[j].linkSuffix +
-        "/monitoring/view-energy-and-power",
-      {
-        waitUntil: "networkidle0",
-      },
-    );
+  // might be redundant but it's a sanity check that the meter name is what we expect
+  let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
+  console.log(PVSystem);
 
-    console.log("\n" + (await page.title()));
+  let monthFlag = false;
+  let dayCheck = parseInt(formattedDate.ENNEX_DATE.slice(3, 5));
 
-    await page.waitForTimeout(25000);
-
-    // details tab
-    await page.waitForSelector(
-      "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion",
-    );
-    console.log("Details Tab found");
-    await page.click(
-      "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion",
-    );
-    await page.waitForTimeout(25000);
-
-    // monthly tab
-    await page.waitForSelector("#mat-tab-label-0-2");
-    console.log("Monthly Tab found");
-    await page.click("#mat-tab-label-0-2");
-    await page.waitForTimeout(25000);
-
-    let [ennexMeterName] = await page.$x(
-      '//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span',
-    );
-
-    const MONTHS = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    // change month tab to previous month if necessary - Date functions are used to conver from numeric <-> string formats
-    await page.waitForSelector(".mat-mdc-select-min-line");
-
-    // get currently selected month and convert to numeric format
-    let selectedMonth = await page.evaluate(
-      () => document.querySelector(".mat-mdc-select-min-line").innerText,
-    );
-    selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
-    console.log("Currently selected month found");
-
-    if (selectedMonth != ENNEX_MONTH) {
-      console.log("Changing month selector to previous month");
-      await page.waitForSelector(
-        "#timeline-picker-element_" +
-          MONTHS[ENNEX_MONTH - 1] +
-          "\\ " +
-          localeTime[2],
+  // no point in checking multiple attempts, if the frontend state didn't load it's already too late
+  // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
+  // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
+  while (!monthFlag) {
+    try {
+      console.log(dayCheck);
+      console.log(`Testing for date ${formattedDate.ENNEX_DATE}`);
+      let [lastMonthReading] = await page.$x(
+        '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+          dayCheck +
+          "]/mat-cell[2]",
+        {
+          timeout: 25000,
+        },
       );
-      await page.click(
-        "#timeline-picker-element_" +
-          MONTHS[ENNEX_MONTH - 1] +
-          "\\ " +
-          localeTime[2],
+      let totalYieldYesterday = await page.evaluate(
+        (el) => el.innerText,
+        lastMonthReading,
       );
-      await page.waitForTimeout(25000);
-    }
+      // remove any commas if they exist so that parseFloat can handle values over 1,000
+      totalYieldYesterday = totalYieldYesterday.replace(/,/g, "");
+      console.log(totalYieldYesterday);
 
-    // might be redundant but it's a sanity check that the meter name is what we expect
-    let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
-    console.log(PVSystem);
+      let [lastDate] = await page.$x(
+        '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+          dayCheck +
+          "]/mat-cell[1]",
+        {
+          timeout: 25000,
+        },
+      );
+      let lastDate_full = await page.evaluate((el) => el.innerText, lastDate);
+      console.log(`Actual date ${lastDate_full}`);
 
-    let monthFlag = false;
-    let dayCheck = parseInt(ENNEX_DATE.slice(3, 5));
-
-    // no point in checking multiple attempts, if the frontend state didn't load it's already too late
-    // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
-    // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-    while (!monthFlag) {
-      try {
-        console.log(dayCheck);
-        console.log(`Testing for date ${ENNEX_DATE}`);
-        let [lastMonthReading] = await page.$x(
-          '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-            dayCheck +
-            "]/mat-cell[2]",
-          {
-            timeout: 25000,
-          },
-        );
-        let totalYieldYesterday = await page.evaluate(
-          (el) => el.innerText,
-          lastMonthReading,
-        );
-        // remove any commas if they exist so that parseFloat can handle values over 1,000
-        totalYieldYesterday = totalYieldYesterday.replace(/,/g, "");
-        console.log(totalYieldYesterday);
-
-        let [lastDate] = await page.$x(
-          '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-            dayCheck +
-            "]/mat-cell[1]",
-          {
-            timeout: 25000,
-          },
-        );
-        let lastDate_full = await page.evaluate((el) => el.innerText, lastDate);
-        console.log(`Actual date ${lastDate_full}`);
-
-        const PVTable = {
-          meterName,
-          meterID,
-          time,
-          time_seconds,
-          PVSystem,
-          totalYieldYesterday,
-        };
-        if (lastDate_full === ENNEX_DATE) {
-          console.log(`It is this day ${ENNEX_DATE}`);
-          PV_tableData.push(PVTable);
-          console.log("Moving on to next meter (if applicable)");
-          monthFlag = true;
-          break;
-        } else {
-          console.log("Date doesn't match");
-          throw "Date doesn't match";
-        }
-      } catch (error) {
-        console.log(`Data for this day ${ENNEX_DATE} not found.`);
+      const PVTable = {
+        meterName,
+        meterID,
+        time,
+        time_seconds,
+        PVSystem,
+        totalYieldYesterday,
+      };
+      if (lastDate_full === formattedDate.ENNEX_DATE) {
+        console.log(`It is this day ${formattedDate.ENNEX_DATE}`);
+        PV_tableData.push(PVTable);
         console.log("Moving on to next meter (if applicable)");
         monthFlag = true;
-        break;
+        return;
+      } else {
+        console.log("Date doesn't match");
+        throw "Date doesn't match";
       }
+    } catch (error) {
+      console.log(`Data for this day ${formattedDate.ENNEX_DATE} not found.`);
+      console.log("Moving on to next meter (if applicable)");
+      monthFlag = true;
+      return;
     }
   }
+}
+
+/**
+ * Combines the data from the two meters (OSU operations and OSU Lube Shop) into a single object,
+ * if we add more meters in the future, we should consider a meter group instead
+ */
+function getCombinedMeterData() {
   const comboTotalYieldYesterday = (
     parseFloat(PV_tableData[0].totalYieldYesterday) +
     parseFloat(PV_tableData[1].totalYieldYesterday)
   ).toFixed(2);
 
-  // put osu operations and osu operations lube shop into combined object. A meter group would probably be better for future meters
   const comboPVTable = {
     meterName: "OSU Operations Total",
     meterID: 124,
@@ -322,35 +347,77 @@ const meterlist = require("./meterlist.json");
   PV_tableData.push(comboPVTable);
 
   // remove the first two elements from the array
-  let final_PV_tableData = PV_tableData.slice(2);
+  return PV_tableData.slice(2);
+}
 
+/**
+ * Uploads the meter data to the dashboard API
+ */
+async function uploadMeterData(meterData) {
   const solarmeter = "Solar_Meters";
 
+  await axios({
+    method: "post",
+    url: `${DASHBOARD_API}/upload`,
+    data: {
+      id: solarmeter,
+      body: meterData,
+      pwd: process.env.API_PWD,
+      type: "solar",
+    },
+  })
+    .then((res) => {
+      console.log(
+        `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
+      );
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+}
+
+(async () => {
+  console.log("Accessing EnnexOS Web Page...");
+
+  // Launch the browser
+  browser = await puppeteer.launch({
+    // DEBUG: use --headful flag (node readEnnex.js --headful), browser will be visible
+    // reference: https://developer.chrome.com/articles/new-headless/
+    headless: process.argv.includes("--headful") ? false : "new",
+    args: ["--no-sandbox"],
+    // executablePath: 'google-chrome-stable'
+  });
+
+  // Create a page
+  page = await browser.newPage();
+  await page.setDefaultTimeout(TIMEOUT_BUFFER);
+
+  // Login to EnnexOS
+  await login();
+
+  // wait for new page to load
+  console.log("\n", await page.title());
+  await page.waitForTimeout(25000);
+
+  const formattedDate = formatDateAndTime(1);
+
+  console.log("\ntimeFormats: ", formattedDate);
+
+  // get data for each meter, which is added to the PV_tableData array
+  for (let j = 0; j < meterlist.length; j++) {
+    await getMeterData(meterlist[j], formattedDate);
+  }
+
+  let final_PV_tableData = getCombinedMeterData();
+
+  // log and upload data for each meter (currently only one meter)
   for (let i = 0; i < final_PV_tableData.length; i++) {
-    console.log(final_PV_tableData[i]);
+    console.log("\n", final_PV_tableData[i]);
 
     // Use the --no-upload flag to prevent uploading to the API for local development/testing
     // node readEnnex.js --no-upload
     if (!process.argv.includes("--no-upload")) {
-      await axios({
-        method: "post",
-        url: `${DASHBOARD_API}/upload`,
-        data: {
-          id: solarmeter,
-          body: final_PV_tableData[i],
-          pwd: process.env.API_PWD,
-          type: "solar",
-        },
-      })
-        .then((res) => {
-          console.log(
-            `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
-          );
-          console.log(`uploaded ${solarmeter} data to API`);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+      await uploadMeterData(final_PV_tableData[i]);
     }
   }
 
