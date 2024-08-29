@@ -40,8 +40,8 @@ const GRAPH_TO_TABLE_BUTTON_MONTHLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
 const GRAPH_TO_TABLE_BUTTON_YEARLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
-const METER_MENU = "#mat-select-0 > div > div.mat-select-value > span";
-const TIME_MENU = "#mat-select-1 > div > div.mat-select-value > span";
+const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
+const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
 const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
 const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
 const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
