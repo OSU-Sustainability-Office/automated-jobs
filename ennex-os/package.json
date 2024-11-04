@@ -20,6 +20,6 @@
     "axios": "^1.7.7",
     "dotenv": "^10.0.0",
     "prettier": "^3.0.1",
-    "puppeteer": "^19.8.5"
+    "puppeteer": "^23.6.1"
   }
 }
