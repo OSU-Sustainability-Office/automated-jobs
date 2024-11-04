@@ -4,7 +4,6 @@
   "description": "Automated scripts for the sustainability office",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write ."
   },
   "repository": {
@@ -18,10 +17,9 @@
   },
   "homepage": "https://github.com/OSU-Sustainability-Office/automated-jobs#readme",
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^1.7.7",
     "dotenv": "^10.0.0",
-    "jest": "^29.5.0",
     "prettier": "^3.0.1",
-    "puppeteer": "^19.8.5"
+    "puppeteer": "^23.6.1"
   }
 }

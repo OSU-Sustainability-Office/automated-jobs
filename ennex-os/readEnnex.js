@@ -41,6 +41,13 @@ const MONTH_DROPDOWN_SELECTOR = ".mat-mdc-select-min-line";
 let page = "";
 
 /**
+ * This is a replacement for Puppeteer's deprecated waitForTimeout function.
+ * It's not best practice to use this, so try to favor waitForSelector/Locator/etc.
+ */
+async function waitForTimeout(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+/**
  * Logs into the EnnexOS website
  */
 async function login() {
@@ -56,29 +63,26 @@ async function login() {
   );
   console.log(await page.title());
 
-  await page.waitForTimeout(25000);
-  await page.waitForSelector(ACCEPT_COOKIES);
+  await page.locator(ACCEPT_COOKIES).click();
   console.log("Cookies Button found");
 
-  await page.click(ACCEPT_COOKIES);
-
-  await page.waitForTimeout(25000);
+  // wait until cookie banner is gone, logging in won't work otherwise
+  await page.waitForSelector(ACCEPT_COOKIES, { hidden: true });
+  console.log("Cookies banner gone");
 
   // login to ennexOS
-  await page.waitForSelector(USERNAME_SELECTOR);
+  await page.locator(USERNAME_SELECTOR).fill(process.env.SEC_USERNAME);
   console.log("found username selector");
-  await page.type(USERNAME_SELECTOR, process.env.SEC_USERNAME);
 
-  await page.waitForSelector(PASSWORD_SELECTOR);
+  await page.locator(PASSWORD_SELECTOR).fill(process.env.SEC_PWD);
   console.log("found password selector");
-  await page.type(PASSWORD_SELECTOR, process.env.SEC_PWD);
 
   const maxAttempts = 5;
   let attempt = 0;
 
   while (attempt < maxAttempts) {
     try {
-      await page.click(LOGIN_BUTTON);
+      await page.locator(LOGIN_BUTTON).click();
       await page.waitForNavigation({
         waitUntil: "networkidle0",
         timeOut: 25000,
@@ -202,19 +206,21 @@ async function selectPreviousMonthIfNeeded(formattedDate) {
 
   if (selectedMonth != formattedDate.ENNEX_MONTH) {
     console.log("Changing month selector to previous month");
-    await page.waitForSelector(
+
+    prevMonthIndex = formattedDate.ENNEX_MONTH - 1;
+
+    // in January, fix indexing so the previous month is December
+    if (prevMonthIndex < 0) prevMonthIndex = 11;
+
+    const prevMonthSelector =
       "#timeline-picker-element_" +
-        MONTHS[formattedDate.ENNEX_MONTH - 1] +
-        "\\ " +
-        formattedDate.localeTime[2],
-    );
-    await page.click(
-      "#timeline-picker-element_" +
-        MONTHS[ENNEX_MONTH - 1] +
-        "\\ " +
-        formattedDate.localeTime[2],
-    );
-    await page.waitForTimeout(25000);
+      MONTHS[prevMonthIndex] +
+      "\\ " +
+      formattedDate.localeTime[2];
+
+    await page.locator(prevMonthSelector).click();
+
+    await waitForTimeout(25000);
   }
 }
 
@@ -238,28 +244,25 @@ async function getMeterData(meter, formattedDate) {
   );
 
   console.log("\n" + (await page.title()));
-  await page.waitForTimeout(25000);
-
-  // details tab
-  await page.waitForSelector(DETAILS_TAB_SELECTOR);
-  console.log("Details Tab found");
-  await page.click(DETAILS_TAB_SELECTOR);
-  await page.waitForTimeout(25000);
 
   // monthly tab
-  await page.waitForSelector(MONTHLY_TAB_SELECTOR);
-  console.log("Monthly Tab found");
-  await page.click(MONTHLY_TAB_SELECTOR);
-  await page.waitForTimeout(25000);
+  await page.locator(MONTHLY_TAB_SELECTOR).click();
+  console.log("Monthly Tab found and clicked");
 
-  let [ennexMeterName] = await page.$x(
-    '//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span',
+  // details tab
+  await page.locator(DETAILS_TAB_SELECTOR).click();
+  console.log("Details Tab found and clicked");
+
+  await waitForTimeout(25000);
+
+  let PVSystem = await page.$eval(
+    '::-p-xpath(//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span)',
+    (el) => el.innerText,
   );
 
   await selectPreviousMonthIfNeeded(formattedDate);
 
   // might be redundant but it's a sanity check that the meter name is what we expect
-  let PVSystem = await page.evaluate((el) => el.innerText, ennexMeterName);
   console.log(PVSystem);
 
   let monthFlag = false;
@@ -270,34 +273,36 @@ async function getMeterData(meter, formattedDate) {
   // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
   while (!monthFlag) {
     try {
-      console.log(dayCheck);
       console.log(`Testing for date ${formattedDate.ENNEX_DATE}`);
-      let [lastMonthReading] = await page.$x(
-        '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+
+      // give detail table time to load
+      await waitForTimeout(25000);
+
+      let totalYieldYesterday = await page.$eval(
+        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
           dayCheck +
-          "]/mat-cell[2]",
+          "]/mat-cell[2])",
+        (el) => el.innerText,
         {
           timeout: 25000,
         },
       );
-      let totalYieldYesterday = await page.evaluate(
-        (el) => el.innerText,
-        lastMonthReading,
-      );
+
       // remove any commas if they exist so that parseFloat can handle values over 1,000
       totalYieldYesterday = totalYieldYesterday.replace(/,/g, "");
       console.log(totalYieldYesterday);
 
-      let [lastDate] = await page.$x(
-        '//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+      let lastDate = await page.$eval(
+        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
           dayCheck +
-          "]/mat-cell[1]",
+          "]/mat-cell[1])",
+        (el) => el.innerText,
         {
           timeout: 25000,
         },
       );
-      let lastDate_full = await page.evaluate((el) => el.innerText, lastDate);
-      console.log(`Actual date ${lastDate_full}`);
+
+      console.log(`Actual date ${lastDate}`);
 
       const PVTable = {
         meterName,
@@ -307,7 +312,7 @@ async function getMeterData(meter, formattedDate) {
         PVSystem,
         totalYieldYesterday,
       };
-      if (lastDate_full === formattedDate.ENNEX_DATE) {
+      if (lastDate === formattedDate.ENNEX_DATE) {
         console.log(`It is this day ${formattedDate.ENNEX_DATE}`);
         PV_tableData.push(PVTable);
         console.log("Moving on to next meter (if applicable)");
@@ -397,7 +402,14 @@ async function uploadMeterData(meterData) {
 
   // wait for new page to load
   console.log("\n", await page.title());
-  await page.waitForTimeout(25000);
+
+  // get rid of new pop-up about SMA ID login
+  await page
+    .locator(
+      '::-p-xpath(//*[@id="cdk-overlay-0"]/mat-dialog-container/div/div/sma-banner-dialog/ennexos-dialog-actions/div/ennexos-button/button)',
+    )
+    .setTimeout(3000)
+    .click();
 
   const formattedDate = formatDateAndTime(1);
 
