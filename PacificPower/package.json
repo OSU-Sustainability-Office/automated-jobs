@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/OSU-Sustainability-Office/automated-jobs#readme",
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^1.7.7",
     "dotenv": "^10.0.0",
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.43",
