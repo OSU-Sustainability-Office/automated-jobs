@@ -42,11 +42,11 @@ const GRAPH_TO_TABLE_BUTTON_YEARLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
 const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
 const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
-const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
-const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
-const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
-const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
-const DAY_IDENTIFIER = "//span[contains(., 'One Day')]";
+const YEAR_IDENTIFIER = "span ::-p-text(One Year)";
+const MONTH_IDENTIFIER = "span ::-p-text(One Month)";
+const WEEK_IDENTIFIER = "span ::-p-text(One Week)";
+const TWO_YEAR_IDENTIFIER = "span ::-p-text(Two Year)";
+const DAY_IDENTIFIER = "span ::-p-text(One Day)";
 const GRAPH_SELECTOR =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area";
 // Selector below corresponds to monthly meter data table, add row number to get specific row data (e.g. + "1)" for first row of data)
@@ -129,7 +129,7 @@ async function signInToPacificPower() {
   );
   console.log(await page.title());
 
-  await page.waitForTimeout(25000);
+  await waitForTimeout(25000);
 
   // if first time logging in
   if (loginErrorCount === 0) {
@@ -151,7 +151,7 @@ async function signInToPacificPower() {
     });
     console.log(await page.title());
     console.log("waiting for iframe with form to be ready.");
-    await page.waitForTimeout(25000);
+    await waitForTimeout(25000);
     await page.waitForSelector("iframe", { timeout: 60000 });
     console.log("iframe is ready. Loading iframe content");
 
@@ -231,8 +231,8 @@ async function getMeterSelectorNumberFromFirstMeter() {
     () => !document.querySelector("#loading-component > mat-spinner"),
   );
 
-  [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
-  [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
+  yearCheck = await page.$(YEAR_IDENTIFIER, { timeout: 25000 });
+  monthCheck = await page.$(MONTH_IDENTIFIER, { timeout: 25000 });
 
   console.log("Year / Month Check found");
   if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
@@ -245,13 +245,13 @@ async function getMeterSelectorNumberFromFirstMeter() {
     graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
-  await page.waitForTimeout(25000);
+  await waitForTimeout(25000);
   await page.waitForSelector(graphButton, { timeout: 25000 });
   console.log("Graph to Table Button clicked");
 
   await page.click(graphButton);
 
-  await page.waitForTimeout(25000);
+  await waitForTimeout(25000);
   await page.waitForSelector(METER_MENU);
 
   await page.click(METER_MENU);
@@ -330,7 +330,7 @@ async function switchTimeFrameOptionToForceDataToLoad() {
   // await page.waitForTimeout(10000);
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
-  [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
+  weekCheck = await page.$(WEEK_IDENTIFIER, {
     timeout: 25000,
   });
 
@@ -358,7 +358,7 @@ async function switchTimeFrameOptionToForceDataToLoad() {
     ];
   }
 
-  [timeframeCheck] = await page.$x(
+  timeframeCheck = await page.$(
     timeframeChoices[timeframeIterator % timeframeChoices.length].id,
     {
       timeout: 25000,
@@ -619,6 +619,14 @@ function handleUnkownMeterError(error) {
 }
 
 // -------------------------------- Misc helper functions ---------------------------- //
+
+/**
+ * This is a replacement for Puppeteer's deprecated waitForTimeout function.
+ * It's not best practice to use this, so try to favor waitForSelector/Locator/etc.
+ */
+async function waitForTimeout(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");

@@ -23,6 +23,6 @@
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.43",
     "prettier": "^3.0.1",
-    "puppeteer": "^19.8.5"
+    "puppeteer": "^23.7.0"
   }
 }
