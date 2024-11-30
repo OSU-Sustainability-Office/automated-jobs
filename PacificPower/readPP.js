@@ -129,14 +129,11 @@ async function signInToPacificPower() {
   );
   console.log(await page.title());
 
-  await waitForTimeout(25000);
-
   // if first time logging in
   if (loginErrorCount === 0) {
-    await page.waitForSelector(ACCEPT_COOKIES);
+    await page.locator(ACCEPT_COOKIES).click();
     console.log("Cookies Button found");
 
-    await page.click(ACCEPT_COOKIES);
     await page.click(LOCATION_BUTTON);
     console.log("Location Button clicked");
     // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
@@ -151,7 +148,6 @@ async function signInToPacificPower() {
     });
     console.log(await page.title());
     console.log("waiting for iframe with form to be ready.");
-    await waitForTimeout(25000);
     await page.waitForSelector("iframe", { timeout: 60000 });
     console.log("iframe is ready. Loading iframe content");
 
@@ -226,7 +222,6 @@ async function navigateToFirstMeterPage() {
  */
 async function getMeterSelectorNumberFromFirstMeter() {
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  // await page.waitForTimeout(25000);
   await page.waitForFunction(
     () => !document.querySelector("#loading-component > mat-spinner"),
   );
@@ -245,16 +240,10 @@ async function getMeterSelectorNumberFromFirstMeter() {
     graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
-  await waitForTimeout(25000);
-  await page.waitForSelector(graphButton, { timeout: 25000 });
+  await page.locator(graphButton).click();
   console.log("Graph to Table Button clicked");
 
-  await page.click(graphButton);
-
-  await waitForTimeout(25000);
-  await page.waitForSelector(METER_MENU);
-
-  await page.click(METER_MENU);
+  await page.locator(METER_MENU).click();
 
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
@@ -269,9 +258,6 @@ async function getMeterSelectorNumberFromFirstMeter() {
   await page.click(METER_MENU);
   console.log("Meter Menu Closed");
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT, { hidden: true });
-
-  // one time pause after closing menu before the while loops, just in case
-  // await page.waitForTimeout(10000);
 }
 
 // -------------------------------- Misc page navigation functions ---------------------------- //
@@ -324,10 +310,8 @@ async function switchTimeFrameOptionToForceDataToLoad() {
   // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
   // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
   monthlyDataTopRowErrorFlag = true;
-  await page.waitForSelector(TIME_MENU);
+  await page.locator(TIME_MENU).click();
 
-  await page.click(TIME_MENU);
-  // await page.waitForTimeout(10000);
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
   weekCheck = await page.$(WEEK_IDENTIFIER, {
@@ -461,17 +445,14 @@ async function selectMeterFromDropdownMenu() {
   await page.click(METER_MENU);
   console.log("Meter Menu Opened");
 
-  // await page.waitForTimeout(10000);
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
-  await page.waitForSelector(
-    "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
-  );
+  await page
+    .locator(
+      "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
+    )
+    .click();
   console.log("New Meter Opened");
-
-  await page.click(
-    "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
-  );
 }
 
 /**
@@ -619,14 +600,6 @@ function handleUnkownMeterError(error) {
 }
 
 // -------------------------------- Misc helper functions ---------------------------- //
-
-/**
- * This is a replacement for Puppeteer's deprecated waitForTimeout function.
- * It's not best practice to use this, so try to favor waitForSelector/Locator/etc.
- */
-async function waitForTimeout(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function getRowText(monthly_top_const, row_days) {
   monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
