@@ -155,11 +155,10 @@ async function signInToPacificPower() {
     const frame = await signin_iframe.contentFrame();
 
     console.log("filling username in iframe");
-
-    await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
+    await frame.locator(SIGN_IN_INPUT).fill(process.env.PP_USERNAME);
 
     console.log("filling password in iframe");
-    await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
+    await frame.locator(SIGN_IN_PASSWORD).fill(process.env.PP_PWD);
 
     await frame.click(LOGIN_BUTTON);
     console.log("Login Button clicked");
