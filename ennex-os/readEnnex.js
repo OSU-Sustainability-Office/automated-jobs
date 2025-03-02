@@ -10,7 +10,7 @@ const meterlist = require("./meterlist.json");
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
   : process.env.DASHBOARD_API;
-const TIMEOUT_BUFFER = 600000; //DEBUG: lower to 25000 for faster testing
+const TIMEOUT_BUFFER = 25000; //DEBUG: lower to 25000 for faster testing
 const PV_tableData = [];
 const MONTHS = [
   "Jan",
@@ -29,12 +29,11 @@ const MONTHS = [
 
 // Selectors
 const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
-const LOGIN_BUTTON = "#login > button";
-const USERNAME_SELECTOR = "#mat-input-0";
-const PASSWORD_SELECTOR = "#mat-input-1";
-const DETAILS_TAB_SELECTOR =
-  "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
-const MONTHLY_TAB_SELECTOR = "#mat-tab-label-0-2";
+const LOGIN_BUTTON = "button[name='login']";
+const USERNAME_SELECTOR = "#username";
+const PASSWORD_SELECTOR = "#password";
+const DETAILS_TAB_SELECTOR = "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
+const MONTHLY_TAB_SELECTOR = "[data-testid='MONTH']";
 const MONTH_DROPDOWN_SELECTOR = ".mat-mdc-select-min-line";
 
 //Non-constants
@@ -70,12 +69,16 @@ async function login() {
   await page.waitForSelector(ACCEPT_COOKIES, { hidden: true });
   console.log("Cookies banner gone");
 
+  // navigate to login page
+  await page.locator("#login > button").click();
+  console.log("Navigated to login page");
+
   // login to ennexOS
   await page.locator(USERNAME_SELECTOR).fill(process.env.SEC_USERNAME);
-  console.log("found username selector");
+  console.log("Found username selector");
 
   await page.locator(PASSWORD_SELECTOR).fill(process.env.SEC_PWD);
-  console.log("found password selector");
+  console.log("Found password selector");
 
   const maxAttempts = 5;
   let attempt = 0;
@@ -84,8 +87,8 @@ async function login() {
     try {
       await page.locator(LOGIN_BUTTON).click();
       await page.waitForNavigation({
-        waitUntil: "networkidle0",
-        timeOut: 25000,
+        waitUntil: "domcontentloaded",
+        timeOut: 5000,
       });
       console.log("Login Button Clicked!");
       break; // Exit the loop if successful
@@ -108,7 +111,7 @@ async function login() {
 // https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
 function getOffset(timeZone) {
   const timeZoneName = Intl.DateTimeFormat("ia", {
-    timeZoneName: "shortOffset",
+    timeZoneName: "short",
     timeZone,
   })
     .formatToParts()
@@ -220,7 +223,7 @@ async function selectPreviousMonthIfNeeded(formattedDate) {
 
     await page.locator(prevMonthSelector).click();
 
-    await waitForTimeout(25000);
+    await waitForTimeout(TIMEOUT_BUFFER);
   }
 }
 
@@ -232,41 +235,36 @@ async function getMeterData(meter, formattedDate) {
   const meterID = meter.meterID;
   const time = formattedDate.END_TIME;
   const time_seconds = formattedDate.END_TIME_SECONDS;
-
+  const url = process.env.SEC_LOGINPAGE + "/" + meter.linkSuffix;
+  const mostRecentDate = await getLastLoggedDate(meter);
   await page.goto(
-    process.env.SEC_LOGINPAGE +
-      "/" +
-      meter.linkSuffix +
-      "/monitoring/view-energy-and-power",
+    url + "/monitoring/view-energy-and-power",
     {
       waitUntil: "networkidle0",
     },
   );
-
   console.log("\n" + (await page.title()));
 
   // monthly tab
-  await page.locator(MONTHLY_TAB_SELECTOR).click();
+  await page.waitForSelector(MONTHLY_TAB_SELECTOR, { state: "visible" });
+  await page.click(MONTHLY_TAB_SELECTOR);
   console.log("Monthly Tab found and clicked");
 
   // details tab
-  await page.locator(DETAILS_TAB_SELECTOR).click();
+  await page.waitForSelector(DETAILS_TAB_SELECTOR, { visible: true });
+  await page.click(DETAILS_TAB_SELECTOR);
   console.log("Details Tab found and clicked");
-
-  await waitForTimeout(25000);
+  await waitForTimeout(TIMEOUT_BUFFER);
 
   let PVSystem = await page.$eval(
     '::-p-xpath(//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span)',
     (el) => el.innerText,
   );
+  console.log(PVSystem); // Check if the meter name is correct
 
   await selectPreviousMonthIfNeeded(formattedDate);
-
-  // might be redundant but it's a sanity check that the meter name is what we expect
-  console.log(PVSystem);
-
   let monthFlag = false;
-  let dayCheck = parseInt(formattedDate.ENNEX_DATE.slice(3, 5));
+  let dayCheck = parseInt(formattedDate.ENNEX_DATE.slice(3, 5)); 
 
   // no point in checking multiple attempts, if the frontend state didn't load it's already too late
   // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
@@ -276,7 +274,7 @@ async function getMeterData(meter, formattedDate) {
       console.log(`Testing for date ${formattedDate.ENNEX_DATE}`);
 
       // give detail table time to load
-      await waitForTimeout(25000);
+      await waitForTimeout(TIMEOUT_BUFFER);
 
       let totalYieldYesterday = await page.$eval(
         '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
@@ -284,7 +282,7 @@ async function getMeterData(meter, formattedDate) {
           "]/mat-cell[2])",
         (el) => el.innerText,
         {
-          timeout: 25000,
+          timeout: TIMEOUT_BUFFER,
         },
       );
 
@@ -298,7 +296,7 @@ async function getMeterData(meter, formattedDate) {
           "]/mat-cell[1])",
         (el) => el.innerText,
         {
-          timeout: 25000,
+          timeout: TIMEOUT_BUFFER,
         },
       );
 
@@ -381,6 +379,12 @@ async function uploadMeterData(meterData) {
     });
 }
 
+// Get the last logged date in the database
+async function getLastLoggedDate(meter) {
+  // return November 4th 2024 for testing
+  return "2024-11-04";
+}
+
 (async () => {
   console.log("Accessing EnnexOS Web Page...");
 
@@ -403,17 +407,18 @@ async function uploadMeterData(meterData) {
   // wait for new page to load
   console.log("\n", await page.title());
 
+  // REVIST THIS LATER (I think that this is not necessary)
   // get rid of new pop-up about SMA ID login
-  await page
-    .locator(
-      '::-p-xpath(//*[@id="cdk-overlay-0"]/mat-dialog-container/div/div/sma-banner-dialog/ennexos-dialog-actions/div/ennexos-button/button)',
-    )
-    .setTimeout(3000)
-    .click();
+  // await page
+  //   .locator(
+  //     '::-p-xpath(//*[@id="cdk-overlay-0"]/mat-dialog-container/div/div/sma-banner-dialog/ennexos-dialog-actions/div/ennexos-button/button)',
+  //   )
+  //   .setTimeout(3000)
+  //   .click();
 
   const formattedDate = formatDateAndTime(1);
 
-  console.log("\ntimeFormats: ", formattedDate);
+  console.log("\formattedDate: ", formattedDate);
 
   // get data for each meter, which is added to the PV_tableData array
   for (let j = 0; j < meterlist.length; j++) {
