@@ -87,8 +87,8 @@ async function login() {
     try {
       await page.locator(LOGIN_BUTTON).click();
       await page.waitForNavigation({
-        waitUntil: "domcontentloaded",
-        timeOut: 5000,
+        waitUntil: "networkidle0",
+        timeOut: TIMEOUT_BUFFER,
       });
       console.log("Login Button Clicked!");
       break; // Exit the loop if successful
@@ -194,36 +194,104 @@ function formatDateAndTime() {
  * If today is the first day of the month, selects the previous month in the
  * dropdown in order to get yesterday's data to show up
  */
-async function selectPreviousMonthIfNeeded(formattedDate) {
-  // change month tab to previous month if necessary - Date functions are used to conver from numeric <-> string formats
+async function selectPreviousMonthIfNeeded(dateStr) {
+  // Convert "YYYY-MM-DD" to extract year and month
+  const [year, month] = dateStr.split("-").map(Number);
+
+  // Wait for the month dropdown
   const monthDropdown = await page.waitForSelector(MONTH_DROPDOWN_SELECTOR);
 
-  // get currently selected month and convert to numeric format
+  // Get the currently selected month and convert to numeric format
   let selectedMonth = await page.evaluate(
     (month) => month.innerText,
-    monthDropdown,
+    monthDropdown
   );
 
   selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
-  console.log("Currently selected month found");
 
-  if (selectedMonth != formattedDate.ENNEX_MONTH) {
-    console.log("Changing month selector to previous month");
+  // If the current month does not match the desired month, select the previous month
+  if (selectedMonth !== month) {
+    let prevMonthIndex = month - 1; // Convert to zero-based index
 
-    prevMonthIndex = formattedDate.ENNEX_MONTH - 1;
-
-    // in January, fix indexing so the previous month is December
+    // Fix indexing so January moves to December of the previous year
     if (prevMonthIndex < 0) prevMonthIndex = 11;
 
-    const prevMonthSelector =
-      "#timeline-picker-element_" +
-      MONTHS[prevMonthIndex] +
-      "\\ " +
-      formattedDate.localeTime[2];
+    const prevMonthSelector = `#timeline-picker-element_${MONTHS[prevMonthIndex]}\\ ${year}`;
 
     await page.locator(prevMonthSelector).click();
-
     await waitForTimeout(TIMEOUT_BUFFER);
+  }
+}
+
+// Get the daily data for a given date
+async function getDailyData(date, meterName, meterID, time, time_seconds, PVSystem) {
+  await selectPreviousMonthIfNeeded(date);
+  let monthFlag = false;
+  let dayCheck = parseInt(date.slice(-2));
+  console.log(dayCheck);
+  let totalDailyYield = "0";
+
+  // no point in checking multiple attempts, if the frontend state didn't load it's already too late
+  // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
+  // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
+  while (!monthFlag) {
+    try {
+      console.log(`Testing for date ${date}`);
+      
+      // get the total yield for the given day
+      await page.waitForSelector("#advanced-chart-detail-table mat-row");
+      totalDailyYield = await page.$eval(
+        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+          dayCheck +
+          "]/mat-cell[2])",
+        (el) => el.innerText
+      );
+
+      // remove any commas if they exist so that parseFloat can handle values over 1,000
+      totalDailyYield = totalDailyYield.replace(/,/g, "");
+      console.log(totalDailyYield);
+
+      // verify table date matches the date we are looking for
+      let actualDate = await page.$eval(
+        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+          dayCheck +
+          "]/mat-cell[1])",
+        (el) => el.innerText,
+        {
+          timeout: TIMEOUT_BUFFER,
+        },
+      );
+      // Convert MM/DD/YYYY to YYYY-MM-DD
+      const [month, day, year] = actualDate.split("/");
+      actualDate = `${year}-${month}-${day}`;
+      console.log(`Actual date ${actualDate}`);
+
+      // create the PVTable object
+      const PVTable = {
+        meterName,
+        meterID,
+        time,
+        time_seconds,
+        PVSystem,
+        totalDailyYield,
+      };
+
+      // if the date matches, add the data to the PV_tableData array
+      if (actualDate === date) {
+        console.log(`Scraped data for ${date}`);
+        PV_tableData.push(PVTable);
+        monthFlag = true;
+        return PVTable;
+      } else {
+        console.log("Date doesn't match");
+        throw "Date doesn't match";
+      }
+    } catch (error) {
+      console.log(`Data for this day ${date} not found.`);
+      console.log("Moving on to next meter (if applicable)");
+      monthFlag = true;
+      return;
+    }
   }
 }
 
@@ -254,79 +322,27 @@ async function getMeterData(meter, formattedDate) {
   await page.waitForSelector(DETAILS_TAB_SELECTOR, { visible: true });
   await page.click(DETAILS_TAB_SELECTOR);
   console.log("Details Tab found and clicked");
-  await waitForTimeout(TIMEOUT_BUFFER);
+  await waitForTimeout(7500);
 
   let PVSystem = await page.$eval(
     '::-p-xpath(//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span)',
     (el) => el.innerText,
   );
   console.log(PVSystem); // Check if the meter name is correct
-
-  await selectPreviousMonthIfNeeded(formattedDate);
-  let monthFlag = false;
-  let dayCheck = parseInt(formattedDate.ENNEX_DATE.slice(3, 5)); 
-
-  // no point in checking multiple attempts, if the frontend state didn't load it's already too late
-  // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
-  // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-  while (!monthFlag) {
-    try {
-      console.log(`Testing for date ${formattedDate.ENNEX_DATE}`);
-
-      // give detail table time to load
-      await waitForTimeout(TIMEOUT_BUFFER);
-
-      let totalYieldYesterday = await page.$eval(
-        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-          dayCheck +
-          "]/mat-cell[2])",
-        (el) => el.innerText,
-        {
-          timeout: TIMEOUT_BUFFER,
-        },
-      );
-
-      // remove any commas if they exist so that parseFloat can handle values over 1,000
-      totalYieldYesterday = totalYieldYesterday.replace(/,/g, "");
-      console.log(totalYieldYesterday);
-
-      let lastDate = await page.$eval(
-        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-          dayCheck +
-          "]/mat-cell[1])",
-        (el) => el.innerText,
-        {
-          timeout: TIMEOUT_BUFFER,
-        },
-      );
-
-      console.log(`Actual date ${lastDate}`);
-
-      const PVTable = {
-        meterName,
-        meterID,
-        time,
-        time_seconds,
-        PVSystem,
-        totalYieldYesterday,
-      };
-      if (lastDate === formattedDate.ENNEX_DATE) {
-        console.log(`It is this day ${formattedDate.ENNEX_DATE}`);
-        PV_tableData.push(PVTable);
-        console.log("Moving on to next meter (if applicable)");
-        monthFlag = true;
-        return;
-      } else {
-        console.log("Date doesn't match");
-        throw "Date doesn't match";
-      }
-    } catch (error) {
-      console.log(`Data for this day ${formattedDate.ENNEX_DATE} not found.`);
-      console.log("Moving on to next meter (if applicable)");
-      monthFlag = true;
-      return;
+  
+  // Iterate through the date range and get the daily data
+  const totalDataMap = new Map();
+  const dateRange = generateDateRange(mostRecentDate, formattedDate.ENNEX_DATE);
+  for (let i = 0; i < dateRange.length; i++) {
+    const dailyData = await getDailyData(dateRange[i], meterName, meterID, time, time_seconds, PVSystem);
+    if (dailyData) {
+      totalDataMap.set(dateRange[i], dailyData);
+    } else {
+      `Data not found for this ${dateRange[i]}`;
     }
   }
+  console.log(totalDataMap);
+  return totalDataMap;
 }
 
 /**
@@ -379,6 +395,19 @@ async function uploadMeterData(meterData) {
     });
 }
 
+// Generate a range of dates between two dates
+function generateDateRange(startDate, endDate) {
+  let dates = [];
+  let currentDate = new Date(startDate);
+  let stopDate = new Date(endDate);
+
+  while (currentDate <= stopDate) {
+      dates.push(new Date(currentDate).toISOString().split("T")[0]); // Format: YYYY-MM-DD
+      currentDate.setDate(currentDate.getDate() + 1); // Move to next day
+  }
+  return dates;
+}
+
 // Get the last logged date in the database
 async function getLastLoggedDate(meter) {
   // return November 4th 2024 for testing
@@ -418,7 +447,7 @@ async function getLastLoggedDate(meter) {
 
   const formattedDate = formatDateAndTime(1);
 
-  console.log("\formattedDate: ", formattedDate);
+  console.log("\nformattedDate: ", formattedDate);
 
   // get data for each meter, which is added to the PV_tableData array
   for (let j = 0; j < meterlist.length; j++) {
