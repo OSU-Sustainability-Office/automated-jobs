@@ -228,16 +228,13 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
   await selectPreviousMonthIfNeeded(date);
   let monthFlag = false;
   let dayCheck = parseInt(date.slice(-2));
-  console.log(dayCheck);
   let totalDailyYield = "0";
 
   // no point in checking multiple attempts, if the frontend state didn't load it's already too late
   // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
   // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
   while (!monthFlag) {
-    try {
-      console.log(`Testing for date ${date}`);
-      
+    try {      
       // get the total yield for the given day
       await page.waitForSelector("#advanced-chart-detail-table mat-row");
       totalDailyYield = await page.$eval(
@@ -249,7 +246,6 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
 
       // remove any commas if they exist so that parseFloat can handle values over 1,000
       totalDailyYield = totalDailyYield.replace(/,/g, "");
-      console.log(totalDailyYield);
 
       // verify table date matches the date we are looking for
       let actualDate = await page.$eval(
@@ -261,10 +257,9 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
           timeout: TIMEOUT_BUFFER,
         },
       );
-      // Convert MM/DD/YYYY to YYYY-MM-DD
+      // convert MM/DD/YYYY to YYYY-MM-DD
       const [month, day, year] = actualDate.split("/");
       actualDate = `${year}-${month}-${day}`;
-      console.log(`Actual date ${actualDate}`);
 
       // create the PVTable object
       const PVTable = {
@@ -278,7 +273,7 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
 
       // if the date matches, add the data to the PV_tableData array
       if (actualDate === date) {
-        console.log(`Scraped data for ${date}`);
+        console.log(`Date: ${date} | Energy: ${totalDailyYield}`);
         PV_tableData.push(PVTable);
         monthFlag = true;
         return PVTable;
@@ -311,7 +306,6 @@ async function getMeterData(meter, formattedDate) {
       waitUntil: "networkidle0",
     },
   );
-  console.log("\n" + (await page.title()));
 
   // monthly tab
   await page.waitForSelector(MONTHLY_TAB_SELECTOR, { state: "visible" });
@@ -417,7 +411,7 @@ async function getLastLoggedDate(meter) {
 (async () => {
   console.log("Accessing EnnexOS Web Page...");
 
-  // Launch the browser
+  // launch the browser
   browser = await puppeteer.launch({
     // DEBUG: use --headful flag (node readEnnex.js --headful), browser will be visible
     // reference: https://developer.chrome.com/articles/new-headless/
@@ -426,24 +420,12 @@ async function getLastLoggedDate(meter) {
     // executablePath: 'google-chrome-stable'
   });
 
-  // Create a page
+  // create a page
   page = await browser.newPage();
   await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
-  // Login to EnnexOS
+  // login to EnnexOS
   await login();
-
-  // wait for new page to load
-  console.log("\n", await page.title());
-
-  // REVIST THIS LATER (I think that this is not necessary)
-  // get rid of new pop-up about SMA ID login
-  // await page
-  //   .locator(
-  //     '::-p-xpath(//*[@id="cdk-overlay-0"]/mat-dialog-container/div/div/sma-banner-dialog/ennexos-dialog-actions/div/ennexos-button/button)',
-  //   )
-  //   .setTimeout(3000)
-  //   .click();
 
   const formattedDate = formatDateAndTime(1);
 
@@ -460,13 +442,13 @@ async function getLastLoggedDate(meter) {
   for (let i = 0; i < final_PV_tableData.length; i++) {
     console.log("\n", final_PV_tableData[i]);
 
-    // Use the --no-upload flag to prevent uploading to the API for local development/testing
+    // use the --no-upload flag to prevent uploading to the API for local development/testing
     // node readEnnex.js --no-upload
     if (!process.argv.includes("--no-upload")) {
       await uploadMeterData(final_PV_tableData[i]);
     }
   }
 
-  // Close browser.
+  // close browser.
   await browser.close();
 })();
