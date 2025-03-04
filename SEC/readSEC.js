@@ -14,10 +14,10 @@ const TIMEOUT_BUFFER = 25000; //DEBUG: lower to 10000 for faster testing
 const PV_tableData = [];
 
 // Selectors
-const USERNAME_SELECTOR = "#txtUserName";
-const PASSWORD_SELECTOR = "#txtPassword";
+const USERNAME_SELECTOR = "input[name='username']";
+const PASSWORD_SELECTOR = "input[name='password']";
 const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
-const LOGIN_BUTTON = "#ctl00_ContentPlaceHolder1_Logincontrol1_LoginBtn";
+const LOGIN_BUTTON = "button[name='login']";
 
 async function loginToSEC(page) {
   console.log("Logging into SEC...");
@@ -38,7 +38,11 @@ async function loginToSEC(page) {
   await page.waitForSelector(ACCEPT_COOKIES, { hidden: true });
   console.log("Cookies banner gone");
 
-  // Login to SEC
+  // navigate to login page
+  await page.click("#ctl00_ContentPlaceHolder1_Logincontrol1_SmaIdLoginButton");
+  console.log("Navigated to login page");
+
+  // login to SEC
   await page.locator(USERNAME_SELECTOR).fill(process.env.SEC_USERNAME);
   console.log("found username selector");
 
@@ -243,7 +247,7 @@ async function uploadMeterData(meterData) {
     await getMeterData(meterlist[j], formattedDate);
   }
 
-  // log and upload data for each meter (currently only one meter)
+  // log and upload data for each meter
   for (let i = 0; i < final_PV_tableData.length; i++) {
     console.log("\n", final_PV_tableData[i]);
 
