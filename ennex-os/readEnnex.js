@@ -219,7 +219,22 @@ async function selectPreviousMonthIfNeeded(dateStr) {
     const prevMonthSelector = `#timeline-picker-element_${MONTHS[prevMonthIndex]}\\ ${year}`;
 
     await page.locator(prevMonthSelector).click();
-    await waitForTimeout(TIMEOUT_BUFFER);
+
+    // wait for the table to update to the previous month
+    await page.waitForFunction(
+      (month) => {
+        const cell = document.querySelector("#advanced-chart-detail-table mat-row mat-cell:first-child");
+        if (cell) {
+          console.log(cell.innerText);
+          cellMonth = cell.innerText.split("/")[0];
+          return parseInt(cellMonth) === month;
+        }
+        return false;
+      },
+      {},
+      prevMonthIndex + 1
+    );
+
   }
 }
 
