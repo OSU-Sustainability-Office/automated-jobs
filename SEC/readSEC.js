@@ -22,6 +22,14 @@ const LOGIN_BUTTON = "button[name='login']";
 // Non-constants
 let page = "";
 
+/**
+ * This is a replacement for Puppeteer's deprecated waitForTimeout function.
+ * It's not best practice to use this, so try to favor waitForSelector/Locator/etc.
+ */
+async function waitForTimeout(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function loginToSEC(page) {
   console.log("Logging into SEC...");
   // Go to SEC login page
@@ -160,6 +168,48 @@ function formatDateAndTime() {
 }
 
 /**
+ * If today is the first day of the month, selects the previous month in the
+ * dropdown in order to get yesterday's data to show up
+ */
+async function selectPreviousMonthIfNeeded(formattedDate) {
+  // compute the previous month and year
+  let year = formattedDate.localeTime[2];
+  let month = formattedDate.localeTime[0];
+  if (month === 1) {
+    month = 12; // ff January, set to December
+    year -= 1; // move to previous year
+  } else {
+    month -= 1;
+  }
+  
+  // format to ensure it matches the dropdown options
+  const desiredDate = new Date(year, month - 1).toLocaleString("default", {
+    month: "long", // (e.g. "January")
+    year: "numeric", // (e.g. "2021")
+  });
+  console.log("We want to select the option with value:", desiredDate);
+
+  // select month dropdown element
+  const monthDropdownSelector =
+    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom";
+  await page.waitForSelector(monthDropdownSelector);
+
+  // find the visible text option that matches the month name
+  const optionHandle = await page.$$(
+    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${desiredDate}']`
+  );
+
+  if (optionHandle.length > 0) {
+    // use the extracted value to select the dropdown
+    const value = await page.evaluate(el => el.value, optionHandle[0]);
+    await page.select(monthDropdownSelector, value);
+    console.log("Selected option for timestamp: ", value);
+  } else {
+    console.log("Error: Could not find option for", desiredDate);
+  }
+}
+
+/**
  * Gets the meter data for a given meter and adds it to the PV_tableData array
  */
 async function getMeterData(meter, formattedDate) {
@@ -168,14 +218,30 @@ async function getMeterData(meter, formattedDate) {
   const time = formattedDate.END_TIME;
   const time_seconds = formattedDate.END_TIME_SECONDS;
 
-  // Wait for the meter list to load
+  // Navigate to the meter page
   await page.waitForSelector(`#${meter.puppeteerSelector} td:first-child a`);
-  console.log("x-paths loaded!");
+  await page.click(`#${meter.puppeteerSelector} td:first-child a`);
+  console.log(`Navigated to ${meter.meterName} page`);
 
-  // Get the meter row
-  const [PVSystemElement] = await page.$$(
-    'xpath/.//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span'
-  );
+  // Navigate to the analysis page
+  await page.waitForSelector("#lmiAnalysisTool");
+  await page.click("#lmiAnalysisTool");
+  console.log("Navigated to Analysis page");
+  await waitForTimeout(3000);
+
+  // Months Tab
+  await page.waitForSelector("#TabLink2");
+  await page.click("#TabLink2");
+  console.log("Navigated to Months tab");
+  await waitForTimeout(3000);
+
+  // Details Tab
+  await page.waitForSelector("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead");
+  await page.click("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead");
+  console.log("Navigated to Details tab");
+  await waitForTimeout(3000);
+
+  await selectPreviousMonthIfNeeded(formattedDate);
 
   // Click on the meter
   let PVSystem = null;
@@ -269,7 +335,7 @@ async function uploadMeterData(meterData) {
     console.log("\n", PV_tableData[i]);
 
     // Use the --no-upload flag to prevent uploading to the API for local development/testing
-    // node readEnnex.js --no-upload
+    // node readSEC.js --no-upload
     if (!process.argv.includes("--no-upload")) {
       await uploadMeterData(PV_tableData[i]);
     }
