@@ -19,6 +19,9 @@ const PASSWORD_SELECTOR = "input[name='password']";
 const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
 const LOGIN_BUTTON = "button[name='login']";
 
+// Non-constants
+let page = "";
+
 async function loginToSEC(page) {
   console.log("Logging into SEC...");
   // Go to SEC login page
@@ -96,6 +99,17 @@ function getOffset(timeZone) {
   return result;
 };
 
+/**
+ * returns an object of yesterday's date in a variety of formats:
+ * {
+ *    localeTime: [ '10', '7', '2021', '11', '00', '00' ],
+ *    END_TIME: '2021-10-07T23:59:59',
+ *    END_TIME_SECONDS: '1633622399',
+ *    SEC_MONTH: '10',
+ *    SEC_DAY: '07',
+ *    SEC_DATE: '10/07/2021'
+ * }
+ */
 function formatDateAndTime() {
   // non-unix time calc
   const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
@@ -154,22 +168,24 @@ async function getMeterData(meter, formattedDate) {
   const time = formattedDate.END_TIME;
   const time_seconds = formattedDate.END_TIME_SECONDS;
 
-  await page.waitForXPath(
-    "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a",
-  ); // wait and make sure xpaths loaded
+  // Wait for the meter list to load
+  await page.waitForSelector(`#${meter.puppeteerSelector} td:first-child a`);
   console.log("x-paths loaded!");
 
-  const PVSystem = await page.evaluate(
-    (el) => el.innerText,
-    (
-      await page.$x(
-        "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[1]/a",
-      )
-    )[0],
+  // Get the meter row
+  const [PVSystemElement] = await page.$$(
+    'xpath/.//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span'
   );
 
-  const totalYieldYesterdayElement = await page.$x(
-    "//*[@id='" + meterlist[i].puppeteerSelector + "']/td[3]",
+  // Click on the meter
+  let PVSystem = null;
+  if (PVSystemElement) {
+    PVSystem = await page.evaluate(el => el.innerText, PVSystemElement);
+  }
+
+  // Get the total yield for yesterday
+  const totalYieldYesterdayElement = await page.$$(
+    "xpath/.//*[@id='" + meter.puppeteerSelector + "']/td[3]",
   );
   const totalYieldYesterday = await page.evaluate(
     (el) => el.innerText.replace(",", ""),
@@ -186,6 +202,7 @@ async function getMeterData(meter, formattedDate) {
   };
 
   PV_tableData.push(PVTable);
+
   return
 
   // TODO ADD VALIDATION CHECKER
@@ -230,7 +247,7 @@ async function uploadMeterData(meterData) {
   });
 
   // create a page
-  const page = await browser.newPage();
+  page = await browser.newPage();
   await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
   await loginToSEC(page);
@@ -248,13 +265,13 @@ async function uploadMeterData(meterData) {
   }
 
   // log and upload data for each meter
-  for (let i = 0; i < final_PV_tableData.length; i++) {
-    console.log("\n", final_PV_tableData[i]);
+  for (let i = 0; i < PV_tableData.length; i++) {
+    console.log("\n", PV_tableData[i]);
 
     // Use the --no-upload flag to prevent uploading to the API for local development/testing
     // node readEnnex.js --no-upload
     if (!process.argv.includes("--no-upload")) {
-      await uploadMeterData(final_PV_tableData[i]);
+      await uploadMeterData(PV_tableData[i]);
     }
   }
 
