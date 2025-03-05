@@ -122,8 +122,36 @@ function getYesterdayInPST() {
 }
 
 /**
+ * Generates a date range between two dates.
  * Parameters:
- * - date: a string in the format "MM/DD/YYYY"
+ *  startDate - The start date in string format (e.g. "2021-10-01")
+ *  endDate - The end date in string format (e.g. "2021-10-31")
+ * Returns: Array of Date objects representing the range.
+ */
+function generateDateRange(startDate, endDate) {
+  const dateArray = [];
+  
+  // convert the dates to Date objects
+  startDate = new Date(startDate);
+  endDate = new Date(endDate);
+  
+  // clone the start date so we don't modify the original
+  let current = new Date(startDate);
+
+  while (current <= endDate) {
+    // push a copy of the current date
+    dateArray.push(new Date(current));
+    
+    // move to the next day
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dateArray;
+}
+
+/**
+ * Parameters:
+ * - date: Date object (e.g. new Date() or new Date("2021-10-07"))
  * Returns an object of yesterday's date in a variety of formats:
  * {
  *    END_TIME: '2021-10-07T23:59:59',
@@ -134,25 +162,19 @@ function getYesterdayInPST() {
  * }
  */
 function formatDateAndTime(date) {
-  let ENNEX_MONTH = date.split("/")[0];
-  let ENNEX_DAY = date.split("/")[1];
-  const year = date.split("/")[2];
-  
-  // if the day and/or month is less than 10, add a leading zero
-  if (parseInt(ENNEX_MONTH) < 10) {
-    ENNEX_MONTH = "0" + parseInt(ENNEX_MONTH).toString();
-  }
-  if (parseInt(ENNEX_DAY) < 10) {
-    ENNEX_DAY = "0" + parseInt(ENNEX_DAY).toString();
-  }
-  const ENNEX_DATE = `${ENNEX_MONTH}/${ENNEX_DAY}/${year}`;
+  const formattedDate = date.toLocaleDateString("en-CA"); // convert date object to string
+  const ENNEX_YEAR = formattedDate.split("-")[0];
+  let ENNEX_MONTH = formattedDate.split("-")[1];
+  let ENNEX_DAY = formattedDate.split("-")[2];
+  const ENNEX_DATE = `${ENNEX_MONTH}/${ENNEX_DAY}/${ENNEX_YEAR}`;
 
-  const END_TIME = `${year}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM
+  const END_TIME = `${ENNEX_YEAR}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM
   const END_TIME_SECONDS = new Date(END_TIME).getTime() / 1000; // END_TIME in seconds
 
   return {
     END_TIME,
     END_TIME_SECONDS,
+    ENNEX_YEAR,
     ENNEX_MONTH,
     ENNEX_DAY,
     ENNEX_DATE,
@@ -163,26 +185,30 @@ function formatDateAndTime(date) {
  * If today is the first day of the month, selects the previous month in the
  * dropdown in order to get yesterday's data to show up
  */
-async function selectPreviousMonthIfNeeded(dateStr) {
-  // Convert "YYYY-MM-DD" to extract year and month
-  const [year, month] = dateStr.split("-").map(Number);
+async function selectPreviousMonthIfNeeded(year, month) {
+  year = parseInt(year);
+  month = parseInt(month);
 
-  // Wait for the month dropdown
+  // wait for the month dropdown
   const monthDropdown = await page.waitForSelector(MONTH_DROPDOWN_SELECTOR);
 
-  // Get the currently selected month and convert to numeric format
+  // get the currently selected month and convert to numeric format
   let selectedMonth = await page.evaluate(
     (month) => month.innerText,
     monthDropdown
   );
 
+  // dispose the monthDropdown handle
+  await monthDropdown.dispose();
+
+  // convert to numeric format
   selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
 
-  // If the current month does not match the desired month, select the previous month
+  // if the current month does not match the desired month, select the previous month
   if (selectedMonth !== month) {
     let prevMonthIndex = month - 1; // Convert to zero-based index
 
-    // Fix indexing so January moves to December of the previous year
+    // fix indexing so January moves to December of the previous year
     if (prevMonthIndex < 0) prevMonthIndex = 11;
 
     const prevMonthSelector = `#timeline-picker-element_${MONTHS[prevMonthIndex]}\\ ${year}`;
@@ -210,10 +236,11 @@ async function selectPreviousMonthIfNeeded(dateStr) {
 /**
  * Gets the daily data for a given date and adds it to the PV_tableData array
  */
-async function getDailyData(date, meterName, meterID, time, time_seconds, PVSystem) {
-  await selectPreviousMonthIfNeeded(date);
-  let monthFlag = false;
-  let dayCheck = parseInt(date.slice(-2));
+async function getDailyData(date, meterName, meterID, PVSystem) {
+  const { time, time_seconds, ENNEX_YEAR, ENNEX_MONTH, ENNEX_DAY, ENNEX_DATE } = formatDateAndTime(date);
+  await selectPreviousMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
+  let monthFlag = false; // flag to check if the month has been found
+  let dayCheck = parseInt(ENNEX_DAY); // day to check in the table
   let totalDailyYield = "0";
 
   // no point in checking multiple attempts, if the frontend state didn't load it's already too late
@@ -243,9 +270,6 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
           timeout: TIMEOUT_BUFFER,
         },
       );
-      // convert MM/DD/YYYY to YYYY-MM-DD
-      const [month, day, year] = actualDate.split("/");
-      actualDate = `${year}-${month}-${day}`;
 
       // create the PVTable object
       const PVTable = {
@@ -258,17 +282,17 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
       };
 
       // if the date matches, add the data to the PV_tableData array
-      if (actualDate === date) {
-        console.log(`Date: ${date} | Energy: ${totalDailyYield}`);
+      if (actualDate === ENNEX_DATE) {
+        console.log(`Date: ${ENNEX_DATE} | Energy: ${totalDailyYield}`);
         PV_tableData.push(PVTable);
         monthFlag = true;
         return PVTable;
       } else {
-        console.log("Date doesn't match");
+        console.log("Date doesn't match. Actual date: " + actualDate + " | Expected date: " + ENNEX_DATE);
         throw "Date doesn't match";
       }
     } catch (error) {
-      console.log(`Data for this day ${date} not found.`);
+      console.log(`Data for this day ${ENNEX_DATE} not found.`);
       console.log("Moving on to next meter (if applicable)");
       monthFlag = true;
       return;
@@ -279,7 +303,7 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
 /**
  * Gets the meter data for a given meter and adds it to the PV_tableData array
  */
-async function getMeterData(meter, formattedDate) {
+async function getMeterData(meter) {
   const meterName = meter.meterName;
   const meterID = meter.meterID;
   const url = process.env.SEC_LOGINPAGE + "/" + meter.linkSuffix;
@@ -314,7 +338,7 @@ async function getMeterData(meter, formattedDate) {
   const totalDataMap = new Map();
   const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
-    const dailyData = await getDailyData(dateRange[i], meterName, meterID, time, time_seconds, PVSystem);
+    const dailyData = await getDailyData(dateRange[i], meterName, meterID, PVSystem);
     if (dailyData) {
       totalDataMap.set(dateRange[i], dailyData);
     } else {
@@ -374,23 +398,10 @@ async function uploadMeterData(meterData) {
     });
 }
 
-// Generate a range of dates between two dates
-function generateDateRange(startDate, endDate) {
-  let dates = [];
-  let currentDate = new Date(startDate);
-  let stopDate = new Date(endDate);
-
-  while (currentDate <= stopDate) {
-      dates.push(new Date(currentDate).toISOString().split("T")[0]); // Format: YYYY-MM-DD
-      currentDate.setDate(currentDate.getDate() + 1); // Move to next day
-  }
-  return dates;
-}
-
 // Get the last logged date in the database
 async function getLastLoggedDate() {
   // return November 4th 2024 for testing
-  return "2024-11-04";
+  return "11/04/2024";
 }
 
 (async () => {
