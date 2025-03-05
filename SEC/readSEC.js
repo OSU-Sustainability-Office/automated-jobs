@@ -30,6 +30,9 @@ async function waitForTimeout(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Logs into the SEC website
+ */
 async function loginToSEC(page) {
   console.log("Logging into SEC...");
   // Go to SEC login page
@@ -86,31 +89,53 @@ async function loginToSEC(page) {
   console.log("Logged in!");
 };
 
-// Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
-// https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
-function getOffset(timeZone) {
-  const timeZoneName = Intl.DateTimeFormat("ia", {
-    timeZoneName: "shortOffset",
-    timeZone,
-  })
-    .formatToParts()
-    .find((i) => i.type === "timeZoneName")?.value;
-  if (!timeZoneName) return 0;
+/**
+  * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
+*/
+function getYesterdayInPST() {
+  // get current time in UTC
+  const now = new Date();
 
-  const matchData = timeZoneName.match(/([+-])(\d+)(?::(\d+))?/);
-  if (!matchData) throw `Cannot parse timezone name: ${timeZoneName}`;
+  // subtract one day
+  now.setDate(now.getDate() - 1);
 
-  const [, sign, hour, minute] = matchData;
-  let result = parseInt(hour) * 60;
-  if (sign === "+") result *= -1;
-  if (minute) result += parseInt(minute);
-  return result;
-};
+  // return the resulting date in PST
+  return now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
+}
 
 /**
- * returns an object of yesterday's date in a variety of formats:
+ * Generates a date range between two dates.
+ * Parameters:
+ *  startDate - The start date in string format (e.g. "2021-10-01")
+ *  endDate - The end date in string format (e.g. "2021-10-31")
+ * Returns: Array of Date objects representing the range.
+ */
+function generateDateRange(startDate, endDate) {
+  const dateArray = [];
+  
+  // convert the dates to Date objects
+  startDate = new Date(startDate);
+  endDate = new Date(endDate);
+  
+  // clone the start date so we don't modify the original
+  let current = new Date(startDate);
+
+  while (current <= endDate) {
+    // push a copy of the current date
+    dateArray.push(new Date(current));
+    
+    // move to the next day
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dateArray;
+}
+
+/**
+ * Parameters:
+ * - date: Date object (e.g. new Date() or new Date("2021-10-07"))
+ * Returns an object of yesterday's date in a variety of formats:
  * {
- *    localeTime: [ '10', '7', '2021', '11', '00', '00' ],
  *    END_TIME: '2021-10-07T23:59:59',
  *    END_TIME_SECONDS: '1633622399',
  *    SEC_MONTH: '10',
@@ -118,49 +143,20 @@ function getOffset(timeZone) {
  *    SEC_DATE: '10/07/2021'
  * }
  */
-function formatDateAndTime() {
-  // non-unix time calc
-  const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-  const localeTime = dateObj
-    .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
-    .match(/\d+/g);
-  const DATE =
-    localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
-  const END_TIME = `${DATE}T23:59:59`;
+function formatDateAndTime(date) {
+  const formattedDate = date.toLocaleDateString("en-CA"); // convert date object to string
+  const SEC_YEAR = formattedDate.split("-")[0];
+  let SEC_MONTH = formattedDate.split("-")[1];
+  let SEC_DAY = formattedDate.split("-")[2];
+  const SEC_DATE = `${SEC_MONTH}/${SEC_DAY}/${SEC_YEAR}`;
 
-  // get month and day in the correct format for SEC website
-  let SEC_MONTH = "";
-  if (parseInt(localeTime[0]) < 10) {
-    SEC_MONTH = "0" + parseInt(localeTime[0]).toString();
-  } else {
-    SEC_MONTH = localeTime[0];
-  }
-
-  let SEC_DAY = "";
-  if (parseInt(localeTime[1]) < 10) {
-    SEC_DAY = "0" + parseInt(localeTime[1]).toString();
-  } else {
-    SEC_DAY = localeTime[1];
-  }
-
-  // Date is also shown on SEC page in the format MM/DD/YYYY
-  let SEC_DATE = SEC_MONTH + "/" + SEC_DAY + "/" + localeTime[2];
-
-  console.log("Offset: ", getOffset("US/Pacific"));
-
-  const dateObjUnix = new Date(
-    new Date().getTime() -
-      (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000),
-  );
-
-  // unix time calc
-  dateObjUnix.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
+  const END_TIME = `${SEC_YEAR}-${SEC_MONTH}-${SEC_DAY}T23:59:59`; // always set to 11:59:59 PM
+  const END_TIME_SECONDS = new Date(END_TIME).getTime() / 1000; // END_TIME in seconds
 
   return {
-    localeTime,
     END_TIME,
     END_TIME_SECONDS,
+    SEC_YEAR,
     SEC_MONTH,
     SEC_DAY,
     SEC_DATE,
@@ -171,32 +167,24 @@ function formatDateAndTime() {
  * If today is the first day of the month, selects the previous month in the
  * dropdown in order to get yesterday's data to show up
  */
-async function selectPreviousMonthIfNeeded(formattedDate) {
-  // compute the previous month and year
-  let year = formattedDate.localeTime[2];
-  let month = formattedDate.localeTime[0];
-  if (month === 1) {
-    month = 12; // ff January, set to December
-    year -= 1; // move to previous year
-  } else {
-    month -= 1;
-  }
+async function selectPreviousMonthIfNeeded(year, month) {
+  year = parseInt(year);
+  month = parseInt(month);
   
-  // format to ensure it matches the dropdown options
-  const desiredDate = new Date(year, month - 1).toLocaleString("default", {
+  // convert year and month to match the dropdown format (e.g. "January 2021")
+  const previousMonth = new Date(year, month - 1).toLocaleString("default", {
     month: "long", // (e.g. "January")
     year: "numeric", // (e.g. "2021")
   });
-  console.log("We want to select the option with value:", desiredDate);
 
-  // select month dropdown element
+  // wait for month dropdown element to appear
   const monthDropdownSelector =
     "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom";
   await page.waitForSelector(monthDropdownSelector);
 
   // find the visible text option that matches the month name
   const optionHandle = await page.$$(
-    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${desiredDate}']`
+    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${previousMonth}']`
   );
 
   if (optionHandle.length > 0) {
@@ -205,73 +193,130 @@ async function selectPreviousMonthIfNeeded(formattedDate) {
     await page.select(monthDropdownSelector, value);
     console.log("Selected option for timestamp: ", value);
   } else {
-    console.log("Error: Could not find option for", desiredDate);
+    console.log("Error: Could not find option for", previousMonth);
   }
+}
+
+/**
+ * Gets the daily data for a given date and adds it to the PV_tableData array
+ */
+async function getDailyData(date, meterName, meterID, PVSystem) {
+  const { END_TIME, END_TIME_SECONDS, SEC_YEAR, SEC_MONTH, SEC_DAY, SEC_DATE } = formatDateAndTime(date);
+  await selectPreviousMonthIfNeeded(SEC_YEAR, SEC_MONTH);
+  
+  
+  
+  
+  
+  // let monthFlag = false; // flag to check if the month has been found
+  // let dayCheck = parseInt(SEC_DAY); // day to check in the table
+  // let totalDailyYield = "0";
+
+  // // no point in checking multiple attempts, if the frontend state didn't load it's already too late
+  // // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
+  // // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
+  // while (!monthFlag) {
+  //   try {      
+  //     // get the total yield for the given day
+  //     await page.waitForSelector("#advanced-chart-detail-table mat-row");
+  //     totalDailyYield = await page.$eval(
+  //       '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+  //         dayCheck +
+  //         "]/mat-cell[2])",
+  //       (el) => el.innerText
+  //     );
+
+  //     // remove any commas if they exist so that parseFloat can handle values over 1,000
+  //     totalDailyYield = totalDailyYield.replace(/,/g, "");
+
+  //     // verify table date matches the date we are looking for
+  //     let actualDate = await page.$eval(
+  //       '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+  //         dayCheck +
+  //         "]/mat-cell[1])",
+  //       (el) => el.innerText,
+  //       {
+  //         timeout: TIMEOUT_BUFFER,
+  //       },
+  //     );
+
+  //     // create the PVTable object
+  //     const PVTable = {
+  //       meterName,
+  //       meterID,
+  //       END_TIME,
+  //       END_TIME_SECONDS,
+  //       PVSystem,
+  //       totalDailyYield,
+  //     };
+
+  //     // if the date matches, add the data to the PV_tableData array
+  //     if (actualDate === SEC_DATE) {
+  //       console.log(`Date: ${SEC_DATE} | Energy: ${totalDailyYield}`);
+  //       PV_tableData.push(PVTable);
+  //       monthFlag = true;
+  //       return PVTable;
+  //     } else {
+  //       console.log("Date doesn't match. Actual date: " + actualDate + " | Expected date: " + SEC_DATE);
+  //       throw "Date doesn't match";
+  //     }
+  //   } catch (error) {
+  //     console.log(`Data for this day ${SEC_DATE} not found.`);
+  //     console.log("Moving on to next meter (if applicable)");
+  //     monthFlag = true;
+  //     return;
+  //   }
+  // }
 }
 
 /**
  * Gets the meter data for a given meter and adds it to the PV_tableData array
  */
-async function getMeterData(meter, formattedDate) {
+async function getMeterData(meter) {
   const meterName = meter.meterName;
   const meterID = meter.meterID;
-  const time = formattedDate.END_TIME;
-  const time_seconds = formattedDate.END_TIME_SECONDS;
+  const yesterdayDate = getYesterdayInPST();
+  const mostRecentDate = await getLastLoggedDate();
 
-  // Navigate to the meter page
-  await page.waitForSelector(`#${meter.puppeteerSelector} td:first-child a`);
-  await page.click(`#${meter.puppeteerSelector} td:first-child a`);
-  console.log(`Navigated to ${meter.meterName} page`);
+  // navigate to the meter page
+  const PVSystemElement = await page.waitForSelector(`#${meter.puppeteerSelector} td:first-child a`);
+  const PVSystem = await page.evaluate(el => el.textContent.trim(), PVSystemElement);
+  await PVSystemElement.click();
+  console.log(`Navigated to ${PVSystem} page`); // double-check that the meter name is correct
 
-  // Navigate to the analysis page
+  // dispose the PVSystemElement
+  PVSystemElement.dispose();
+
+  // navigate to the analysis page
   await page.waitForSelector("#lmiAnalysisTool");
   await page.click("#lmiAnalysisTool");
   console.log("Navigated to Analysis page");
   await waitForTimeout(3000);
 
-  // Months Tab
+  // months tab
   await page.waitForSelector("#TabLink2");
   await page.click("#TabLink2");
-  console.log("Navigated to Months tab");
+  console.log("Monthly Tab found and clicked");
   await waitForTimeout(3000);
 
-  // Details Tab
+  // details tab
   await page.waitForSelector("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead");
   await page.click("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead");
-  console.log("Navigated to Details tab");
+  console.log("Details Tab found and clicked");
   await waitForTimeout(3000);
 
-  await selectPreviousMonthIfNeeded(formattedDate);
-
-  // Click on the meter
-  let PVSystem = null;
-  if (PVSystemElement) {
-    PVSystem = await page.evaluate(el => el.innerText, PVSystemElement);
+  // iterate through the date range and get the daily data
+  const totalData = [];
+  const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
+  for (let i = 0; i < dateRange.length; i++) {
+    const dailyData = await getDailyData(dateRange[i], meterName, meterID, PVSystem);
+    if (dailyData) {
+      totalData.push(dailyData);
+    } else {
+      `Data not found for this ${dateRange[i]}`;
+    }
   }
-
-  // Get the total yield for yesterday
-  const totalYieldYesterdayElement = await page.$$(
-    "xpath/.//*[@id='" + meter.puppeteerSelector + "']/td[3]",
-  );
-  const totalYieldYesterday = await page.evaluate(
-    (el) => el.innerText.replace(",", ""),
-    totalYieldYesterdayElement[0],
-  );
-
-  const PVTable = {
-    meterName,
-    meterID,
-    time,
-    time_seconds,
-    PVSystem,
-    totalYieldYesterday,
-  };
-
-  PV_tableData.push(PVTable);
-
-  return
-
-  // TODO ADD VALIDATION CHECKER
+  return totalData;
 }
 
 /**
@@ -300,6 +345,14 @@ async function uploadMeterData(meterData) {
     });
 }
 
+/**
+ * 
+ * Returns the last date that data was logged to the dashboard
+ */
+async function getLastLoggedDate() {
+  return "11/04/2024"; // TODO: implement a GET request to the API to get the last logged date
+}
+
 (async () => {
   console.log("Accessing SEC Web Page...");
 
@@ -318,16 +371,9 @@ async function uploadMeterData(meterData) {
 
   await loginToSEC(page);
 
-  // wait for new page to load
-  console.log("\n", await page.title());
-
-  // get the date and time
-  const formattedDate = formatDateAndTime(1);
-  console.log("\ntimeFormats: ", formattedDate);
-
   // get data for each meter, which is added to the PV_tableData array
   for (let j = 0; j < meterlist.length; j++) {
-    await getMeterData(meterlist[j], formattedDate);
+    await getMeterData(meterlist[j]);
   }
 
   // log and upload data for each meter
