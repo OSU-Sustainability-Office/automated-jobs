@@ -187,14 +187,47 @@ async function selectPreviousMonthIfNeeded(year, month) {
     `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${previousMonth}']`
   );
 
+  // use the extracted value to select the dropdown
   if (optionHandle.length > 0) {
-    // use the extracted value to select the dropdown
     const value = await page.evaluate(el => el.value, optionHandle[0]);
     await page.select(monthDropdownSelector, value);
-    console.log("Selected option for timestamp: ", value);
   } else {
     console.log("Error: Could not find option for", previousMonth);
   }
+
+  // wait until the table reflects the correct month:
+  await page.waitForFunction(
+    (expectedMonth) => {
+      const cell = document.querySelector(
+        "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody tr:nth-child(2) td:first-child"
+      );
+
+      if (cell) {
+        const selectedDateText = cell.textContent.trim();
+        const selectedMonthText = parseInt(selectedDateText.split("/")[1]);
+        return selectedMonthText === expectedMonth;
+      }
+      return false;
+    },
+    {},
+    month
+  );
+}
+
+/**
+  * Returns a boolean indicating whether the selected month matches the given month
+ */
+async function isCorrectMonth(month) {
+  month = parseInt(month);
+  
+  // wait for the selected date text to appear in the table
+  const selectedDateText = await page.$eval(
+    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody tr:nth-child(2) td:first-child",
+    el => el.textContent.trim()
+  );
+  const selectedMonthText = selectedDateText.split("/")[1]; // extract the month
+  
+  return parseInt(selectedMonthText) === month;
 }
 
 /**
@@ -202,11 +235,10 @@ async function selectPreviousMonthIfNeeded(year, month) {
  */
 async function getDailyData(date, meterName, meterID, PVSystem) {
   const { END_TIME, END_TIME_SECONDS, SEC_YEAR, SEC_MONTH, SEC_DAY, SEC_DATE } = formatDateAndTime(date);
-  await selectPreviousMonthIfNeeded(SEC_YEAR, SEC_MONTH);
-  
-  
-  
-  
+
+  if (!await isCorrectMonth(SEC_MONTH)) {
+    await selectPreviousMonthIfNeeded(SEC_YEAR, SEC_MONTH);
+  }
   
   // let monthFlag = false; // flag to check if the month has been found
   // let dayCheck = parseInt(SEC_DAY); // day to check in the table
