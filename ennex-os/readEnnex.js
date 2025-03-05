@@ -107,33 +107,25 @@ async function login() {
   console.log("Logged in!");
 }
 
-// Automatically detects the timezone difference of US Pacific vs GMT-0 (7 or 8 depending on daylight savings)
-// https://stackoverflow.com/questions/20712419/get-utc-offset-from-timezone-in-javascript
-function getOffset(timeZone) {
-  const timeZoneName = Intl.DateTimeFormat("ia", {
-    timeZoneName: "short",
-    timeZone,
-  })
-    .formatToParts()
-    .find((i) => i.type === "timeZoneName").value;
-  const offset = timeZoneName.slice(3);
-  if (!offset) return 0;
+/**
+  * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
+*/
+function getYesterdayInPST() {
+  // get current time in UTC
+  const now = new Date();
 
-  const matchData = offset.match(/([+-])(\d+)(?::(\d+))?/);
-  if (!matchData) throw `cannot parse timezone name: ${timeZoneName}`;
+  // subtract one day
+  now.setDate(now.getDate() - 1);
 
-  const [, sign, hour, minute] = matchData;
-  let result = parseInt(hour) * 60;
-  if (sign === "+") result *= -1;
-  if (minute) result += parseInt(minute);
-
-  return result;
+  // return the resulting date in PST
+  return now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
 }
 
 /**
- * returns an object of yesterday's date in a variety of formats:
+ * Parameters:
+ * - date: a string in the format "MM/DD/YYYY"
+ * Returns an object of yesterday's date in a variety of formats:
  * {
- *    localeTime: [ '10', '7', '2021', '11', '00', '00' ],
  *    END_TIME: '2021-10-07T23:59:59',
  *    END_TIME_SECONDS: '1633622399',
  *    ENNEX_MONTH: '10',
@@ -141,47 +133,24 @@ function getOffset(timeZone) {
  *    ENNEX_DATE: '10/07/2021'
  * }
  */
-function formatDateAndTime() {
-  // non-unix time calc
-  const dateObj = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-  const localeTime = dateObj
-    .toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
-    .match(/\d+/g);
-  const DATE =
-    localeTime[2] + "-" + localeTime[0] + "-" + Number(localeTime[1]);
-  const END_TIME = `${DATE}T23:59:59`;
-
-  // get month and day in the correct format for ennex website
-  let ENNEX_MONTH = "";
-  if (parseInt(localeTime[0]) < 10) {
-    ENNEX_MONTH = "0" + parseInt(localeTime[0]).toString();
-  } else {
-    ENNEX_MONTH = localeTime[0];
+function formatDateAndTime(date) {
+  let ENNEX_MONTH = date.split("/")[0];
+  let ENNEX_DAY = date.split("/")[1];
+  const year = date.split("/")[2];
+  
+  // if the day and/or month is less than 10, add a leading zero
+  if (parseInt(ENNEX_MONTH) < 10) {
+    ENNEX_MONTH = "0" + parseInt(ENNEX_MONTH).toString();
   }
-
-  let ENNEX_DAY = "";
-  if (parseInt(localeTime[1]) < 10) {
-    ENNEX_DAY = "0" + parseInt(localeTime[1]).toString();
-  } else {
-    ENNEX_DAY = localeTime[1];
+  if (parseInt(ENNEX_DAY) < 10) {
+    ENNEX_DAY = "0" + parseInt(ENNEX_DAY).toString();
   }
+  const ENNEX_DATE = `${ENNEX_MONTH}/${ENNEX_DAY}/${year}`;
 
-  // Date is also shown on EnnexOS page in the format MM/DD/YYYY
-  let ENNEX_DATE = ENNEX_MONTH + "/" + ENNEX_DAY + "/" + localeTime[2];
-
-  console.log("Offset: ", getOffset("US/Pacific"));
-
-  const dateObjUnix = new Date(
-    new Date().getTime() -
-      (24 * 60 * 60 * 1000 + getOffset("US/Pacific") * 60 * 1000),
-  );
-
-  // unix time calc
-  dateObjUnix.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObjUnix.valueOf() / 1000).toString();
+  const END_TIME = `${year}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM
+  const END_TIME_SECONDS = new Date(END_TIME).getTime() / 1000; // END_TIME in seconds
 
   return {
-    localeTime,
     END_TIME,
     END_TIME_SECONDS,
     ENNEX_MONTH,
@@ -238,7 +207,9 @@ async function selectPreviousMonthIfNeeded(dateStr) {
   }
 }
 
-// Get the daily data for a given date
+/**
+ * Gets the daily data for a given date and adds it to the PV_tableData array
+ */
 async function getDailyData(date, meterName, meterID, time, time_seconds, PVSystem) {
   await selectPreviousMonthIfNeeded(date);
   let monthFlag = false;
@@ -311,10 +282,9 @@ async function getDailyData(date, meterName, meterID, time, time_seconds, PVSyst
 async function getMeterData(meter, formattedDate) {
   const meterName = meter.meterName;
   const meterID = meter.meterID;
-  const time = formattedDate.END_TIME;
-  const time_seconds = formattedDate.END_TIME_SECONDS;
   const url = process.env.SEC_LOGINPAGE + "/" + meter.linkSuffix;
-  const mostRecentDate = await getLastLoggedDate(meter);
+  const yesterdayDate = getYesterdayInPST();
+  const mostRecentDate = await getLastLoggedDate();
   await page.goto(
     url + "/monitoring/view-energy-and-power",
     {
@@ -333,15 +303,16 @@ async function getMeterData(meter, formattedDate) {
   console.log("Details Tab found and clicked");
   await waitForTimeout(7500);
 
+  // double-check that the meter name is correct
   let PVSystem = await page.$eval(
     '::-p-xpath(//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span)',
     (el) => el.innerText,
   );
-  console.log(PVSystem); // Check if the meter name is correct
+  console.log(PVSystem);
   
-  // Iterate through the date range and get the daily data
+  // iterate through the date range and get the daily data
   const totalDataMap = new Map();
-  const dateRange = generateDateRange(mostRecentDate, formattedDate.ENNEX_DATE);
+  const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
     const dailyData = await getDailyData(dateRange[i], meterName, meterID, time, time_seconds, PVSystem);
     if (dailyData) {
@@ -350,7 +321,6 @@ async function getMeterData(meter, formattedDate) {
       `Data not found for this ${dateRange[i]}`;
     }
   }
-  console.log(totalDataMap);
   return totalDataMap;
 }
 
@@ -418,7 +388,7 @@ function generateDateRange(startDate, endDate) {
 }
 
 // Get the last logged date in the database
-async function getLastLoggedDate(meter) {
+async function getLastLoggedDate() {
   // return November 4th 2024 for testing
   return "2024-11-04";
 }
@@ -442,13 +412,9 @@ async function getLastLoggedDate(meter) {
   // login to EnnexOS
   await login();
 
-  const formattedDate = formatDateAndTime(1);
-
-  console.log("\nformattedDate: ", formattedDate);
-
   // get data for each meter, which is added to the PV_tableData array
   for (let j = 0; j < meterlist.length; j++) {
-    await getMeterData(meterlist[j], formattedDate);
+    await getMeterData(meterlist[j]);
   }
 
   let final_PV_tableData = getCombinedMeterData();
