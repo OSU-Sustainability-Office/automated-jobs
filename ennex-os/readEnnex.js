@@ -384,7 +384,7 @@ function getCombinedMeterData() {
     ) {
       final_PV_tableData.push({
         meterName: meterName,
-        meterID: 124,
+        meterID: entry.meterID,
         time: END_TIME,
         time_seconds: END_TIME_SECONDS,
         PVSystem: meterName,
