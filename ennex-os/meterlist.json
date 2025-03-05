@@ -8,5 +8,10 @@
     "meterID": 122,
     "meterName": "OSU Operations",
     "linkSuffix": "11571582"
+  },
+  {
+    "meterID": 183,
+    "meterName": "Beth Ray Center Solar",
+    "linkSuffix": "13590905"
   }
 ]

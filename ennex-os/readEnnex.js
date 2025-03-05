@@ -32,7 +32,8 @@ const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
 const LOGIN_BUTTON = "button[name='login']";
 const USERNAME_SELECTOR = "#username";
 const PASSWORD_SELECTOR = "#password";
-const DETAILS_TAB_SELECTOR = "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
+const DETAILS_TAB_SELECTOR =
+  "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
 const MONTHLY_TAB_SELECTOR = "[data-testid='MONTH']";
 const MONTH_DROPDOWN_SELECTOR = ".mat-mdc-select-min-line";
 
@@ -108,8 +109,8 @@ async function loginToEnnex() {
 }
 
 /**
-  * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
-*/
+ * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
+ */
 function getYesterdayInPST() {
   // get current time in UTC
   const now = new Date();
@@ -130,18 +131,18 @@ function getYesterdayInPST() {
  */
 function generateDateRange(startDate, endDate) {
   const dateArray = [];
-  
+
   // convert the dates to Date objects
   startDate = new Date(startDate);
   endDate = new Date(endDate);
-  
+
   // clone the start date so we don't modify the original
   let current = new Date(startDate);
 
   while (current <= endDate) {
     // push a copy of the current date
     dateArray.push(new Date(current));
-    
+
     // move to the next day
     current.setDate(current.getDate() + 1);
   }
@@ -196,7 +197,7 @@ async function selectPreviousMonthIfNeeded(year, month) {
   // get the currently selected month and convert to numeric format
   let selectedMonth = await page.evaluate(
     (month) => month.innerText,
-    monthDropdown
+    monthDropdown,
   );
 
   // dispose the monthDropdown handle
@@ -219,7 +220,9 @@ async function selectPreviousMonthIfNeeded(year, month) {
     // wait for the table to update to the previous month
     await page.waitForFunction(
       (month) => {
-        const cell = document.querySelector("#advanced-chart-detail-table mat-row mat-cell:first-child");
+        const cell = document.querySelector(
+          "#advanced-chart-detail-table mat-row mat-cell:first-child",
+        );
         if (cell) {
           console.log(cell.innerText);
           cellMonth = cell.innerText.split("/")[0];
@@ -228,9 +231,8 @@ async function selectPreviousMonthIfNeeded(year, month) {
         return false;
       },
       {},
-      prevMonthIndex + 1
+      prevMonthIndex + 1,
     );
-
   }
 }
 
@@ -238,7 +240,14 @@ async function selectPreviousMonthIfNeeded(year, month) {
  * Gets the daily data for a given date and adds it to the PV_tableData array
  */
 async function getDailyData(date, meterName, meterID, PVSystem) {
-  const { END_TIME, END_TIME_SECONDS, ENNEX_YEAR, ENNEX_MONTH, ENNEX_DAY, ENNEX_DATE } = formatDateAndTime(date);
+  const {
+    END_TIME,
+    END_TIME_SECONDS,
+    ENNEX_YEAR,
+    ENNEX_MONTH,
+    ENNEX_DAY,
+    ENNEX_DATE,
+  } = formatDateAndTime(date);
   await selectPreviousMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
   let monthFlag = false; // flag to check if the month has been found
   let dayCheck = parseInt(ENNEX_DAY); // day to check in the table
@@ -248,14 +257,14 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
   // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
   // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
   while (!monthFlag) {
-    try {      
+    try {
       // get the total yield for the given day
       await page.waitForSelector("#advanced-chart-detail-table mat-row");
       totalDailyYield = await page.$eval(
         '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
           dayCheck +
           "]/mat-cell[2])",
-        (el) => el.innerText
+        (el) => el.innerText,
       );
 
       // remove any commas if they exist so that parseFloat can handle values over 1,000
@@ -289,7 +298,12 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
         monthFlag = true;
         return PVTable;
       } else {
-        console.log("Date doesn't match. Actual date: " + actualDate + " | Expected date: " + ENNEX_DATE);
+        console.log(
+          "Date doesn't match. Actual date: " +
+            actualDate +
+            " | Expected date: " +
+            ENNEX_DATE,
+        );
         throw "Date doesn't match";
       }
     } catch (error) {
@@ -310,12 +324,9 @@ async function getMeterData(meter) {
   const url = process.env.ENNEX_LOGINPAGE + "/" + meter.linkSuffix;
   const yesterdayDate = getYesterdayInPST();
   const mostRecentDate = await getLastLoggedDate();
-  await page.goto(
-    url + "/monitoring/view-energy-and-power",
-    {
-      waitUntil: "networkidle0",
-    },
-  );
+  await page.goto(url + "/monitoring/view-energy-and-power", {
+    waitUntil: "networkidle0",
+  });
 
   // monthly tab
   await page.waitForSelector(MONTHLY_TAB_SELECTOR, { state: "visible" });
@@ -334,12 +345,17 @@ async function getMeterData(meter) {
     (el) => el.innerText,
   );
   console.log(PVSystem);
-  
+
   // iterate through the date range and get the daily data
   const totalData = [];
   const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
-    const dailyData = await getDailyData(dateRange[i], meterName, meterID, PVSystem);
+    const dailyData = await getDailyData(
+      dateRange[i],
+      meterName,
+      meterID,
+      PVSystem,
+    );
     if (dailyData) {
       totalData.push(dailyData);
     } else {
@@ -362,8 +378,18 @@ function getCombinedMeterData() {
     const { meterName, END_TIME, END_TIME_SECONDS, totalDailyYield } = entry;
 
     // if meter is not "OSU Operations Total" or "OSU Lube Shop", keep it in the final array as-is
-    if (meterName !== "OSU Operations" && meterName !== "OSU Operations Lube Shop") {
-      final_PV_tableData.push(entry);
+    if (
+      meterName !== "OSU Operations" &&
+      meterName !== "OSU Operations Lube Shop"
+    ) {
+      final_PV_tableData.push({
+        meterName: meterName,
+        meterID: 124,
+        time: END_TIME,
+        time_seconds: END_TIME_SECONDS,
+        PVSystem: meterName,
+        totalYield: totalDailyYield,
+      });
       return;
     }
 
@@ -375,20 +401,20 @@ function getCombinedMeterData() {
         time: END_TIME,
         time_seconds: END_TIME_SECONDS,
         PVSystem: "OSU Operations Total",
-        totalYieldYesterday: 0,
+        totalYield: 0,
       };
     }
 
     // sum the total yield for that date
-    combinedData[END_TIME].totalYieldYesterday += parseFloat(totalDailyYield);
+    combinedData[END_TIME].totalYield += parseFloat(totalDailyYield);
   });
 
   // convert the combinedData hashmap into an array
   final_PV_tableData.push(
     ...Object.values(combinedData).map((entry) => ({
       ...entry,
-      totalYieldYesterday: entry.totalYieldYesterday.toFixed(2), // ensure correct decimal format
-    }))
+      totalYield: entry.totalYield.toFixed(2), // ensure correct decimal format
+    })),
   );
 
   return final_PV_tableData;
@@ -399,7 +425,6 @@ function getCombinedMeterData() {
  */
 async function uploadMeterData(meterData) {
   const solarmeter = "Solar_Meters";
-
   await axios({
     method: "post",
     url: `${DASHBOARD_API}/upload`,
@@ -421,7 +446,7 @@ async function uploadMeterData(meterData) {
 }
 
 /**
- * 
+ *
  * Returns the last date that data was logged to the dashboard
  */
 async function getLastLoggedDate() {
