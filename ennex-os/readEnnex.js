@@ -237,7 +237,7 @@ async function selectPreviousMonthIfNeeded(year, month) {
  * Gets the daily data for a given date and adds it to the PV_tableData array
  */
 async function getDailyData(date, meterName, meterID, PVSystem) {
-  const { time, time_seconds, ENNEX_YEAR, ENNEX_MONTH, ENNEX_DAY, ENNEX_DATE } = formatDateAndTime(date);
+  const { END_TIME, END_TIME_SECONDS, ENNEX_YEAR, ENNEX_MONTH, ENNEX_DAY, ENNEX_DATE } = formatDateAndTime(date);
   await selectPreviousMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
   let monthFlag = false; // flag to check if the month has been found
   let dayCheck = parseInt(ENNEX_DAY); // day to check in the table
@@ -275,8 +275,8 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       const PVTable = {
         meterName,
         meterID,
-        time,
-        time_seconds,
+        END_TIME,
+        END_TIME_SECONDS,
         PVSystem,
         totalDailyYield,
       };
@@ -335,17 +335,17 @@ async function getMeterData(meter) {
   console.log(PVSystem);
   
   // iterate through the date range and get the daily data
-  const totalDataMap = new Map();
+  const totalData = [];
   const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
     const dailyData = await getDailyData(dateRange[i], meterName, meterID, PVSystem);
     if (dailyData) {
-      totalDataMap.set(dateRange[i], dailyData);
+      totalData.push(dailyData);
     } else {
       `Data not found for this ${dateRange[i]}`;
     }
   }
-  return totalDataMap;
+  return totalData;
 }
 
 /**
@@ -353,23 +353,44 @@ async function getMeterData(meter) {
  * if we add more meters in the future, we should consider a meter group instead
  */
 function getCombinedMeterData() {
-  const comboTotalYieldYesterday = (
-    parseFloat(PV_tableData[0].totalYieldYesterday) +
-    parseFloat(PV_tableData[1].totalYieldYesterday)
-  ).toFixed(2);
+  const combinedData = {};
+  const final_PV_tableData = [];
 
-  const comboPVTable = {
-    meterName: "OSU Operations Total",
-    meterID: 124,
-    time: PV_tableData[0].time,
-    time_seconds: PV_tableData[0].time_seconds,
-    PVSystem: "OSU Operations Total",
-    totalYieldYesterday: comboTotalYieldYesterday,
-  };
-  PV_tableData.push(comboPVTable);
+  // iterate through each meter's data
+  PV_tableData.forEach((entry) => {
+    const { meterName, END_TIME, END_TIME_SECONDS, totalDailyYield } = entry;
 
-  // remove the first two elements from the array
-  return PV_tableData.slice(2);
+    // if meter is not "OSU Operations Total" or "OSU Lube Shop", keep it in the final array as-is
+    if (meterName !== "OSU Operations" && meterName !== "OSU Operations Lube Shop") {
+      final_PV_tableData.push(entry);
+      return;
+    }
+
+    // initialize a new entry if the date isn't present in combinedData
+    if (!combinedData[END_TIME]) {
+      combinedData[END_TIME] = {
+        meterName: "OSU Operations Total",
+        meterID: 124,
+        time: END_TIME,
+        time_seconds: END_TIME_SECONDS,
+        PVSystem: "OSU Operations Total",
+        totalYieldYesterday: 0,
+      };
+    }
+
+    // sum the total yield for that date
+    combinedData[END_TIME].totalYieldYesterday += parseFloat(totalDailyYield);
+  });
+
+  // convert the combinedData hashmap into an array
+  final_PV_tableData.push(
+    ...Object.values(combinedData).map((entry) => ({
+      ...entry,
+      totalYieldYesterday: entry.totalYieldYesterday.toFixed(2), // ensure correct decimal format
+    }))
+  );
+
+  return final_PV_tableData;
 }
 
 /**
@@ -398,10 +419,12 @@ async function uploadMeterData(meterData) {
     });
 }
 
-// Get the last logged date in the database
+/**
+ * 
+ * Returns the last date that data was logged to the dashboard
+ */
 async function getLastLoggedDate() {
-  // return November 4th 2024 for testing
-  return "11/04/2024";
+  return "11/04/2024"; // TODO: implement a GET request to the API to get the last logged date
 }
 
 (async () => {
@@ -409,7 +432,7 @@ async function getLastLoggedDate() {
 
   // launch the browser
   browser = await puppeteer.launch({
-    // DEBUG: use --headful flag (node readEnnex.js --headful), browser will be visible
+    // DEBUG: use --headful flag (e.g. node readEnnex.js --headful), browser will be visible
     // reference: https://developer.chrome.com/articles/new-headless/
     headless: process.argv.includes("--headful") ? false : "new",
     args: ["--no-sandbox"],
@@ -435,12 +458,12 @@ async function getLastLoggedDate() {
     console.log("\n", final_PV_tableData[i]);
 
     // use the --no-upload flag to prevent uploading to the API for local development/testing
-    // node readEnnex.js --no-upload
+    // (e.g. node readEnnex.js --no-upload)
     if (!process.argv.includes("--no-upload")) {
       await uploadMeterData(final_PV_tableData[i]);
     }
   }
 
-  // close browser.
+  // close browser
   await browser.close();
 })();
