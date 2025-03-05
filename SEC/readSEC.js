@@ -18,6 +18,7 @@ const USERNAME_SELECTOR = "input[name='username']";
 const PASSWORD_SELECTOR = "input[name='password']";
 const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
 const LOGIN_BUTTON = "button[name='login']";
+const DATA_TABLE = "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody";
 
 // Non-constants
 let page = "";
@@ -140,7 +141,8 @@ function generateDateRange(startDate, endDate) {
  *    END_TIME_SECONDS: '1633622399',
  *    SEC_MONTH: '10',
  *    SEC_DAY: '07',
- *    SEC_DATE: '10/07/2021'
+ *    SEC_DATE: '07/10/',
+ *    SEC_YEAR: '2021'
  * }
  */
 function formatDateAndTime(date) {
@@ -148,7 +150,7 @@ function formatDateAndTime(date) {
   const SEC_YEAR = formattedDate.split("-")[0];
   let SEC_MONTH = formattedDate.split("-")[1];
   let SEC_DAY = formattedDate.split("-")[2];
-  const SEC_DATE = `${SEC_MONTH}/${SEC_DAY}/${SEC_YEAR}`;
+  const SEC_DATE = `${SEC_DAY}/${SEC_MONTH}/`;
 
   const END_TIME = `${SEC_YEAR}-${SEC_MONTH}-${SEC_DAY}T23:59:59`; // always set to 11:59:59 PM
   const END_TIME_SECONDS = new Date(END_TIME).getTime() / 1000; // END_TIME in seconds
@@ -222,7 +224,7 @@ async function isCorrectMonth(month) {
   
   // wait for the selected date text to appear in the table
   const selectedDateText = await page.$eval(
-    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody tr:nth-child(2) td:first-child",
+    `${DATA_TABLE} tr:nth-child(2) td:first-child`,
     el => el.textContent.trim()
   );
   const selectedMonthText = selectedDateText.split("/")[1]; // extract the month
@@ -240,65 +242,65 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
     await selectPreviousMonthIfNeeded(SEC_YEAR, SEC_MONTH);
   }
   
-  // let monthFlag = false; // flag to check if the month has been found
-  // let dayCheck = parseInt(SEC_DAY); // day to check in the table
-  // let totalDailyYield = "0";
+  let monthFlag = false; // flag to check if the month has been found
+  let dayCheck = parseInt(SEC_DAY); // day to check in the table
+  let totalDailyYield = "0";
 
-  // // no point in checking multiple attempts, if the frontend state didn't load it's already too late
-  // // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
-  // // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-  // while (!monthFlag) {
-  //   try {      
-  //     // get the total yield for the given day
-  //     await page.waitForSelector("#advanced-chart-detail-table mat-row");
-  //     totalDailyYield = await page.$eval(
-  //       '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-  //         dayCheck +
-  //         "]/mat-cell[2])",
-  //       (el) => el.innerText
-  //     );
+  // no point in checking multiple attempts, if the frontend state didn't load it's already too late
+  // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
+  // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
+  while (!monthFlag) {
+    try {      
+      // get the total yield for the given day
+      const yieldRowSelector = `${DATA_TABLE}
+      tr:nth-child(${dayCheck + 1}) 
+      td:nth-child(2)`;
+      totalDailyYield = await page.$eval(
+        yieldRowSelector,
+      (el) => el.textContent.trim()
+      );
+  
+      // remove any commas if they exist so that parseFloat can handle values over 1,000
+      totalDailyYield = totalDailyYield.replace(/,/g, "");
 
-  //     // remove any commas if they exist so that parseFloat can handle values over 1,000
-  //     totalDailyYield = totalDailyYield.replace(/,/g, "");
+      // verify table date matches the date we are looking for
+      const dateRowSelector = `${DATA_TABLE}
+      tr:nth-child(${dayCheck + 1}) 
+      td:nth-child(1)`;
+      actualDate = await page.$eval(
+        dateRowSelector,
+      (el) => el.textContent.trim()
+      );
+      console.log("Actual Date: " + actualDate);
 
-  //     // verify table date matches the date we are looking for
-  //     let actualDate = await page.$eval(
-  //       '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-  //         dayCheck +
-  //         "]/mat-cell[1])",
-  //       (el) => el.innerText,
-  //       {
-  //         timeout: TIMEOUT_BUFFER,
-  //       },
-  //     );
+      // create the PVTable object
+      const PVTable = {
+        meterName,
+        meterID,
+        END_TIME,
+        END_TIME_SECONDS,
+        PVSystem,
+        totalDailyYield,
+      };
 
-  //     // create the PVTable object
-  //     const PVTable = {
-  //       meterName,
-  //       meterID,
-  //       END_TIME,
-  //       END_TIME_SECONDS,
-  //       PVSystem,
-  //       totalDailyYield,
-  //     };
-
-  //     // if the date matches, add the data to the PV_tableData array
-  //     if (actualDate === SEC_DATE) {
-  //       console.log(`Date: ${SEC_DATE} | Energy: ${totalDailyYield}`);
-  //       PV_tableData.push(PVTable);
-  //       monthFlag = true;
-  //       return PVTable;
-  //     } else {
-  //       console.log("Date doesn't match. Actual date: " + actualDate + " | Expected date: " + SEC_DATE);
-  //       throw "Date doesn't match";
-  //     }
-  //   } catch (error) {
-  //     console.log(`Data for this day ${SEC_DATE} not found.`);
-  //     console.log("Moving on to next meter (if applicable)");
-  //     monthFlag = true;
-  //     return;
-  //   }
-  // }
+      // if the date matches, add the data to the PV_tableData array
+      if (actualDate === SEC_DATE) {
+        console.log(`Date: ${SEC_DATE} | Energy: ${totalDailyYield}`);
+        PV_tableData.push(PVTable);
+        monthFlag = true;
+        return PVTable;
+      } else {
+        console.log("Date doesn't match. Actual date: " + actualDate + " | Expected date: " + SEC_DATE);
+        throw "Date doesn't match";
+      }
+    } catch (error) {
+      console.log(`Data for this day ${SEC_DATE} not found.`);
+      console.log("Moving on to next meter (if applicable)");
+      console.log(error);
+      monthFlag = true;
+      return;
+    }
+  }
 }
 
 /**
@@ -345,7 +347,7 @@ async function getMeterData(meter) {
     if (dailyData) {
       totalData.push(dailyData);
     } else {
-      `Data not found for this ${dateRange[i]}`;
+      `Data not found for ${dateRange[i]}`;
     }
   }
   return totalData;
