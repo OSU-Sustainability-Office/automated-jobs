@@ -49,9 +49,9 @@ async function waitForTimeout(ms) {
 /**
  * Logs into the EnnexOS website
  */
-async function login() {
+async function loginToEnnex() {
   // Go to your site
-  await page.goto(process.env.SEC_LOGINPAGE, { waitUntil: "networkidle0" });
+  await page.goto(process.env.ENNEX_LOGINPAGE, { waitUntil: "networkidle0" });
 
   // next two lines to make sure it works the same with headless on or off: https://github.com/puppeteer/puppeteer/issues/665#issuecomment-481094738
   await page.setExtraHTTPHeaders({
@@ -74,10 +74,10 @@ async function login() {
   console.log("Navigated to login page");
 
   // login to ennexOS
-  await page.locator(USERNAME_SELECTOR).fill(process.env.SEC_USERNAME);
+  await page.locator(USERNAME_SELECTOR).fill(process.env.ENNEX_USERNAME);
   console.log("Found username selector");
 
-  await page.locator(PASSWORD_SELECTOR).fill(process.env.SEC_PWD);
+  await page.locator(PASSWORD_SELECTOR).fill(process.env.ENNEX_PWD);
   console.log("Found password selector");
 
   const maxAttempts = 5;
@@ -156,6 +156,7 @@ function generateDateRange(startDate, endDate) {
  * {
  *    END_TIME: '2021-10-07T23:59:59',
  *    END_TIME_SECONDS: '1633622399',
+ *    ENNEX_YEAR: '2021',
  *    ENNEX_MONTH: '10',
  *    ENNEX_DAY: '07',
  *    ENNEX_DATE: '10/07/2021'
@@ -306,7 +307,7 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
 async function getMeterData(meter) {
   const meterName = meter.meterName;
   const meterID = meter.meterID;
-  const url = process.env.SEC_LOGINPAGE + "/" + meter.linkSuffix;
+  const url = process.env.ENNEX_LOGINPAGE + "/" + meter.linkSuffix;
   const yesterdayDate = getYesterdayInPST();
   const mostRecentDate = await getLastLoggedDate();
   await page.goto(
@@ -444,7 +445,7 @@ async function getLastLoggedDate() {
   await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
   // login to EnnexOS
-  await login();
+  await loginToEnnex();
 
   // get data for each meter, which is added to the PV_tableData array
   for (let j = 0; j < meterlist.length; j++) {
