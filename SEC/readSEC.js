@@ -273,14 +273,14 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       );
       console.log("Actual Date: " + actualDate);
 
-      // create the PVTable object
+      // create the PVTable object (ensure that the keys match the API)
       const PVTable = {
         meterName,
         meterID,
-        END_TIME,
-        END_TIME_SECONDS,
+        time: END_TIME,
+        time_seconds: END_TIME_SECONDS,
         PVSystem,
-        totalDailyYield,
+        totalYield: totalDailyYield,
       };
 
       // if the date matches, add the data to the PV_tableData array
@@ -384,7 +384,7 @@ async function uploadMeterData(meterData) {
  * Returns the last date that data was logged to the dashboard
  */
 async function getLastLoggedDate() {
-  return "11/04/2024"; // TODO: implement a GET request to the API to get the last logged date
+  return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
 }
 
 (async () => {
