@@ -450,7 +450,7 @@ async function uploadMeterData(meterData) {
  * Returns the last date that data was logged to the dashboard
  */
 async function getLastLoggedDate() {
-  return "11/04/2024"; // TODO: implement a GET request to the API to get the last logged date
+  return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
 }
 
 (async () => {
