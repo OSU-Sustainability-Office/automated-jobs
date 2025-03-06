@@ -18,7 +18,8 @@ const USERNAME_SELECTOR = "input[name='username']";
 const PASSWORD_SELECTOR = "input[name='password']";
 const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
 const LOGIN_BUTTON = "button[name='login']";
-const DATA_TABLE = "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody";
+const DATA_TABLE =
+  "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody";
 
 // Non-constants
 let page = "";
@@ -42,14 +43,14 @@ async function loginToSEC(page) {
   // Set headers and user agent to ensure consistent behavior with headless on or off
   await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
   await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
   );
   console.log(await page.title());
 
   await page.locator(ACCEPT_COOKIES).click();
   console.log("Cookies Button found");
-  
-    // wait until cookie banner is gone, logging in won't work otherwise
+
+  // wait until cookie banner is gone, logging in won't work otherwise
   await page.waitForSelector(ACCEPT_COOKIES, { hidden: true });
   console.log("Cookies banner gone");
 
@@ -88,11 +89,11 @@ async function loginToSEC(page) {
   attempt = 0;
 
   console.log("Logged in!");
-};
+}
 
 /**
-  * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
-*/
+ * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
+ */
 function getYesterdayInPST() {
   // get current time in UTC
   const now = new Date();
@@ -113,18 +114,18 @@ function getYesterdayInPST() {
  */
 function generateDateRange(startDate, endDate) {
   const dateArray = [];
-  
+
   // convert the dates to Date objects
   startDate = new Date(startDate);
   endDate = new Date(endDate);
-  
+
   // clone the start date so we don't modify the original
   let current = new Date(startDate);
 
   while (current <= endDate) {
     // push a copy of the current date
     dateArray.push(new Date(current));
-    
+
     // move to the next day
     current.setDate(current.getDate() + 1);
   }
@@ -172,7 +173,7 @@ function formatDateAndTime(date) {
 async function selectPreviousMonthIfNeeded(year, month) {
   year = parseInt(year);
   month = parseInt(month);
-  
+
   // convert year and month to match the dropdown format (e.g. "January 2021")
   const previousMonth = new Date(year, month - 1).toLocaleString("default", {
     month: "long", // (e.g. "January")
@@ -186,12 +187,12 @@ async function selectPreviousMonthIfNeeded(year, month) {
 
   // find the visible text option that matches the month name
   const optionHandle = await page.$$(
-    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${previousMonth}']`
+    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${previousMonth}']`,
   );
 
   // use the extracted value to select the dropdown
   if (optionHandle.length > 0) {
-    const value = await page.evaluate(el => el.value, optionHandle[0]);
+    const value = await page.evaluate((el) => el.value, optionHandle[0]);
     await page.select(monthDropdownSelector, value);
   } else {
     console.log("Error: Could not find option for", previousMonth);
@@ -201,7 +202,7 @@ async function selectPreviousMonthIfNeeded(year, month) {
   await page.waitForFunction(
     (expectedMonth) => {
       const cell = document.querySelector(
-        "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody tr:nth-child(2) td:first-child"
+        "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody tr:nth-child(2) td:first-child",
       );
 
       if (cell) {
@@ -212,23 +213,23 @@ async function selectPreviousMonthIfNeeded(year, month) {
       return false;
     },
     {},
-    month
+    month,
   );
 }
 
 /**
-  * Returns a boolean indicating whether the selected month matches the given month
+ * Returns a boolean indicating whether the selected month matches the given month
  */
 async function isCorrectMonth(month) {
   month = parseInt(month);
-  
+
   // wait for the selected date text to appear in the table
   const selectedDateText = await page.$eval(
     `${DATA_TABLE} tr:nth-child(2) td:first-child`,
-    el => el.textContent.trim()
+    (el) => el.textContent.trim(),
   );
   const selectedMonthText = selectedDateText.split("/")[1]; // extract the month
-  
+
   return parseInt(selectedMonthText) === month;
 }
 
@@ -236,12 +237,13 @@ async function isCorrectMonth(month) {
  * Gets the daily data for a given date and adds it to the PV_tableData array
  */
 async function getDailyData(date, meterName, meterID, PVSystem) {
-  const { END_TIME, END_TIME_SECONDS, SEC_YEAR, SEC_MONTH, SEC_DAY, SEC_DATE } = formatDateAndTime(date);
+  const { END_TIME, END_TIME_SECONDS, SEC_YEAR, SEC_MONTH, SEC_DAY, SEC_DATE } =
+    formatDateAndTime(date);
 
-  if (!await isCorrectMonth(SEC_MONTH)) {
+  if (!(await isCorrectMonth(SEC_MONTH))) {
     await selectPreviousMonthIfNeeded(SEC_YEAR, SEC_MONTH);
   }
-  
+
   let monthFlag = false; // flag to check if the month has been found
   let dayCheck = parseInt(SEC_DAY); // day to check in the table
   let totalDailyYield = "0";
@@ -250,16 +252,15 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
   // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
   // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
   while (!monthFlag) {
-    try {      
+    try {
       // get the total yield for the given day
       const yieldRowSelector = `${DATA_TABLE}
       tr:nth-child(${dayCheck + 1}) 
       td:nth-child(2)`;
-      totalDailyYield = await page.$eval(
-        yieldRowSelector,
-      (el) => el.textContent.trim()
+      totalDailyYield = await page.$eval(yieldRowSelector, (el) =>
+        el.textContent.trim(),
       );
-  
+
       // remove any commas if they exist so that parseFloat can handle values over 1,000
       totalDailyYield = totalDailyYield.replace(/,/g, "");
 
@@ -267,9 +268,8 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       const dateRowSelector = `${DATA_TABLE}
       tr:nth-child(${dayCheck + 1}) 
       td:nth-child(1)`;
-      actualDate = await page.$eval(
-        dateRowSelector,
-      (el) => el.textContent.trim()
+      actualDate = await page.$eval(dateRowSelector, (el) =>
+        el.textContent.trim(),
       );
       console.log("Actual Date: " + actualDate);
 
@@ -290,7 +290,12 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
         monthFlag = true;
         return PVTable;
       } else {
-        console.log("Date doesn't match. Actual date: " + actualDate + " | Expected date: " + SEC_DATE);
+        console.log(
+          "Date doesn't match. Actual date: " +
+            actualDate +
+            " | Expected date: " +
+            SEC_DATE,
+        );
         throw "Date doesn't match";
       }
     } catch (error) {
@@ -313,8 +318,13 @@ async function getMeterData(meter) {
   const mostRecentDate = await getLastLoggedDate();
 
   // navigate to the meter page
-  const PVSystemElement = await page.waitForSelector(`#${meter.puppeteerSelector} td:first-child a`);
-  const PVSystem = await page.evaluate(el => el.textContent.trim(), PVSystemElement);
+  const PVSystemElement = await page.waitForSelector(
+    `#${meter.puppeteerSelector} td:first-child a`,
+  );
+  const PVSystem = await page.evaluate(
+    (el) => el.textContent.trim(),
+    PVSystemElement,
+  );
   await PVSystemElement.click();
   console.log(`Navigated to ${PVSystem} page`); // double-check that the meter name is correct
 
@@ -334,8 +344,12 @@ async function getMeterData(meter) {
   await waitForTimeout(3000);
 
   // details tab
-  await page.waitForSelector("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead");
-  await page.click("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead");
+  await page.waitForSelector(
+    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead",
+  );
+  await page.click(
+    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead",
+  );
   console.log("Details Tab found and clicked");
   await waitForTimeout(3000);
 
@@ -343,7 +357,12 @@ async function getMeterData(meter) {
   const totalData = [];
   const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
-    const dailyData = await getDailyData(dateRange[i], meterName, meterID, PVSystem);
+    const dailyData = await getDailyData(
+      dateRange[i],
+      meterName,
+      meterID,
+      PVSystem,
+    );
     if (dailyData) {
       totalData.push(dailyData);
     } else {
@@ -380,7 +399,7 @@ async function uploadMeterData(meterData) {
 }
 
 /**
- * 
+ *
  * Returns the last date that data was logged to the dashboard
  */
 async function getLastLoggedDate() {
