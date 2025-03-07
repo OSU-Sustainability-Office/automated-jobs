@@ -109,7 +109,7 @@ async function loginToEnnex() {
 }
 
 /**
- * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
+ * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY" (e.g. "10/07/2021")
  */
 function getYesterdayInPST() {
   // get current time in UTC
@@ -125,8 +125,8 @@ function getYesterdayInPST() {
 /**
  * Generates a date range between two dates.
  * Parameters:
- *  startDate - The start date in string format (e.g. "2021-10-01")
- *  endDate - The end date in string format (e.g. "2021-10-31")
+ *  startDate - The start date in string format YYYY-MM-DD (e.g. "2021-10-01")
+ *  endDate - The end date in string format YYYY-MM-DD (e.g. "2021-10-31")
  * Returns: Array of Date objects representing the range.
  */
 function generateDateRange(startDate, endDate) {
@@ -448,6 +448,7 @@ async function uploadMeterData(meterData) {
 /**
  *
  * Returns the last date that data was logged to the dashboard
+ * Date Format: MM/DD/YYYY (e.g. "10/07/2021")
  */
 async function getLastLoggedDate() {
   return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
