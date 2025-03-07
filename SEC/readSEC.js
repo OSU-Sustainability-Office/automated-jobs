@@ -93,6 +93,7 @@ async function loginToSEC(page) {
 
 /**
  * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
+ * (e.g. "10/07/2021")
  */
 function getYesterdayInPST() {
   // get current time in UTC
@@ -108,8 +109,8 @@ function getYesterdayInPST() {
 /**
  * Generates a date range between two dates.
  * Parameters:
- *  startDate - The start date in string format (e.g. "2021-10-01")
- *  endDate - The end date in string format (e.g. "2021-10-31")
+ *  startDate - The start date in string format YYYY-MM-DD (e.g. "2021-10-01")
+ *  endDate - The end date in string format YYYY-MM-DD (e.g. "2021-10-31")
  * Returns: Array of Date objects representing the range.
  */
 function generateDateRange(startDate, endDate) {
@@ -197,6 +198,10 @@ async function selectPreviousMonthIfNeeded(year, month) {
   } else {
     console.log("Error: Could not find option for", previousMonth);
   }
+
+  // dispose monthDropdownSelector and optionHandle
+  monthDropdownSelector.dispose();
+  optionHandle.forEach((el) => el.dispose());
 
   // wait until the table reflects the correct month:
   await page.waitForFunction(
@@ -332,24 +337,17 @@ async function getMeterData(meter) {
   PVSystemElement.dispose();
 
   // navigate to the analysis page
-  await page.waitForSelector("#lmiAnalysisTool");
-  await page.click("#lmiAnalysisTool");
+  await page.locator("#lmiAnalysisTool").click();
   console.log("Navigated to Analysis page");
   await waitForTimeout(3000);
 
   // months tab
-  await page.waitForSelector("#TabLink2");
-  await page.click("#TabLink2");
+  await page.locator("#TabLink2").click();
   console.log("Monthly Tab found and clicked");
   await waitForTimeout(3000);
 
   // details tab
-  await page.waitForSelector(
-    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead",
-  );
-  await page.click(
-    "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead",
-  );
+  await page.locator("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead").click();
   console.log("Details Tab found and clicked");
   await waitForTimeout(3000);
 
@@ -401,6 +399,7 @@ async function uploadMeterData(meterData) {
 /**
  *
  * Returns the last date that data was logged to the dashboard
+* Date Format: MM/DD/YYYY (e.g. "10/07/2021")
  */
 async function getLastLoggedDate() {
   return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
