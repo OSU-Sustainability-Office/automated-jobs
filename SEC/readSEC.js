@@ -339,12 +339,13 @@ async function getMeterData(meter) {
   // navigate to the analysis page
   await page.locator("#lmiAnalysisTool").click();
   console.log("Navigated to Analysis page");
-  await waitForTimeout(3000);
+
+  // wait for the analysis page to load
+  await page.waitForSelector("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_SliderControl_PC_SliderMiddle", { visible: true });
 
   // months tab
   await page.locator("#TabLink2").click();
   console.log("Monthly Tab found and clicked");
-  await waitForTimeout(3000);
 
   // details tab
   await page.locator("#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_lblSliderTabHead").click();
