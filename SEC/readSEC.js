@@ -148,14 +148,15 @@ function generateDateRange(startDate, endDate) {
  * }
  */
 function formatDateAndTime(date) {
-  const formattedDate = date.toLocaleDateString("en-CA"); // convert date object to string
-  const SEC_YEAR = formattedDate.split("-")[0];
-  let SEC_MONTH = formattedDate.split("-")[1];
-  let SEC_DAY = formattedDate.split("-")[2];
+  const options = { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" };
+  const formattedDate = new Intl.DateTimeFormat("en-US", options).format(date);// convert date object to string
+  const [SEC_MONTH, SEC_DAY, SEC_YEAR] = formattedDate.split("/");
   const SEC_DATE = `${SEC_DAY}/${SEC_MONTH}/`;
 
-  const END_TIME = `${SEC_YEAR}-${SEC_MONTH}-${SEC_DAY}T23:59:59`; // always set to 11:59:59 PM
-  const END_TIME_SECONDS = new Date(END_TIME).getTime() / 1000; // END_TIME in seconds
+  const END_TIME = `${SEC_YEAR}-${SEC_MONTH}-${SEC_DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
+  const END_TIME_SECONDS = new Date(
+    new Date(END_TIME).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+  ).getTime() / 1000; // END_TIME in seconds (PST)
 
   return {
     END_TIME,
