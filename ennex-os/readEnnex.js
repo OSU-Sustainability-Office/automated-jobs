@@ -89,7 +89,7 @@ async function loginToEnnex() {
       await page.locator(LOGIN_BUTTON).click();
       await page.waitForNavigation({
         waitUntil: "networkidle0",
-        timeOut: TIMEOUT_BUFFER,
+        timeout: TIMEOUT_BUFFER,
       });
       console.log("Login Button Clicked!");
       break; // Exit the loop if successful
@@ -164,14 +164,15 @@ function generateDateRange(startDate, endDate) {
  * }
  */
 function formatDateAndTime(date) {
-  const formattedDate = date.toLocaleDateString("en-CA"); // convert date object to string
-  const ENNEX_YEAR = formattedDate.split("-")[0];
-  let ENNEX_MONTH = formattedDate.split("-")[1];
-  let ENNEX_DAY = formattedDate.split("-")[2];
-  const ENNEX_DATE = `${ENNEX_MONTH}/${ENNEX_DAY}/${ENNEX_YEAR}`;
+  const options = { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" };
+  const formattedDate = new Intl.DateTimeFormat("en-US", options).format(date);// convert date object to string
+  const ENNEX_DATE = formattedDate
+  const [ENNEX_MONTH, ENNEX_DAY, ENNEX_YEAR] = formattedDate.split("/");
 
-  const END_TIME = `${ENNEX_YEAR}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM
-  const END_TIME_SECONDS = new Date(END_TIME).getTime() / 1000; // END_TIME in seconds
+  const END_TIME = `${ENNEX_YEAR}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
+  const END_TIME_SECONDS = new Date(
+    new Date(END_TIME).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+  ).getTime() / 1000; // END_TIME in seconds (PST)
 
   return {
     END_TIME,
@@ -329,13 +330,11 @@ async function getMeterData(meter) {
   });
 
   // monthly tab
-  await page.waitForSelector(MONTHLY_TAB_SELECTOR, { state: "visible" });
-  await page.click(MONTHLY_TAB_SELECTOR);
+  await page.locator(MONTHLY_TAB_SELECTOR).click();
   console.log("Monthly Tab found and clicked");
 
   // details tab
-  await page.waitForSelector(DETAILS_TAB_SELECTOR, { visible: true });
-  await page.click(DETAILS_TAB_SELECTOR);
+  await page.locator(DETAILS_TAB_SELECTOR).click();
   console.log("Details Tab found and clicked");
   await waitForTimeout(7500);
 
