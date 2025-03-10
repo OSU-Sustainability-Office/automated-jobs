@@ -164,11 +164,14 @@ function generateDateRange(startDate, endDate) {
  * }
  */
 function formatDateAndTime(date) {
-  const options = { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" };
-  const formattedDate = new Intl.DateTimeFormat("en-US", options).format(date);// convert date object to string
+  // Convert date object to string
+  const formattedDate = date.toLocaleDateString("en-US", { 
+    year: "numeric", 
+    month: "2-digit", 
+    day: "2-digit"
+  });
   const ENNEX_DATE = formattedDate
   const [ENNEX_MONTH, ENNEX_DAY, ENNEX_YEAR] = formattedDate.split("/");
-
   const END_TIME = `${ENNEX_YEAR}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
   const END_TIME_SECONDS = new Date(
     new Date(END_TIME).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
@@ -450,7 +453,8 @@ async function uploadMeterData(meterData) {
  * Date Format: MM/DD/YYYY (e.g. "10/07/2021")
  */
 async function getLastLoggedDate() {
-  return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
+  // return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
+  return "03/05/2025"
 }
 
 (async () => {
