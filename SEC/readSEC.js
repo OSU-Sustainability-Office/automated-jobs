@@ -148,8 +148,13 @@ function generateDateRange(startDate, endDate) {
  * }
  */
 function formatDateAndTime(date) {
-  const options = { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" };
-  const formattedDate = new Intl.DateTimeFormat("en-US", options).format(date);// convert date object to string
+  // Convert date object to string
+  const formattedDate = date.toLocaleDateString("en-US", { 
+    year: "numeric", 
+    month: "2-digit", 
+    day: "2-digit"
+  });
+  
   const [SEC_MONTH, SEC_DAY, SEC_YEAR] = formattedDate.split("/");
   const SEC_DATE = `${SEC_DAY}/${SEC_MONTH}/`;
 
