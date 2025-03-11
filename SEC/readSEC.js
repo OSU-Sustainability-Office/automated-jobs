@@ -407,12 +407,15 @@ async function uploadMeterData(meterData) {
     },
   })
     .then((res) => {
-      console.log(
-        `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
-      );
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
     })
     .catch((err) => {
-      console.log(err);
+      if (err.response.data.includes("redundant")) {
+        console.log(`DUPLICATE DATA: ${err.response.data}`);
+      } else
+        console.log(
+          `ERROR: ${err.response.status}, TEXT: ${err.response.statusText}, DATA: ${err.response.data}`,
+        );
     });
 }
 
