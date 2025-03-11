@@ -165,17 +165,20 @@ function generateDateRange(startDate, endDate) {
  */
 function formatDateAndTime(date) {
   // Convert date object to string
-  const formattedDate = date.toLocaleDateString("en-US", { 
-    year: "numeric", 
-    month: "2-digit", 
-    day: "2-digit"
+  const formattedDate = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   });
-  const ENNEX_DATE = formattedDate
+  const ENNEX_DATE = formattedDate;
   const [ENNEX_MONTH, ENNEX_DAY, ENNEX_YEAR] = formattedDate.split("/");
   const END_TIME = `${ENNEX_YEAR}-${ENNEX_MONTH}-${ENNEX_DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
-  const END_TIME_SECONDS = new Date(
-    new Date(END_TIME).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
-  ).getTime() / 1000; // END_TIME in seconds (PST)
+  const END_TIME_SECONDS =
+    new Date(
+      new Date(END_TIME).toLocaleString("en-US", {
+        timeZone: "America/Los_Angeles",
+      }),
+    ).getTime() / 1000; // END_TIME in seconds (PST)
 
   return {
     END_TIME,
@@ -438,12 +441,12 @@ async function uploadMeterData(meterData) {
     },
   })
     .then((res) => {
-      console.log(
-        `RESPONSE: ${res.status}, TEXT: ${res.statusText}, DATA: ${res.data}`,
-      );
+      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
     })
     .catch((err) => {
-      console.log(err);
+      console.log(
+        `ERROR: ${err.response.status}, TEXT: ${err.response.statusText}, DATA: ${err.response.data}`,
+      );
     });
 }
 
