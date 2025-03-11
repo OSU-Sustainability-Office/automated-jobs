@@ -245,6 +245,17 @@ async function isCorrectMonth(month) {
 }
 
 /**
+ * The SEC website has an inconvenient date format (DD/MM/)  
+ * This function is used to format the date for debugging purposes
+ * (e.g. "07/10/" -> "10/07")
+ */
+function formatDebugDate(date) {
+  day = date.split("/")[0];
+  month = date.split("/")[1];
+  return `${month}/${day}`;
+}
+
+/**
  * Gets the daily data for a given date and adds it to the PV_tableData array
  */
 async function getDailyData(date, meterName, meterID, PVSystem) {
@@ -282,7 +293,9 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       actualDate = await page.$eval(dateRowSelector, (el) =>
         el.textContent.trim(),
       );
-      console.log("Actual Date: " + actualDate);
+      const debugActualDate = formatDebugDate(actualDate);
+      const debugSECDate = formatDebugDate(SEC_DATE);
+      console.log("Actual Date: " + debugActualDate);
 
       // create the PVTable object (ensure that the keys match the API)
       const PVTable = {
@@ -296,21 +309,21 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
 
       // if the date matches, add the data to the PV_tableData array
       if (actualDate === SEC_DATE) {
-        console.log(`Date: ${SEC_DATE} | Energy: ${totalDailyYield}`);
+        console.log(`Date: ${debugSECDate} | Energy: ${totalDailyYield}`);
         PV_tableData.push(PVTable);
         monthFlag = true;
         return PVTable;
       } else {
         console.log(
           "Date doesn't match. Actual date: " +
-            actualDate +
+            debugActualDate +
             " | Expected date: " +
-            SEC_DATE,
+            debugSECDate,
         );
         throw "Date doesn't match";
       }
     } catch (error) {
-      console.log(`Data for this day ${SEC_DATE} not found.`);
+      console.log(`Data for this day ${debugSECDate} not found.`);
       console.log("Moving on to next meter (if applicable)");
       console.log(error);
       monthFlag = true;
