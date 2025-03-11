@@ -10,7 +10,7 @@ const meterlist = require("./meterlist.json");
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
   : process.env.DASHBOARD_API;
-const TIMEOUT_BUFFER = 25000; //DEBUG: lower to 10000 for faster testing
+const TIMEOUT_BUFFER = 50000; //DEBUG: lower to 10000 for faster testing
 const PV_tableData = [];
 
 // Selectors
