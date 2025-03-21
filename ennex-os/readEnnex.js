@@ -191,7 +191,7 @@ function formatDateAndTime(date) {
 }
 
 /**
-  * Selects the correct year and month in the dropdowns if needed.
+ * Selects the correct year and month in the dropdowns if needed.
  */
 async function changeMonthIfNeeded(year, month) {
   year = parseInt(year);
@@ -203,7 +203,7 @@ async function changeMonthIfNeeded(year, month) {
   // choose correct year option
   const yearOptions = await page.$$(".mat-mdc-option.mdc-list-item");
   for (const option of yearOptions) {
-    const text = await option.evaluate(el => el.textContent.trim());
+    const text = await option.evaluate((el) => el.textContent.trim());
     if (text === year.toString()) {
       await option.click();
       break;
@@ -216,7 +216,7 @@ async function changeMonthIfNeeded(year, month) {
   // choose correct month option
   const monthOptions = await page.$$(".mat-mdc-option.mdc-list-item");
   for (const option of monthOptions) {
-    const text = await option.evaluate(el => el.textContent.trim());
+    const text = await option.evaluate((el) => el.textContent.trim());
     if (text === MONTHS[month - 1]) {
       await option.click();
       break;
@@ -246,9 +246,19 @@ async function changeMonthIfNeeded(year, month) {
  * If the meter and date exists in the PV_tableData map, add the energy yield to the existing entry.
  * Otherwise, create a new entry in the map.
  */
-function addEnergyYieldToMap(meterName, meterID, DATE_TIME, UNIX_TIME, PVSystem, totalDailyYield) {
+function addEnergyYieldToMap(
+  meterName,
+  meterID,
+  DATE_TIME,
+  UNIX_TIME,
+  PVSystem,
+  totalDailyYield,
+) {
   // combine the energy yield for OSU Operations and OSU Lube Shop into a single entry
-  if (meterName === "OSU Operations" || meterName === "OSU Operations Lube Shop") {
+  if (
+    meterName === "OSU Operations" ||
+    meterName === "OSU Operations Lube Shop"
+  ) {
     meterName = "OSU Operations Total";
     meterID = 124;
   }
@@ -324,7 +334,14 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
         console.log(`Date: ${ENNEX_DATE} | Energy: ${totalDailyYield}`);
 
         // add the energy yield to the PV_tableData map
-        addEnergyYieldToMap(meterName, meterID, DATE_TIME, UNIX_TIME, PVSystem, totalDailyYield);
+        addEnergyYieldToMap(
+          meterName,
+          meterID,
+          DATE_TIME,
+          UNIX_TIME,
+          PVSystem,
+          totalDailyYield,
+        );
 
         monthFlag = true;
       } else {
@@ -376,12 +393,7 @@ async function getMeterData(meter) {
   // iterate through the date range and get the daily data
   const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
-    await getDailyData(
-      dateRange[i],
-      meterName,
-      meterID,
-      PVSystem,
-    );
+    await getDailyData(dateRange[i], meterName, meterID, PVSystem);
   }
 }
 
@@ -391,10 +403,12 @@ async function getMeterData(meter) {
  */
 function normalizeMeterData() {
   // convert the PV_tableData map into an array of objects
-  const normalized_PV_tableData = Array.from(PV_tableData.values()).map(entry => ({
-    ...entry,
-    totalYield: parseFloat(entry.totalYield.toFixed(2)), // round to 2 decimal places
-  }));
+  const normalized_PV_tableData = Array.from(PV_tableData.values()).map(
+    (entry) => ({
+      ...entry,
+      totalYield: parseFloat(entry.totalYield.toFixed(2)), // round to 2 decimal places
+    }),
+  );
 
   return normalized_PV_tableData;
 }
