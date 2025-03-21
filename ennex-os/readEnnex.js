@@ -13,18 +13,18 @@ const DASHBOARD_API = process.argv.includes("--local-api")
 const TIMEOUT_BUFFER = 60000; //DEBUG: lower to 25000 for faster testing
 const PV_tableData = new Map();
 const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
+  "January",
+  "February",
+  "March",
+  "April",
   "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 // Selectors
@@ -35,7 +35,7 @@ const PASSWORD_SELECTOR = "#password";
 const DETAILS_TAB_SELECTOR =
   "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
 const MONTHLY_TAB_SELECTOR = "[data-testid='MONTH']";
-const MONTH_DROPDOWN_SELECTOR = ".mat-mdc-select-min-line";
+const MONTH_DROPDOWN_SELECTOR = "#mat-select-value-0";
 
 //Non-constants
 let page = "";
@@ -191,56 +191,55 @@ function formatDateAndTime(date) {
 }
 
 /**
- * If today is the first day of the month, selects the previous month in the
- * dropdown in order to get yesterday's data to show up
+  * Selects the correct year and month in the dropdowns if needed.
  */
-async function selectPreviousMonthIfNeeded(year, month) {
+async function changeMonthIfNeeded(year, month) {
   year = parseInt(year);
   month = parseInt(month);
 
-  // wait for the month dropdown
-  const monthDropdown = await page.waitForSelector(MONTH_DROPDOWN_SELECTOR);
+  // click yearly dropdown
+  await page.locator("#mat-select-value-1").click();
 
-  // get the currently selected month and convert to numeric format
-  let selectedMonth = await page.evaluate(
-    (month) => month.innerText,
-    monthDropdown,
-  );
-
-  // dispose the monthDropdown handle
-  await monthDropdown.dispose();
-
-  // convert to numeric format
-  selectedMonth = MONTHS.indexOf(selectedMonth.slice(0, 3)) + 1;
-
-  // if the current month does not match the desired month, select the previous month
-  if (selectedMonth !== month) {
-    let prevMonthIndex = month - 1; // Convert to zero-based index
-
-    // fix indexing so January moves to December of the previous year
-    if (prevMonthIndex < 0) prevMonthIndex = 11;
-
-    const prevMonthSelector = `#timeline-picker-element_${MONTHS[prevMonthIndex]}\\ ${year}`;
-
-    await page.locator(prevMonthSelector).click();
-
-    // wait for the table to update to the previous month
-    await page.waitForFunction(
-      (month) => {
-        const cell = document.querySelector(
-          "#advanced-chart-detail-table mat-row mat-cell:first-child",
-        );
-        if (cell) {
-          console.log(cell.innerText);
-          cellMonth = cell.innerText.split("/")[0];
-          return parseInt(cellMonth) === month;
-        }
-        return false;
-      },
-      {},
-      prevMonthIndex + 1,
-    );
+  // choose correct year option
+  const yearOptions = await page.$$(".mat-mdc-option.mdc-list-item");
+  for (const option of yearOptions) {
+    const text = await option.evaluate(el => el.textContent.trim());
+    if (text === year.toString()) {
+      await option.click();
+      break;
+    }
   }
+
+  // click monthly dropdown
+  await page.locator(MONTH_DROPDOWN_SELECTOR).click();
+
+  // choose correct month option
+  const monthOptions = await page.$$(".mat-mdc-option.mdc-list-item");
+  for (const option of monthOptions) {
+    const text = await option.evaluate(el => el.textContent.trim());
+    if (text === MONTHS[month - 1]) {
+      await option.click();
+      break;
+    }
+  }
+
+  // wait for the table to update to the correct month and year
+  await page.waitForFunction(
+    (month, year) => {
+      const cell = document.querySelector(
+        "#advanced-chart-detail-table mat-row mat-cell:first-child",
+      );
+      if (cell) {
+        const cellMonth = cell.innerText.split("/")[0];
+        const cellYear = cell.innerText.split("/")[2];
+        return parseInt(cellMonth) === month && parseInt(cellYear) === year;
+      }
+      return false;
+    },
+    {},
+    month,
+    year,
+  );
 }
 
 /**
@@ -286,7 +285,7 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
     ENNEX_DAY,
     ENNEX_DATE,
   } = formatDateAndTime(date);
-  await selectPreviousMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
+  await changeMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
   let monthFlag = false; // flag to check if the month has been found
   let dayCheck = parseInt(ENNEX_DAY); // day to check in the table
   let totalDailyYield = "0";
@@ -377,7 +376,7 @@ async function getMeterData(meter) {
   // iterate through the date range and get the daily data
   const dateRange = generateDateRange(mostRecentDate, yesterdayDate);
   for (let i = 0; i < dateRange.length; i++) {
-    const dailyData = await getDailyData(
+    await getDailyData(
       dateRange[i],
       meterName,
       meterID,
