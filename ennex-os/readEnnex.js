@@ -251,6 +251,7 @@ function addEnergyYieldToMap(meterName, meterID, DATE_TIME, UNIX_TIME, PVSystem,
   // combine the energy yield for OSU Operations and OSU Lube Shop into a single entry
   if (meterName === "OSU Operations" || meterName === "OSU Operations Lube Shop") {
     meterName = "OSU Operations Total";
+    meterID = 124;
   }
 
   // create a unique key for the entry in the Map (meterName + date)
@@ -271,7 +272,6 @@ function addEnergyYieldToMap(meterName, meterID, DATE_TIME, UNIX_TIME, PVSystem,
       totalYield: totalDailyYield,
     });
   }
-
 }
 
 /**
@@ -307,6 +307,7 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
 
       // remove any commas if they exist so that parseFloat can handle values over 1,000
       totalDailyYield = totalDailyYield.replace(/,/g, "");
+      totalDailyYield = parseFloat(totalDailyYield);
 
       // verify table date matches the date we are looking for
       let actualDate = await page.$eval(
@@ -327,7 +328,6 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
         addEnergyYieldToMap(meterName, meterID, DATE_TIME, UNIX_TIME, PVSystem, totalDailyYield);
 
         monthFlag = true;
-        return PVTable;
       } else {
         console.log(
           "Date doesn't match. Actual date: " +
@@ -341,7 +341,6 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       console.log(`Data for this day ${ENNEX_DATE} not found.`);
       console.log("Moving on to next meter (if applicable)");
       monthFlag = true;
-      return;
     }
   }
 }
