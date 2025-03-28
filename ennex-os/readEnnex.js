@@ -295,69 +295,61 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
     ENNEX_DAY,
     ENNEX_DATE,
   } = formatDateAndTime(date);
-  await changeMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
-  let monthFlag = false; // flag to check if the month has been found
   let dayCheck = parseInt(ENNEX_DAY); // day to check in the table
   let totalDailyYield = "0";
 
-  // no point in checking multiple attempts, if the frontend state didn't load it's already too late
-  // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
-  // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
-  while (!monthFlag) {
-    try {
-      // get the total yield for the given day
-      await page.waitForSelector("#advanced-chart-detail-table mat-row");
-      totalDailyYield = await page.$eval(
-        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-          dayCheck +
-          "]/mat-cell[2])",
-        (el) => el.innerText,
+  try {
+    // navigate to the desired date
+    await changeMonthIfNeeded(ENNEX_YEAR, ENNEX_MONTH);
+
+    // get the total yield for the given day
+    await page.waitForSelector("#advanced-chart-detail-table mat-row");
+    totalDailyYield = await page.$eval(
+      '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+        dayCheck +
+        "]/mat-cell[2])",
+      (el) => el.innerText,
+    );
+
+    // remove any commas if they exist so that parseFloat can handle values over 1,000
+    totalDailyYield = totalDailyYield.replace(/,/g, "");
+    totalDailyYield = parseFloat(totalDailyYield);
+
+    // verify table date matches the date we are looking for
+    let actualDate = await page.$eval(
+      '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
+        dayCheck +
+        "]/mat-cell[1])",
+      (el) => el.innerText,
+      {
+        timeout: TIMEOUT_BUFFER,
+      },
+    );
+
+    // if the date matches, add the data to the PV_tableData array
+    if (actualDate === ENNEX_DATE) {
+      console.log(`Date: ${ENNEX_DATE} | Energy: ${totalDailyYield}`);
+      // add the energy yield to the PV_tableData map
+      addEnergyYieldToMap(
+        meterName,
+        meterID,
+        DATE_TIME,
+        UNIX_TIME,
+        PVSystem,
+        totalDailyYield,
       );
-
-      // remove any commas if they exist so that parseFloat can handle values over 1,000
-      totalDailyYield = totalDailyYield.replace(/,/g, "");
-      totalDailyYield = parseFloat(totalDailyYield);
-
-      // verify table date matches the date we are looking for
-      let actualDate = await page.$eval(
-        '::-p-xpath(//*[@id="advanced-chart-detail-table"]/div/div[2]/mat-table/mat-row[' +
-          dayCheck +
-          "]/mat-cell[1])",
-        (el) => el.innerText,
-        {
-          timeout: TIMEOUT_BUFFER,
-        },
+    } else {
+      console.log(
+        "Date doesn't match. Actual date: " +
+          actualDate +
+          " | Expected date: " +
+          ENNEX_DATE,
       );
-
-      // if the date matches, add the data to the PV_tableData array
-      if (actualDate === ENNEX_DATE) {
-        console.log(`Date: ${ENNEX_DATE} | Energy: ${totalDailyYield}`);
-
-        // add the energy yield to the PV_tableData map
-        addEnergyYieldToMap(
-          meterName,
-          meterID,
-          DATE_TIME,
-          UNIX_TIME,
-          PVSystem,
-          totalDailyYield,
-        );
-
-        monthFlag = true;
-      } else {
-        console.log(
-          "Date doesn't match. Actual date: " +
-            actualDate +
-            " | Expected date: " +
-            ENNEX_DATE,
-        );
-        throw "Date doesn't match";
-      }
-    } catch (error) {
-      console.log(`Data for this day ${ENNEX_DATE} not found.`);
-      console.log("Moving on to next meter (if applicable)");
-      monthFlag = true;
+      throw "Date doesn't match";
     }
+  } catch (error) {
+    console.log(`Data for this day ${ENNEX_DATE} not found.`);
+    console.log("Moving on to next meter (if applicable)");
   }
 }
 
