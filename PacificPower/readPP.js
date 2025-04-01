@@ -42,11 +42,11 @@ const GRAPH_TO_TABLE_BUTTON_YEARLY =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
 const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
 const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
-const YEAR_IDENTIFIER = "//span[contains(., 'One Year')]";
-const MONTH_IDENTIFIER = "//span[contains(., 'One Month')]";
-const WEEK_IDENTIFIER = "//span[contains(., 'One Week')]";
-const TWO_YEAR_IDENTIFIER = "//span[contains(., 'Two Year')]";
-const DAY_IDENTIFIER = "//span[contains(., 'One Day')]";
+const YEAR_IDENTIFIER = "span ::-p-text(One Year)";
+const MONTH_IDENTIFIER = "span ::-p-text(One Month)";
+const WEEK_IDENTIFIER = "span ::-p-text(One Week)";
+const TWO_YEAR_IDENTIFIER = "span ::-p-text(Two Year)";
+const DAY_IDENTIFIER = "span ::-p-text(One Day)";
 const GRAPH_SELECTOR =
   "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area";
 // Selector below corresponds to monthly meter data table, add row number to get specific row data (e.g. + "1)" for first row of data)
@@ -129,14 +129,11 @@ async function signInToPacificPower() {
   );
   console.log(await page.title());
 
-  await page.waitForTimeout(25000);
-
   // if first time logging in
   if (loginErrorCount === 0) {
-    await page.waitForSelector(ACCEPT_COOKIES);
+    await page.locator(ACCEPT_COOKIES).click();
     console.log("Cookies Button found");
 
-    await page.click(ACCEPT_COOKIES);
     await page.click(LOCATION_BUTTON);
     console.log("Location Button clicked");
     // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
@@ -151,7 +148,6 @@ async function signInToPacificPower() {
     });
     console.log(await page.title());
     console.log("waiting for iframe with form to be ready.");
-    await page.waitForTimeout(25000);
     await page.waitForSelector("iframe", { timeout: 60000 });
     console.log("iframe is ready. Loading iframe content");
 
@@ -159,11 +155,10 @@ async function signInToPacificPower() {
     const frame = await signin_iframe.contentFrame();
 
     console.log("filling username in iframe");
-
-    await frame.type(SIGN_IN_INPUT, process.env.PP_USERNAME);
+    await frame.locator(SIGN_IN_INPUT).fill(process.env.PP_USERNAME);
 
     console.log("filling password in iframe");
-    await frame.type(SIGN_IN_PASSWORD, process.env.PP_PWD);
+    await frame.locator(SIGN_IN_PASSWORD).fill(process.env.PP_PWD);
 
     await frame.click(LOGIN_BUTTON);
     console.log("Login Button clicked");
@@ -226,13 +221,12 @@ async function navigateToFirstMeterPage() {
  */
 async function getMeterSelectorNumberFromFirstMeter() {
   // it's theoretically possible to get yearly result for first meter, so check just in case
-  // await page.waitForTimeout(25000);
   await page.waitForFunction(
     () => !document.querySelector("#loading-component > mat-spinner"),
   );
 
-  [yearCheck] = await page.$x(YEAR_IDENTIFIER, { timeout: 25000 });
-  [monthCheck] = await page.$x(MONTH_IDENTIFIER, { timeout: 25000 });
+  yearCheck = await page.$(YEAR_IDENTIFIER, { timeout: 25000 });
+  monthCheck = await page.$(MONTH_IDENTIFIER, { timeout: 25000 });
 
   console.log("Year / Month Check found");
   if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
@@ -245,16 +239,10 @@ async function getMeterSelectorNumberFromFirstMeter() {
     graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
-  await page.waitForTimeout(25000);
-  await page.waitForSelector(graphButton, { timeout: 25000 });
+  await page.locator(graphButton).click();
   console.log("Graph to Table Button clicked");
 
-  await page.click(graphButton);
-
-  await page.waitForTimeout(25000);
-  await page.waitForSelector(METER_MENU);
-
-  await page.click(METER_MENU);
+  await page.locator(METER_MENU).click();
 
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
@@ -269,9 +257,6 @@ async function getMeterSelectorNumberFromFirstMeter() {
   await page.click(METER_MENU);
   console.log("Meter Menu Closed");
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT, { hidden: true });
-
-  // one time pause after closing menu before the while loops, just in case
-  // await page.waitForTimeout(10000);
 }
 
 // -------------------------------- Misc page navigation functions ---------------------------- //
@@ -324,13 +309,11 @@ async function switchTimeFrameOptionToForceDataToLoad() {
   // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
   // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
   monthlyDataTopRowErrorFlag = true;
-  await page.waitForSelector(TIME_MENU);
+  await page.locator(TIME_MENU).click();
 
-  await page.click(TIME_MENU);
-  // await page.waitForTimeout(10000);
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
-  [weekCheck] = await page.$x(WEEK_IDENTIFIER, {
+  weekCheck = await page.$(WEEK_IDENTIFIER, {
     timeout: 25000,
   });
 
@@ -358,7 +341,7 @@ async function switchTimeFrameOptionToForceDataToLoad() {
     ];
   }
 
-  [timeframeCheck] = await page.$x(
+  timeframeCheck = await page.$(
     timeframeChoices[timeframeIterator % timeframeChoices.length].id,
     {
       timeout: 25000,
@@ -461,17 +444,14 @@ async function selectMeterFromDropdownMenu() {
   await page.click(METER_MENU);
   console.log("Meter Menu Opened");
 
-  // await page.waitForTimeout(10000);
   await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
 
-  await page.waitForSelector(
-    "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
-  );
+  await page
+    .locator(
+      "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
+    )
+    .click();
   console.log("New Meter Opened");
-
-  await page.click(
-    "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
-  );
 }
 
 /**
