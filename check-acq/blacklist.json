@@ -142,5 +142,37 @@
     "type": "Electricity",
     "classInt": 4045,
     "building_hidden": true
+  },
+  {
+    "meter_id": 85,
+    "meter_note": "Use Tesla Iframes now, don't use own API data",
+    "meter_name": "M38954c21M8669M47b6M8376M835cc24f908c",
+    "building_id": 37,
+    "building_name": "Hermiston Solar Array",
+    "meterGroups": [
+      {
+        "meter_group_id": "177",
+        "meter_group_name": "Hermiston Solar Array"
+      }
+    ],
+    "type": "Solar Panel",
+    "classInt": 9990001,
+    "building_hidden": false
+  },
+  {
+    "meter_id": 184,
+    "meter_note": "Use Tesla Iframes now, don't use own API data",
+    "meter_name": "AAHL Solar Panels",
+    "building_id": 85,
+    "building_name": "Aquatic Animal Health Lab Solar Array",
+    "meterGroups": [
+      {
+        "meter_group_id": "264",
+        "meter_group_name": "Aquatic Animal Health Lab Solar Array"
+      }
+    ],
+    "type": "Solar Panel",
+    "classInt": 9990001,
+    "building_hidden": false
   }
 ]
