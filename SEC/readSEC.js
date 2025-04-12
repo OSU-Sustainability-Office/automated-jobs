@@ -422,8 +422,7 @@ async function uploadMeterData(meterData) {
 * Date Format: MM/DD/YYYY (e.g. "10/07/2021")
  */
 async function getLastLoggedDate() {
-  return "05/01/2017"
-  // return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
+  return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
 }
 
 (async () => {
