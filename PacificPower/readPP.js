@@ -668,12 +668,8 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
 
   // get today's date
   const dateObj = new Date(date);
-  const formattedDate = formatDateAndTime(dateObj)
-  const END_TIME = `${date}T23:59:59`;
+  const {END_TIME, END_TIME_SECONDS} = formatDateAndTime(dateObj)
 
-  // unix time calc
-  dateObj.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
