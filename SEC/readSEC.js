@@ -10,13 +10,13 @@ const meterlist = require("./meterlist.json");
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
   : process.env.DASHBOARD_API;
-const TIMEOUT_BUFFER = 50000; //DEBUG: lower to 10000 for faster testing
+const TIMEOUT_BUFFER = 10000; //DEBUG: lower to 10000 for faster testing
 const PV_tableData = [];
 
 // Selectors
 const USERNAME_SELECTOR = "input[name='username']";
 const PASSWORD_SELECTOR = "input[name='password']";
-const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
+const ACCEPT_COOKIES = "#cmpwrapper >>> a.cmpboxbtn.cmpboxbtnyes.cmptxt_btn_yes";
 const LOGIN_BUTTON = "button[name='login']";
 const DATA_TABLE =
   "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody";
