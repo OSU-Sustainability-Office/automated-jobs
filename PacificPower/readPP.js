@@ -625,6 +625,37 @@ function getActualDate(num_days) {
   return { actualDate, ACTUAL_DATE_UNIX };
 }
 
+/**
+ * Parameters:
+ * - date: Date object (e.g. new Date() or new Date("2021-10-07"))
+ * Returns an object of date in two formats:
+ * {
+ *    END_TIME: '2021-10-07T23:59:59',
+ *    END_TIME_SECONDS: '1633622399',
+ * }
+ */
+function formatDateAndTime(date) {
+  // Convert date object to string
+  const formattedDate = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const [MONTH, DAY, YEAR] = formattedDate.split("/");
+  const DATE_TIME = `${YEAR}-${MONTH}-${DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
+  const UNIX_TIME =
+    new Date(
+      new Date(DATE_TIME).toLocaleString("en-US", {
+        timeZone: "America/Los_Angeles",
+      }),
+    ).getTime() / 1000; // END_TIME in seconds (PST)
+
+  return {
+    END_TIME: DATE_TIME,
+    END_TIME_SECONDS: UNIX_TIME,
+  };
+}
+
 async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let usage_kwh = parseFloat(
     monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
@@ -635,7 +666,9 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let positionAve = "Average";
   let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
 
+  // get today's date
   const dateObj = new Date(date);
+  const formattedDate = formatDateAndTime(dateObj)
   const END_TIME = `${date}T23:59:59`;
 
   // unix time calc
