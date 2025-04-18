@@ -10,13 +10,13 @@ const meterlist = require("./meterlist.json");
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
   : process.env.DASHBOARD_API;
-const TIMEOUT_BUFFER = 50000; //DEBUG: lower to 10000 for faster testing
+const TIMEOUT_BUFFER = 60000; //DEBUG: lower to 10000 for faster testing
 const PV_tableData = [];
 
 // Selectors
 const USERNAME_SELECTOR = "input[name='username']";
 const PASSWORD_SELECTOR = "input[name='password']";
-const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
+const ACCEPT_COOKIES = "#cmpwrapper >>> a.cmpboxbtn.cmpboxbtnyes.cmptxt_btn_yes";
 const LOGIN_BUTTON = "button[name='login']";
 const DATA_TABLE =
   "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDetailSliderTab_ChartDetails_ChartDetailTable tbody";
@@ -174,39 +174,37 @@ function formatDateAndTime(date) {
 }
 
 /**
- * If today is the first day of the month, selects the previous month in the
- * dropdown in order to get yesterday's data to show up
+ * Selects the correct year and month in the dropdowns if needed.
  */
-async function selectPreviousMonthIfNeeded(year, month) {
+async function changeMonthIfNeeded(year, month) {
   year = parseInt(year);
   month = parseInt(month);
 
   // convert year and month to match the dropdown format (e.g. "January 2021")
-  const previousMonth = new Date(year, month - 1).toLocaleString("default", {
+  const dropdownDate = new Date(year, month - 1).toLocaleString("default", {
     month: "long", // (e.g. "January")
     year: "numeric", // (e.g. "2021")
   });
 
-  // wait for month dropdown element to appear
-  const monthDropdownSelector =
+  // wait for date dropdown element to appear
+  const dateDropdownSelector =
     "#ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom";
-  await page.waitForSelector(monthDropdownSelector);
+  await page.waitForSelector(dateDropdownSelector);
 
-  // find the visible text option that matches the month name
+  // find the visible text option that matches the month/year
   const optionHandle = await page.$$(
-    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${previousMonth}']`,
+    `xpath/.//select[@id='ctl00_ContentPlaceHolder1_UserControlShowAnalysisTool1_ChartDatePicker_PC_MonthPickerFrom']/option[text()='${dropdownDate}']`,
   );
 
   // use the extracted value to select the dropdown
   if (optionHandle.length > 0) {
     const value = await page.evaluate((el) => el.value, optionHandle[0]);
-    await page.select(monthDropdownSelector, value);
+    await page.select(dateDropdownSelector, value);
   } else {
-    console.log("Error: Could not find option for", previousMonth);
+    console.log("Error: Could not find option for", dropdownDate);
   }
 
-  // dispose monthDropdownSelector and optionHandle
-  monthDropdownSelector.dispose();
+  // dispose optionHandles
   optionHandle.forEach((el) => el.dispose());
 
   // wait until the table reflects the correct month:
@@ -263,7 +261,7 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
     formatDateAndTime(date);
 
   if (!(await isCorrectMonth(SEC_MONTH))) {
-    await selectPreviousMonthIfNeeded(SEC_YEAR, SEC_MONTH);
+    await changeMonthIfNeeded(SEC_YEAR, SEC_MONTH);
   }
 
   let monthFlag = false; // flag to check if the month has been found
@@ -293,9 +291,8 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       actualDate = await page.$eval(dateRowSelector, (el) =>
         el.textContent.trim(),
       );
-      const debugActualDate = formatDebugDate(actualDate);
-      const debugSECDate = formatDebugDate(SEC_DATE);
-      console.log("Actual Date: " + debugActualDate);
+      const debugActualDate = formatDebugDate(actualDate) + "/" + SEC_YEAR;
+      const debugSECDate = formatDebugDate(SEC_DATE) + "/" + SEC_YEAR;
 
       // create the PVTable object (ensure that the keys match the API)
       const PVTable = {

@@ -28,7 +28,7 @@ const MONTHS = [
 ];
 
 // Selectors
-const ACCEPT_COOKIES = "#onetrust-accept-btn-handler";
+const ACCEPT_COOKIES = "#cmpwrapper >>> a.cmpboxbtn.cmpboxbtnyes.cmptxt_btn_yes";
 const LOGIN_BUTTON = "button[name='login']";
 const USERNAME_SELECTOR = "#username";
 const PASSWORD_SELECTOR = "#password";
