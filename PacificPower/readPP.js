@@ -606,23 +606,55 @@ async function getRowText(monthly_top_const, row_days) {
   return monthly_top_text;
 }
 
+/* Returns the date for today minus the number of days specified in two formats:
+  * {
+  *   actualDate: '2021-10-07',
+  *   ACTUAL_DATE_UNIX: '1633622399',
+  * }
+*/
 function getActualDate(num_days) {
   // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
-  // yesterday's date in PST timezone, YYYY-MM-DD format
-  let actualDate = moment
-    .tz(
-      new Date(new Date().getTime() - num_days * 24 * 60 * 60 * 1000),
-      "America/Los_Angeles",
-    )
+  // get the actual date
+  const actualDate = moment
+    .tz(Date.now() - num_days * 24 * 60 * 60 * 1000, "America/Los_Angeles")
     .format("YYYY-MM-DD");
-  const actualDateObj = new Date(actualDate);
+    
+  // convert to unix time
+  const end_of_day_time = actualDate + "T23:59:59"; // always set to 11:59:59 PM (PST)
+  const UNIX_TIME = moment
+    .tz(end_of_day_time, "America/Los_Angeles")
+    .unix(); // END_TIME in seconds (PST)
 
-  // unix time calc
-  actualDateObj.setUTCHours(23, 59, 59, 0);
-  const ACTUAL_DATE_UNIX = Math.floor(
-    actualDateObj.valueOf() / 1000,
-  ).toString();
-  return { actualDate, ACTUAL_DATE_UNIX };
+  return { 
+    actualDate: actualDate, 
+    ACTUAL_DATE_UNIX: UNIX_TIME 
+  };
+}
+
+/**
+ * Parameters:
+ * - date: Date object (e.g. new Date() or new Date("2021-10-07"))
+ * Returns an object of date in two formats:
+ * {
+ *    END_TIME: '2021-10-07T23:59:59',
+ *    END_TIME_SECONDS: '1633622399',
+ * }
+ */
+function formatDateAndTime(date) {
+  // Convert date object to string
+  const formattedDate = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const [MONTH, DAY, YEAR] = formattedDate.split("/");
+  const DATE_TIME = `${YEAR}-${MONTH}-${DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
+  const UNIX_TIME = moment.tz(`${DATE_TIME}`, "America/Los_Angeles").unix(); // END_TIME in seconds (PST)
+
+  return {
+    END_TIME: DATE_TIME,
+    END_TIME_SECONDS: UNIX_TIME,
+  };
 }
 
 async function getRowData(monthly_top_text, positionUsage, positionEst) {
@@ -635,12 +667,10 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let positionAve = "Average";
   let date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
 
+  // get today's date
   const dateObj = new Date(date);
-  const END_TIME = `${date}T23:59:59`;
+  const {END_TIME, END_TIME_SECONDS} = formatDateAndTime(dateObj)
 
-  // unix time calc
-  dateObj.setUTCHours(23, 59, 59, 0);
-  const END_TIME_SECONDS = Math.floor(dateObj.valueOf() / 1000).toString();
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
 
