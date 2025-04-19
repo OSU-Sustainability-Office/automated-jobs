@@ -606,23 +606,29 @@ async function getRowText(monthly_top_const, row_days) {
   return monthly_top_text;
 }
 
+/* Returns the date for today minus the number of days specified in two formats:
+  * {
+  *   actualDate: '2021-10-07',
+  *   ACTUAL_DATE_UNIX: '1633622399',
+  * }
+*/
 function getActualDate(num_days) {
   // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
-  // yesterday's date in PST timezone, YYYY-MM-DD format
-  let actualDate = moment
-    .tz(
-      new Date(new Date().getTime() - num_days * 24 * 60 * 60 * 1000),
-      "America/Los_Angeles",
-    )
+  // get the actual date
+  const actualDate = moment
+    .tz(Date.now() - num_days * 24 * 60 * 60 * 1000, "America/Los_Angeles")
     .format("YYYY-MM-DD");
-  const actualDateObj = new Date(actualDate);
+    
+  // convert to unix time
+  const end_of_day_time = actualDate + "T23:59:59"; // always set to 11:59:59 PM (PST)
+  const UNIX_TIME = moment
+    .tz(end_of_day_time, "America/Los_Angeles")
+    .unix(); // END_TIME in seconds (PST)
 
-  // unix time calc
-  actualDateObj.setUTCHours(23, 59, 59, 0);
-  const ACTUAL_DATE_UNIX = Math.floor(
-    actualDateObj.valueOf() / 1000,
-  ).toString();
-  return { actualDate, ACTUAL_DATE_UNIX };
+  return { 
+    actualDate: actualDate, 
+    ACTUAL_DATE_UNIX: UNIX_TIME 
+  };
 }
 
 /**
@@ -643,12 +649,7 @@ function formatDateAndTime(date) {
   });
   const [MONTH, DAY, YEAR] = formattedDate.split("/");
   const DATE_TIME = `${YEAR}-${MONTH}-${DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
-  const UNIX_TIME =
-    new Date(
-      new Date(DATE_TIME).toLocaleString("en-US", {
-        timeZone: "America/Los_Angeles",
-      }),
-    ).getTime() / 1000; // END_TIME in seconds (PST)
+  const UNIX_TIME = moment.tz(`${DATE_TIME}`, "America/Los_Angeles").unix(); // END_TIME in seconds (PST)
 
   return {
     END_TIME: DATE_TIME,
