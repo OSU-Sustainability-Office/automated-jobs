@@ -1,8 +1,8 @@
 {
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.8",
     "axios": "^1.8.4",
     "dotenv": "^16.5.0",
-    "osmtogeojson": "^3.0.0-beta.5",
-    "xmldom": "^0.6.0"
+    "osmtogeojson": "^3.0.0-beta.5"
   }
 }
