@@ -1,3 +1,13 @@
+/* This script fetches GeoJSON data from the Overpass API and uploads it via the Energy Dashboard API.
+    * It was designed to reduce overhead and improve performance by elimanating the need to fetch the data
+    * from the client side. It is meant be run as a cron job to keep the GeoJSON data up to date.
+    * The script does the following:
+        1. Fetches all building data from the Energy Dashboard API
+        2. Fetches GeoJSON data from the Overpass API using the building IDs
+        3. Normalizes the GeoJSON data to ensure it is ready to be used in the Energy Dashboard
+        4. Updates the GeoJSON data in the database with the new building properties using the Energy Dashboard API
+*/
+
 // Imports
 require('dotenv').config()
 const axios = require("axios");
