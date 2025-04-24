@@ -157,7 +157,7 @@ async function main() {
     const wayIds = Array.from(buildingMap.keys()).join(',');
     const geojson = await fetchGeoJSONData(wayIds);
 
-    // Preapre the GeoJSON data
+    // Prepare the GeoJSON data
     const normalizedBuildingArray = normalizeData(buildingMap, geojson);
 
     // Update the database with the new GeoJSON data
