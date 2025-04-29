@@ -125,9 +125,16 @@ function normalizeData(buildingMap, geojson) {
                 buildingId: building.buildingId,
                 buildingGeoJSON: feature
             });
+
+            // Remove building from map to indicate it has been processed
+            buildingMap.delete(wayId);
         }
     }
 
+    // Trigger an error if a building has not been found in the GeoJSON data (usually indicates invalid wayId)
+    if (buildingMap.size > 0) {
+        console.error("The following buildings were not found in the GeoJSON data:", Array.from(buildingMap.values()));
+    }
     return normalizedBuildingArray;
 }
 
