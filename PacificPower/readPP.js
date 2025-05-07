@@ -94,11 +94,6 @@ let yearlyArray = []; // list of yearly type meters (only shows "1 year" and "2 
 
 // PP Recent variables (missing data detection)
 let pp_recent_data = null; // list of meters from ppRecent endpoint (SQL database)
-let pp_recent_filtered = []; // list of meters on PacificPower page, with matching meter ID with ppRecent endpoint
-let pp_recent_matching = null; // list of meters on PacificPower page, with matching meter ID with ppRecent endpoint
-let pp_recent_matching_time = null; // check if current meter exists on ppRecent endpoint
-let upload_queue_matching = null; // check if current meter ID exists in upload queue (PPArray)
-let upload_queue_matching_time = null; // check if current meter ID and time_seconds value exists in upload queue (PPArray)
 
 // PP Exclusion variables (blacklist excluded meters, detect new meters)
 let pp_meters_exclusion_list = null; // list of meters from ppExclude endpoint
@@ -512,70 +507,44 @@ async function getMeterIdFromMeterMenu() {
 }
 
 /**
- * Check upload queue for duplicate meter/time data.
+ * Check if the date is in sync with the Pacific Power site.
  */
-function lookForDuplicateDataInPPArray(date, actualDate, END_TIME_SECONDS) {
-  upload_queue_matching_time = PPArray.find(
+function isMatchingDate(date, actualDate) {
+  if (date !== actualDate) {
+    console.log("Actual date and date on pacific power site are out of sync.");
+    console.log("Pacific Power Data: " + actualDate + ", " + "Actual Date: " + date);
+  }
+  return date === actualDate;
+}
+
+/**
+ * Check if the meterId and corresponding time is already in the database.
+ */
+function isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) {
+  const meterInDatabase = pp_recent_data.find(
+    (o) =>
+      String(o.pacific_power_meter_id) === String(pp_meter_id) &&
+      String(o.time_seconds) === String(END_TIME_SECONDS),
+  );
+  if (meterInDatabase) {
+    console.log("Data for this day already exists in SQL database. Skipping...");
+  }
+  return meterInDatabase;
+}
+
+/**
+ * Check if the meterId and corresponding time is already in the upload queue.
+ */
+function isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS) {
+  const meterInQueue = PPArray.find(
     (o) =>
       String(o.pp_meter_id) === String(pp_meter_id) &&
       String(o.time_seconds) === String(END_TIME_SECONDS),
   );
-
-  if (pp_recent_data) {
-    pp_recent_filtered = pp_recent_data.filter(
-      (o) => String(o.pacific_power_meter_id) === String(pp_meter_id),
-    );
-
-    let closestMatch = 864000; // 10 days in seconds initial value, which should be higher than the 7 day threshold
-    for (let i = 0; i < pp_recent_filtered.length; i++) {
-      if (
-        Number(END_TIME_SECONDS) >= Number(pp_recent_filtered[i].time_seconds)
-      ) {
-        if (
-          Number(END_TIME_SECONDS) -
-            Number(pp_recent_filtered[i].time_seconds) <
-          closestMatch
-        ) {
-          closestMatch =
-            Number(END_TIME_SECONDS) -
-            Number(pp_recent_filtered[i].time_seconds);
-          pp_recent_matching = pp_recent_filtered[i];
-        }
-      }
-    }
-
-    pp_recent_matching_time = moment
-      .tz(
-        pp_recent_matching.time_seconds * 1000, // moment.tz expects milliseconds
-        "America/Los_Angeles",
-      )
-      .format("YYYY-MM-DD");
+  if (meterInQueue) {
+    console.log("Data for this day already exists in upload queue. Skipping...");
   }
-
-  console.log("Actual date: " + actualDate);
-  console.log("Date shown on Pacific Power site: " + date.toString());
-
-  if (date && date !== actualDate) {
-    console.log("Actual date and date on pacific power site are out of sync.");
-  } else if (date && date === actualDate) {
-    console.log("Actual date and date on pacific power site are in sync.");
-  }
-
-  if (pp_recent_data) {
-    if (pp_recent_matching) {
-      console.log(
-        "Latest matching date from SQL database (relative to pacific power site): " +
-          pp_recent_matching_time,
-      );
-    } else {
-      console.log("No matching data for this day found yet in SQL database");
-    }
-    if (pp_recent_matching_time && pp_recent_matching_time === actualDate) {
-      console.log(
-        "Data for this day already exists in SQL database, skipping upload, going to next day",
-      );
-    }
-  }
+  return meterInQueue;
 }
 
 /**
@@ -1011,18 +980,6 @@ async function getMeterData() {
             prevDayFlag = true;
           }
 
-          // Check upload queue (PPArray) for data that matches meter ID (does NOT check for matching time value).
-          // TODO in future PR: Rename PPArray and other variables to have clearer meaning
-          upload_queue_matching = PPArray.find(
-            (o) => String(o.pp_meter_id) === String(pp_meter_id),
-          );
-          if (upload_queue_matching && !pp_recent_data) {
-            console.log(
-              "Due to the ppRecent API call returning an error, exiting early after queuing at least 1 day's worth of data to be uploaded (to reduce redundant uploads).",
-            );
-            prevDayFlag = true;
-            break;
-          }
           if (actual_days > actual_days_const) {
             console.log(
               "Monthly Data Top Row Found, getting table top row value",
@@ -1064,10 +1021,6 @@ async function getMeterData() {
             await getRowData(monthly_top_text, positionUsage, positionEst);
           let actualDate = getActualDate(actual_days).actualDate;
 
-          // Check upload queue (PPArray) for data that matches meter ID AND time, before uploading.
-          // TODO in future PR: Rename PPArray and other variables to have clearer meaning
-          lookForDuplicateDataInPPArray(date, actualDate, END_TIME_SECONDS);
-
           PPTable = {
             meter_selector_num,
             pp_meter_id,
@@ -1076,16 +1029,10 @@ async function getMeterData() {
             time_seconds: END_TIME_SECONDS,
           };
 
-          // If recent data list was fetched, verify there are no matching meter ID + time_seconds values in SQL
-          // database, nor in upload queue (PPTable).
-          // If recent data list wasn't fetched, still verify there are no matching meter ID + time_seconds values
-          // in upload queue (PPTable).
-          if (
-            ((pp_recent_matching &&
-              String(pp_recent_matching.time_seconds) !== END_TIME_SECONDS) ||
-              !pp_recent_matching) &&
-            !upload_queue_matching_time
-          ) {
+          // Upload date if data is valid and not redundant
+          if (isMatchingDate(date, actualDate) 
+            && !isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) 
+            && !isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS)) {
             // if exclusion list was fetched, compare the meter against it to exclude meters
             // otherwise we will add all meter data to db
             if (pp_meters_exclusion_list) {
