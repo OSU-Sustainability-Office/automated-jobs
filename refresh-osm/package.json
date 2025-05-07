@@ -1,8 +1,26 @@
 {
+  "name": "refresh-osm",
+  "version": "1.0.0",
+  "description": "Refresh OSM data",
+  "main": "index.js",
+  "scripts": {
+    "format": "prettier --write ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OSU-Sustainability-Office/automated-jobs.git"
+  },
+  "author": "Oregon State Sustainability Office",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/OSU-Sustainability-Office/automated-jobs/issues"
+  },
+  "homepage": "https://github.com/OSU-Sustainability-Office/automated-jobs#readme",
   "dependencies": {
     "@xmldom/xmldom": "^0.9.8",
     "axios": "^1.8.4",
     "dotenv": "^16.5.0",
-    "osmtogeojson": "^3.0.0-beta.5"
+    "osmtogeojson": "^3.0.0-beta.5",
+    "prettier": "^3.0.1"
   }
 }
