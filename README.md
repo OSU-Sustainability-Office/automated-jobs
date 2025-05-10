@@ -19,6 +19,7 @@ All console commands below should be run from the directory unless stated otherw
   - `node check-acq.js`
 - **PacificPower** (Deployed): Retrieves energy data for several meters from Pacific Power website. Emails alerts integrated for new meters and failed uploads.
   - `node readPP.js`
+- **refresh-osm** (Deployed): Retrieves building outline data in GeoJSON format from the Overpass API (OpenStreetMap) and stores it in the buildings table of the database. Used primarily for rendering building outlines on the map.
 
 ## Deprecated
 
