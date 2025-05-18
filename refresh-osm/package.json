@@ -1,7 +1,7 @@
 {
-  "name": "automated-jobs",
+  "name": "refresh-osm",
   "version": "1.0.0",
-  "description": "Automated scripts for the sustainability office",
+  "description": "Refresh OSM data",
   "main": "index.js",
   "scripts": {
     "format": "prettier --write ."
@@ -17,9 +17,10 @@
   },
   "homepage": "https://github.com/OSU-Sustainability-Office/automated-jobs#readme",
   "dependencies": {
-    "axios": "^1.9.0",
-    "dotenv": "^10.0.0",
-    "prettier": "^3.0.1",
-    "puppeteer": "^23.6.1"
+    "@xmldom/xmldom": "^0.9.8",
+    "axios": "^1.8.4",
+    "dotenv": "^16.5.0",
+    "osmtogeojson": "^3.0.0-beta.5",
+    "prettier": "^3.0.1"
   }
 }

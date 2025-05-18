@@ -28,14 +28,16 @@ const MONTHS = [
 ];
 
 // Selectors
-const ACCEPT_COOKIES = "#cmpwrapper >>> a.cmpboxbtn.cmpboxbtnyes.cmptxt_btn_yes";
+const ACCEPT_COOKIES =
+  "#cmpwrapper >>> a.cmpboxbtn.cmpboxbtnyes.cmptxt_btn_yes";
 const LOGIN_BUTTON = "button[name='login']";
 const USERNAME_SELECTOR = "#username";
 const PASSWORD_SELECTOR = "#password";
-const DETAILS_TAB_SELECTOR =
-  "body > sma-ennexos > div > mat-sidenav-container > mat-sidenav-content > div > div > sma-energy-and-power > sma-energy-and-power-container > div > div > div > div.ng-star-inserted > div.sma-main.ng-star-inserted > sma-advanced-chart > div > div > mat-accordion";
+const DETAILS_TAB_SELECTOR = "::-p-aria(Details)";
 const MONTHLY_TAB_SELECTOR = "[data-testid='MONTH']";
 const MONTH_DROPDOWN_SELECTOR = "#mat-select-value-0";
+const PV_SYSTEM_SELECTOR =
+  '::-p-xpath(//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/button/div[2]/span)';
 
 //Non-constants
 let page = "";
@@ -376,10 +378,7 @@ async function getMeterData(meter) {
   await waitForTimeout(7500);
 
   // double-check that the meter name is correct
-  let PVSystem = await page.$eval(
-    '::-p-xpath(//*[@id="header"]/sma-navbar/sma-navbar-container/nav/div[1]/sma-nav-node/div/sma-nav-element/div/div[2]/span)',
-    (el) => el.innerText,
-  );
+  let PVSystem = await page.$eval(PV_SYSTEM_SELECTOR, (el) => el.innerText);
   console.log("Meter Name:", PVSystem);
 
   // iterate through the date range and get the daily data
