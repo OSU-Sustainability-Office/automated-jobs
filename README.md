@@ -1,6 +1,6 @@
 # automated-jobs:
 
-Containerized CRON jobs written in Node v.18 for the Sustainability Office.
+Containerized internal CRON jobs written for the Sustainability Office.
 
 ## Architecture
 
