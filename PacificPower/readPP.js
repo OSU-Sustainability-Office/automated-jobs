@@ -65,6 +65,24 @@ const SELECTORS = {
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(",
 };
 
+// Map of timeframe choices for monthly and yearly data
+const TIMEFRAME_CHOICES = {
+  MONTHLY: [
+    { id: SELECTORS.YEAR_IDENTIFIER, label: "One Year" },
+    { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+    { id: SELECTORS.TWO_YEAR_IDENTIFIER, label: "Two Year" },
+    { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+    { id: SELECTORS.DAY_IDENTIFIER, label: "One Day" },
+    { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+    { id: SELECTORS.WEEK_IDENTIFIER, label: "One Week" },
+    { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+  ],
+  YEARLY: [
+    { id: SELECTORS.TWO_YEAR_IDENTIFIER, label: "Two Year" },
+    { id: SELECTORS.YEAR_IDENTIFIER, label: "One Year" },
+  ],
+};
+
 // timeframe related variables
 let yearCheck = false; // true = "One Year" text detected in timeframe dropdown menu for current meter
 let prevDayFlag = false; // true = continue to check previous days' data, false = stop checking previous days' data (for current meter id)
@@ -423,24 +441,12 @@ async function switchTimeFrameOptionToForceDataToLoad() {
     console.log("One Week Option Found, Data is probably monthly");
 
     // odd timeframeIterator (0,2,4, etc) = One Month
-    timeframeChoices = [
-      { id: SELECTORS.YEAR_IDENTIFIER, label: "One Year" },
-      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
-      { id: SELECTORS.TWO_YEAR_IDENTIFIER, label: "Two Year" },
-      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
-      { id: SELECTORS.DAY_IDENTIFIER, label: "One Day" },
-      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
-      { id: SELECTORS.WEEK_IDENTIFIER, label: "One Week" },
-      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
-    ];
+    timeframeChoices = TIMEFRAME_CHOICES.MONTHLY;
   } else {
     console.log("One Week Option Not Found, Data probably yearly");
 
     // odd timeframeIterator (0,2,4, etc) = One Year
-    timeframeChoices = [
-      { id: SELECTORS.TWO_YEAR_IDENTIFIER, label: "Two Year" },
-      { id: SELECTORS.YEAR_IDENTIFIER, label: "One Year" },
-    ];
+    timeframeChoices = TIMEFRAME_CHOICES.YEARLY;
   }
 
   timeframeCheck = await page.$(
