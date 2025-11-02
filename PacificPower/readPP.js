@@ -112,6 +112,102 @@ let pp_meters_exclude = []; // list of meters on PacificPower page we have exclu
 let pp_meters_include = []; // list of meters on PacificPower page we have included based on ppExclude endpoint
 let pp_meters_exclude_not_found = []; // list of (new) meters on PacificPower page we have excluded based on ppExclude endpoint
 
+// ================================
+// UTILITY FUNCTIONS
+// ================================
+
+// Date-related helper functions
+class DateUtils {
+  /* Returns the date for today minus the number of days specified in two formats:
+    * {
+    *   actualDate: '2021-10-07',
+    *   ACTUAL_DATE_UNIX: '1633622399',
+    * }
+  */
+  static getActualDate(numDays) {
+    // get the actual date
+    const actualDate = moment
+      .tz(Date.now() - numDays * 24 * 60 * 60 * 1000, "America/Los_Angeles")
+      .format("YYYY-MM-DD");
+
+    const endOfDayTime = actualDate + "T23:59:59"; // always set to 11:59:59 PM (PST)
+    const unixTime = moment
+      .tz(endOfDayTime, "America/Los_Angeles")
+      .unix(); // END_TIME in seconds (PST)
+
+    return {
+      ACTUAL_DATE: actualDate,
+      ACTUAL_DATE_UNIX: unixTime,
+    };
+  }
+
+  /**
+   * Parameters:
+   * - date: Date string (e.g. "2021-10-07")
+   * Returns an object of date in two formats:
+   * {
+   *    END_TIME: '2021-10-07T23:59:59',
+   *    END_TIME_SECONDS: '1633622399',
+   * }
+   */
+  static formatDateAndTime(date) {
+    const [YEAR, MONTH, DAY] = date.split("-");
+    const dateTime = `${YEAR}-${MONTH}-${DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
+    const unixTime = moment.tz(dateTime, "America/Los_Angeles").unix(); // END_TIME in seconds (PST)
+
+    return {
+      END_TIME: dateTime,
+      END_TIME_SECONDS: unixTime,
+    };
+  }
+
+  /**
+   * Check if the date is in sync with the Pacific Power site.
+   */
+  static isMatchingDate(date, actualDate) {
+    if (date !== actualDate) {
+      console.log(
+        "Actual date and date on pacific power site are out of sync.",
+      );
+      console.log(`Pacific Power Data: ${actualDate}, Actual Date: ${date}`);
+    }
+    return date === actualDate;
+  }
+}
+
+// Data validation helper functions
+class ValidationUtils {
+  /**
+   * Check if the meterId and corresponding time is already in the database.
+   */
+  static isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) {
+    const meterInDatabase = pp_recent_data.find(
+      (o) =>
+        String(o.pacific_power_meter_id) === String(pp_meter_id) &&
+        String(o.time_seconds) === String(END_TIME_SECONDS),
+    );
+    if (meterInDatabase) {
+      console.log("Data for this day already exists in SQL database. Skipping...");
+    }
+    return meterInDatabase;
+  }
+
+  /**
+   * Check if the meterId and corresponding time is already in the upload queue.
+   */
+  static isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS) {
+    const meterInQueue = PPArray.find(
+      (o) =>
+        String(o.pp_meter_id) === String(pp_meter_id) &&
+        String(o.time_seconds) === String(END_TIME_SECONDS),
+    );
+    if (meterInQueue) {
+      console.log("Data for this day already exists in upload queue. Skipping...");
+    }
+    return meterInQueue;
+  }
+}
+
 // -------------------------------- Sign-in functions ---------------------------- //
 
 /**
@@ -518,47 +614,6 @@ async function getMeterIdFromMeterMenu() {
 }
 
 /**
- * Check if the date is in sync with the Pacific Power site.
- */
-function isMatchingDate(date, actualDate) {
-  if (date !== actualDate) {
-    console.log("Actual date and date on pacific power site are out of sync.");
-    console.log("Pacific Power Data: " + actualDate + ", " + "Actual Date: " + date);
-  }
-  return date === actualDate;
-}
-
-/**
- * Check if the meterId and corresponding time is already in the database.
- */
-function isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) {
-  const meterInDatabase = pp_recent_data.find(
-    (o) =>
-      String(o.pacific_power_meter_id) === String(pp_meter_id) &&
-      String(o.time_seconds) === String(END_TIME_SECONDS),
-  );
-  if (meterInDatabase) {
-    console.log("Data for this day already exists in SQL database. Skipping...");
-  }
-  return meterInDatabase;
-}
-
-/**
- * Check if the meterId and corresponding time is already in the upload queue.
- */
-function isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS) {
-  const meterInQueue = PPArray.find(
-    (o) =>
-      String(o.pp_meter_id) === String(pp_meter_id) &&
-      String(o.time_seconds) === String(END_TIME_SECONDS),
-  );
-  if (meterInQueue) {
-    console.log("Data for this day already exists in upload queue. Skipping...");
-  }
-  return meterInQueue;
-}
-
-/**
  * This function handles the highest level error for a meter
  */
 function handleUnkownMeterError(error) {
@@ -586,51 +641,6 @@ async function getRowText(monthly_top_const, row_days) {
   return monthly_top_text;
 }
 
-/* Returns the date for today minus the number of days specified in two formats:
-  * {
-  *   actualDate: '2021-10-07',
-  *   ACTUAL_DATE_UNIX: '1633622399',
-  * }
-*/
-function getActualDate(num_days) {
-  // reference (get time in any timezone and string format): https://momentjs.com/timezone/docs/
-  // get the actual date
-  const actualDate = moment
-    .tz(Date.now() - num_days * 24 * 60 * 60 * 1000, "America/Los_Angeles")
-    .format("YYYY-MM-DD");
-    
-  // convert to unix time
-  const end_of_day_time = actualDate + "T23:59:59"; // always set to 11:59:59 PM (PST)
-  const UNIX_TIME = moment
-    .tz(end_of_day_time, "America/Los_Angeles")
-    .unix(); // END_TIME in seconds (PST)
-
-  return { 
-    actualDate: actualDate, 
-    ACTUAL_DATE_UNIX: UNIX_TIME 
-  };
-}
-
-/**
- * Parameters:
- * - date: Date string (e.g. "2021-10-07")
- * Returns an object of date in two formats:
- * {
- *    END_TIME: '2021-10-07T23:59:59',
- *    END_TIME_SECONDS: '1633622399',
- * }
- */
-function formatDateAndTime(date) {
-  const [YEAR, MONTH, DAY] = date.split("-");
-  const DATE_TIME = `${YEAR}-${MONTH}-${DAY}T23:59:59`; // always set to 11:59:59 PM (PST)
-  const UNIX_TIME = moment.tz(`${DATE_TIME}`, "America/Los_Angeles").unix(); // END_TIME in seconds (PST)
-
-  return {
-    END_TIME: DATE_TIME,
-    END_TIME_SECONDS: UNIX_TIME,
-  };
-}
-
 async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let usage_kwh = parseFloat(
     monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
@@ -640,7 +650,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let positionPeriod = "Period";
   let positionAve = "Average";
   const date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
-  const {END_TIME, END_TIME_SECONDS} = formatDateAndTime(date)
+  const {END_TIME, END_TIME_SECONDS} = DateUtils.formatDateAndTime(date)
 
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
@@ -1030,7 +1040,7 @@ async function getMeterData() {
 
           let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
             await getRowData(monthly_top_text, positionUsage, positionEst);
-          let actualDate = getActualDate(actual_days).actualDate;
+          let actualDate = DateUtils.getActualDate(actual_days).ACTUAL_DATE;
 
           PPTable = {
             meter_selector_num,
@@ -1041,9 +1051,9 @@ async function getMeterData() {
           };
 
           // Upload date if data is valid and not redundant
-          if (isMatchingDate(date, actualDate) 
-            && !isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) 
-            && !isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS)) {
+          if (DateUtils.isMatchingDate(date, actualDate) 
+            && !ValidationUtils.isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) 
+            && !ValidationUtils.isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS)) {
             // if exclusion list was fetched, compare the meter against it to exclude meters
             // otherwise we will add all meter data to db
             if (pp_meters_exclusion_list) {
@@ -1069,7 +1079,7 @@ async function getMeterData() {
               "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
             );
             actual_days += 1;
-            let ACTUAL_DATE_UNIX = getActualDate(actual_days).ACTUAL_DATE_UNIX;
+            let ACTUAL_DATE_UNIX = DateUtils.getActualDate(actual_days).ACTUAL_DATE_UNIX;
             if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
               console.log(
                 "Synced actual date and date from Pacific Power site, go to equalled if loop",
