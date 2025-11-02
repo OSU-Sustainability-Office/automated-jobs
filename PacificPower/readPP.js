@@ -1,6 +1,4 @@
-// TODO comments below about renaming variables will probably go to a separate PR (unless it is a new variable added by this PR)
-
-// https://pptr.dev/guides/evaluate-javascript
+// Pacific Power Web Scraper
 
 // total runtime with current parameters: As fast as 4 minutes not counting last noData checks, or 9 minutes with noData checks
 
@@ -10,49 +8,62 @@
 // Misc Constants / imports
 const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
-require("dotenv").config();
-const startDate = moment().unix();
-const actual_days_const = 1; // DEBUG: change for testing an older date
-const row_days_const = 1;
-const maxPrevDayCount = 7;
-const TIMEOUT_BUFFER = 1200000; // Currently set for 20 minutes (1,200,000 ms), based on results as noted above
 const axios = require("axios");
 const fs = require("fs");
-const maxAttempts = 8; // needs to be at least 8 with current code because we check these timeframes (monthly): [2 year, 1 month, 1 year, 1 month, 1 day, 1 month, 1 week, 1 month]
-const DASHBOARD_API = process.argv.includes("--local-api")
-  ? process.env.LOCAL_API
-  : process.env.DASHBOARD_API;
+require("dotenv").config();
+const startDate = moment().unix();
 
-// PacificPower Selectors (chrome debug instructions: inspect element > element > copy selector / Xpath)
-const ACCEPT_COOKIES = "button.cookie-accept-button";
-const LOCATION_BUTTON = "a.modalCloseButton"; // button for closing a popup about what state you're in
-const SIGN_IN_PAGE_BUTTON = "a.link.link--default.link--size-default.signin"; // This is the button that takes you to the sign in page, not the button you press to actually log in
-const SIGN_IN_IFRAME = 'iframe[src="/oauth2/authorization/B2C_1A_PAC_SIGNIN"]';
-const SIGN_IN_INPUT = "input#signInName"; // aka username
-const SIGN_IN_PASSWORD = "input#password";
-const LOGIN_BUTTON = "button#next"; // This is the actual login button, as opposed to signin page button
-const LOADING_BACKDROP_TRANSPARENT =
-  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing";
-const LOADING_BACKDROP_DARK =
-  "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing";
-// The next two selectors below correspond to a button that converts line graph data on PacificPower to table format
-const GRAPH_TO_TABLE_BUTTON_MONTHLY =
-  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img";
-const GRAPH_TO_TABLE_BUTTON_YEARLY =
-  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img";
-const METER_MENU = "#mat-select-1 > div > div.mat-select-value > span";
-const TIME_MENU = "#mat-select-2 > div > div.mat-select-value > span";
-const YEAR_IDENTIFIER = "span ::-p-text(One Year)";
-const MONTH_IDENTIFIER = "span ::-p-text(One Month)";
-const WEEK_IDENTIFIER = "span ::-p-text(One Week)";
-const TWO_YEAR_IDENTIFIER = "span ::-p-text(Two Year)";
-const DAY_IDENTIFIER = "span ::-p-text(One Day)";
-const GRAPH_SELECTOR =
-  "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area";
-// Selector below corresponds to monthly meter data table, add row number to get specific row data (e.g. + "1)" for first row of data)
-const MONTHLY_TABLE_ROW_SELECTOR =
-  GRAPH_SELECTOR +
-  " > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(";
+// ================================
+// CONFIGURATION & CONSTANTS
+// ================================
+
+const CONFIG = {
+  // Timeouts and retry settings
+  TIMEOUT_BUFFER: 1200000, // 20 minutes
+  MAX_ATTEMPTS: 8, // needs to be at least 8 because we check 8 timeframes (monthly): [2 year, 1 month, 1 year, 1 month, 1 day, 1 month, 1 week, 1 month]
+  MAX_PREV_DAY_COUNT: 7, // Maximum number of days back to check data for each meter
+
+  // Date settings
+  STARTING_DAYS_BACK: 1, // How many days back from today to start checking data
+  STARTING_TABLE_ROW: 1, // Which table row to start reading from (1 = most recent day)
+
+  // API settings
+  DASHBOARD_API: process.argv.includes("--local-api")
+    ? process.env.LOCAL_API
+    : process.env.DASHBOARD_API,
+};
+
+// Pacific Power Selectors
+const SELECTORS = {
+  ACCEPT_COOKIES: "button.cookie-accept-button",
+  LOCATION_BUTTON: "a.modalCloseButton",
+  SIGN_IN_PAGE_BUTTON: "a.link.link--default.link--size-default.signin",
+  SIGN_IN_IFRAME: 'iframe[src="/oauth2/authorization/B2C_1A_PAC_SIGNIN"]',
+  SIGN_IN_INPUT: "input#signInName",
+  SIGN_IN_PASSWORD: "input#password",
+  LOGIN_BUTTON: "button#next",
+  LOADING_BACKDROP_TRANSPARENT:
+    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-transparent-backdrop.cdk-overlay-backdrop-showing",
+  LOADING_BACKDROP_DARK:
+    "body > div.cdk-overlay-container > div.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.cdk-overlay-backdrop-showing",
+  // The next two selectors below correspond to a button that converts line graph data on PacificPower to table format
+  GRAPH_TO_TABLE_BUTTON_MONTHLY:
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(3) > img",
+  GRAPH_TO_TABLE_BUTTON_YEARLY:
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div:nth-child(1) > div:nth-child(2) > div > a:nth-child(3) > img",
+  METER_MENU: "#mat-select-1 > div > div.mat-select-value > span",
+  TIME_MENU: "#mat-select-2 > div > div.mat-select-value > span",
+  YEAR_IDENTIFIER: "span ::-p-text(One Year)",
+  MONTH_IDENTIFIER: "span ::-p-text(One Month)",
+  WEEK_IDENTIFIER: "span ::-p-text(One Week)",
+  TWO_YEAR_IDENTIFIER: "span ::-p-text(Two Year)",
+  DAY_IDENTIFIER: "span ::-p-text(One Day)",
+  GRAPH_SELECTOR:
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area",
+  // Selector below corresponds to monthly meter data table, add row number to get specific row data (e.g. + "1)" for first row of data)
+  MONTHLY_TABLE_ROW_SELECTOR:
+    "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(",
+};
 
 // timeframe related variables
 let yearCheck = false; // true = "One Year" text detected in timeframe dropdown menu for current meter
@@ -126,14 +137,14 @@ async function signInToPacificPower() {
 
   // if first time logging in
   if (loginErrorCount === 0) {
-    await page.locator(ACCEPT_COOKIES).click();
+    await page.locator(SELECTORS.ACCEPT_COOKIES).click();
     console.log("Cookies Button found");
 
-    await page.click(LOCATION_BUTTON);
+    await page.click(SELECTORS.LOCATION_BUTTON);
     console.log("Location Button clicked");
     // helpful for logging into sign in form within iframe: https://stackoverflow.com/questions/46529201/puppeteer-how-to-fill-form-that-is-inside-an-iframe
 
-    await page.click(SIGN_IN_PAGE_BUTTON);
+    await page.click(SELECTORS.SIGN_IN_PAGE_BUTTON);
     console.log("SignIn Page Button Clicked!");
 
     // this one needs more timeout, based on results from stresstest.sh
@@ -146,16 +157,16 @@ async function signInToPacificPower() {
     await page.waitForSelector("iframe", { timeout: 60000 });
     console.log("iframe is ready. Loading iframe content");
 
-    const signin_iframe = await page.$(SIGN_IN_IFRAME);
+    const signin_iframe = await page.$(SELECTORS.SIGN_IN_IFRAME);
     const frame = await signin_iframe.contentFrame();
 
     console.log("filling username in iframe");
-    await frame.locator(SIGN_IN_INPUT).fill(process.env.PP_USERNAME);
+    await frame.locator(SELECTORS.SIGN_IN_INPUT).fill(process.env.PP_USERNAME);
 
     console.log("filling password in iframe");
-    await frame.locator(SIGN_IN_PASSWORD).fill(process.env.PP_PWD);
+    await frame.locator(SELECTORS.SIGN_IN_PASSWORD).fill(process.env.PP_PWD);
 
-    await frame.click(LOGIN_BUTTON);
+    await frame.click(SELECTORS.LOGIN_BUTTON);
     console.log("Login Button clicked");
     // this one needs more timeout, based on results from stresstest.sh
     await page.waitForNavigation({
@@ -220,8 +231,8 @@ async function getMeterSelectorNumberFromFirstMeter() {
     () => !document.querySelector("#loading-component > mat-spinner"),
   );
 
-  yearCheck = await page.$(YEAR_IDENTIFIER, { timeout: 25000 });
-  monthCheck = await page.$(MONTH_IDENTIFIER, { timeout: 25000 });
+  yearCheck = await page.$(SELECTORS.YEAR_IDENTIFIER, { timeout: 25000 });
+  monthCheck = await page.$(SELECTORS.MONTH_IDENTIFIER, { timeout: 25000 });
 
   console.log("Year / Month Check found");
   if ((!yearCheck && !monthCheck) || (yearCheck && monthCheck)) {
@@ -229,17 +240,17 @@ async function getMeterSelectorNumberFromFirstMeter() {
   }
 
   if (yearCheck && !monthCheck) {
-    graphButton = GRAPH_TO_TABLE_BUTTON_YEARLY;
+    graphButton = SELECTORS.GRAPH_TO_TABLE_BUTTON_YEARLY;
   } else if (!yearCheck && monthCheck) {
-    graphButton = GRAPH_TO_TABLE_BUTTON_MONTHLY;
+    graphButton = SELECTORS.GRAPH_TO_TABLE_BUTTON_MONTHLY;
   }
 
   await page.locator(graphButton).click();
   console.log("Graph to Table Button clicked");
 
-  await page.locator(METER_MENU).click();
+  await page.locator(SELECTORS.METER_MENU).click();
 
-  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
   console.log("Meter Menu Opened");
   meter_selector_full = await page.$eval("mat-option", (el) =>
@@ -249,9 +260,9 @@ async function getMeterSelectorNumberFromFirstMeter() {
   first_selector_num = meter_selector_num;
   console.log("Meter ID Found");
 
-  await page.click(METER_MENU);
+  await page.click(SELECTORS.METER_MENU);
   console.log("Meter Menu Closed");
-  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT, { hidden: true });
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, { hidden: true });
 }
 
 // -------------------------------- Misc page navigation functions ---------------------------- //
@@ -262,11 +273,11 @@ async function getMeterSelectorNumberFromFirstMeter() {
  * to try to force the data to load
  */
 async function waitForTopRowDataAndConfirmItsMonthly() {
-  while (!monthlyDataTopRowErrorFlag && monthlyDataTopRowError < maxAttempts) {
+  while (!monthlyDataTopRowErrorFlag && monthlyDataTopRowError < CONFIG.MAX_ATTEMPTS) {
     try {
-      await page.waitForSelector(GRAPH_SELECTOR);
+      await page.waitForSelector(SELECTORS.GRAPH_SELECTOR);
 
-      await page.waitForSelector(MONTHLY_TABLE_ROW_SELECTOR + "1)", {
+      await page.waitForSelector(SELECTORS.MONTHLY_TABLE_ROW_SELECTOR + "1)", {
         timeout: 25000,
       });
 
@@ -304,11 +315,11 @@ async function switchTimeFrameOptionToForceDataToLoad() {
   // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
   // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
   monthlyDataTopRowErrorFlag = true;
-  await page.locator(TIME_MENU).click();
+  await page.locator(SELECTORS.TIME_MENU).click();
 
-  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
-  weekCheck = await page.$(WEEK_IDENTIFIER, {
+  weekCheck = await page.$(SELECTORS.WEEK_IDENTIFIER, {
     timeout: 25000,
   });
 
@@ -317,22 +328,22 @@ async function switchTimeFrameOptionToForceDataToLoad() {
 
     // odd timeframeIterator (0,2,4, etc) = One Month
     timeframeChoices = [
-      { id: YEAR_IDENTIFIER, label: "One Year" },
-      { id: MONTH_IDENTIFIER, label: "One Month" },
-      { id: TWO_YEAR_IDENTIFIER, label: "Two Year" },
-      { id: MONTH_IDENTIFIER, label: "One Month" },
-      { id: DAY_IDENTIFIER, label: "One Day" },
-      { id: MONTH_IDENTIFIER, label: "One Month" },
-      { id: WEEK_IDENTIFIER, label: "One Week" },
-      { id: MONTH_IDENTIFIER, label: "One Month" },
+      { id: SELECTORS.YEAR_IDENTIFIER, label: "One Year" },
+      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+      { id: SELECTORS.TWO_YEAR_IDENTIFIER, label: "Two Year" },
+      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+      { id: SELECTORS.DAY_IDENTIFIER, label: "One Day" },
+      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
+      { id: SELECTORS.WEEK_IDENTIFIER, label: "One Week" },
+      { id: SELECTORS.MONTH_IDENTIFIER, label: "One Month" },
     ];
   } else {
     console.log("One Week Option Not Found, Data probably yearly");
 
     // odd timeframeIterator (0,2,4, etc) = One Year
     timeframeChoices = [
-      { id: TWO_YEAR_IDENTIFIER, label: "Two Year" },
-      { id: YEAR_IDENTIFIER, label: "One Year" },
+      { id: SELECTORS.TWO_YEAR_IDENTIFIER, label: "Two Year" },
+      { id: SELECTORS.YEAR_IDENTIFIER, label: "One Year" },
     ];
   }
 
@@ -434,12 +445,12 @@ function compareMeterAgainstExclusionList(PPTable) {
  * Select a meter from the dropdown menu.
  */
 async function selectMeterFromDropdownMenu() {
-  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT, { hidden: true });
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, { hidden: true });
 
-  await page.click(METER_MENU);
+  await page.click(SELECTORS.METER_MENU);
   console.log("Meter Menu Opened");
 
-  await page.waitForSelector(LOADING_BACKDROP_TRANSPARENT);
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
   await page
     .locator(
@@ -455,7 +466,7 @@ async function selectMeterFromDropdownMenu() {
 async function handleMeterLoadingScreen() {
   while (!continueLoadingFlag && loadingScreenErrorCount === 0) {
     try {
-      await page.waitForSelector(LOADING_BACKDROP_DARK, { timeout: 25000 });
+      await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, { timeout: 25000 });
       console.log("Loading Screen Found");
       break;
     } catch (error) {
@@ -478,7 +489,7 @@ async function handleMeterLoadingScreen() {
 
   // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
   if (loadingScreenErrorCount === 0) {
-    await page.waitForSelector(LOADING_BACKDROP_DARK, { hidden: true });
+    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, { hidden: true });
   }
 }
 
@@ -488,7 +499,7 @@ async function handleMeterLoadingScreen() {
  * returns the meter ID 1234567.
  */
 async function getMeterIdFromMeterMenu() {
-  const pp_meter_element = await page.waitForSelector(METER_MENU);
+  const pp_meter_element = await page.waitForSelector(SELECTORS.METER_MENU);
   const pp_meter_full = await pp_meter_element.evaluate((el) => el.textContent);
 
   let pp_meter_full_trim = pp_meter_full.trim();
@@ -562,8 +573,8 @@ function handleUnkownMeterError(error) {
   timeframeIterator = 0;
   meter_selector_num++;
   meterErrorCount++;
-  if (meterErrorCount === maxAttempts) {
-    console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
+  if (meterErrorCount === CONFIG.MAX_ATTEMPTS) {
+    console.log(`Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`);
   }
 }
 
@@ -726,7 +737,7 @@ async function addNewMetersToDatabase() {
   for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
     await axios({
       method: "post",
-      url: `${DASHBOARD_API}/ppupload`,
+      url: `${CONFIG.DASHBOARD_API}/ppupload`,
       data: {
         id: pp_meters_exclude_not_found[i],
         pwd: process.env.API_PWD,
@@ -754,7 +765,7 @@ async function addNewMetersToDatabase() {
 async function getPacificPowerRecentData() {
   let recent_data = await axios({
     method: "get",
-    url: `${DASHBOARD_API}/pprecent`,
+    url: `${CONFIG.DASHBOARD_API}/pprecent`,
   })
     .then((res) => {
       // DEBUG: change to test specific status codes from API
@@ -799,7 +810,7 @@ async function getPacificPowerRecentData() {
 async function getPacificPowerMeterExclusionList() {
   let exclusion_list = await axios({
     method: "get",
-    url: `${DASHBOARD_API}/ppexclude`,
+    url: `${CONFIG.DASHBOARD_API}/ppexclude`,
   })
     .then((res) => {
       // DEBUG: change to test specific status codes from API
@@ -833,7 +844,7 @@ async function uploadDatatoDatabase(meterData) {
 
   await axios({
     method: "post",
-    url: `${DASHBOARD_API}/upload`,
+    url: `${CONFIG.DASHBOARD_API}/upload`,
     data: {
       id: pacificPowerMeters,
       body: meterData,
@@ -871,7 +882,7 @@ async function getMeterData() {
   // DEBUG: testing at specific meter ID, e.g. to see if termination behavior works
   // meter_selector_num = 110;
 
-  while (!meterErrorsFlag && meterErrorCount < maxAttempts) {
+  while (!meterErrorsFlag && meterErrorCount < CONFIG.MAX_ATTEMPTS) {
     try {
       console.log("\n" + meter_selector_num.toString());
 
@@ -907,11 +918,11 @@ async function getMeterData() {
           "Attempt " +
             (monthlyDataTopRowError + 1).toString() +
             " of " +
-            maxAttempts,
+            CONFIG.MAX_ATTEMPTS,
         );
         monthlyDataTopRowError++;
-        if (monthlyDataTopRowError === maxAttempts) {
-          console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
+        if (monthlyDataTopRowError === CONFIG.MAX_ATTEMPTS) {
+          console.log(`Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`);
           meterErrorsFlag = true;
           break;
         }
@@ -920,8 +931,8 @@ async function getMeterData() {
       }
 
       // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
-      let row_days = row_days_const;
-      monthly_top_text = await getRowText(MONTHLY_TABLE_ROW_SELECTOR, row_days);
+      let row_days = CONFIG.STARTING_TABLE_ROW;
+      monthly_top_text = await getRowText(SELECTORS.MONTHLY_TABLE_ROW_SELECTOR, row_days);
 
       // TODO in future PR: Fix this variable name to be just "top row" or something,
       // rename "monthly" var names to be more clear on time interval vs total time frame
@@ -963,13 +974,13 @@ async function getMeterData() {
       monthlyDataTopRowError = 0;
 
       // Always reset actual_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
-      let actual_days = actual_days_const;
+      let actual_days = CONFIG.STARTING_DAYS_BACK;
 
-      while (!prevDayFlag && actual_days <= maxPrevDayCount) {
+      while (!prevDayFlag && actual_days <= CONFIG.MAX_PREV_DAY_COUNT) {
         try {
           try {
             monthly_top_text = await getRowText(
-              MONTHLY_TABLE_ROW_SELECTOR,
+              SELECTORS.MONTHLY_TABLE_ROW_SELECTOR,
               row_days,
             );
           } catch (error) {
@@ -980,7 +991,7 @@ async function getMeterData() {
             prevDayFlag = true;
           }
 
-          if (actual_days > actual_days_const) {
+          if (actual_days > CONFIG.STARTING_DAYS_BACK) {
             console.log(
               "Monthly Data Top Row Found, getting table top row value",
             );
@@ -1046,9 +1057,9 @@ async function getMeterData() {
             }
           }
 
-          if (actual_days === maxPrevDayCount) {
+          if (actual_days === CONFIG.MAX_PREV_DAY_COUNT) {
             console.log(
-              `Reached max day count of ${maxPrevDayCount} days, exiting`,
+              `Reached max day count of ${CONFIG.MAX_PREV_DAY_COUNT} days, exiting`,
             );
             prevDayFlag = true;
             break;
@@ -1106,11 +1117,11 @@ async function getMeterData() {
   });
 
   // Login and get meter selector number (needed for navigating between meters)
-  while (attemptLoginFlag && loginErrorCount < maxAttempts) {
+  while (attemptLoginFlag && loginErrorCount < CONFIG.MAX_ATTEMPTS) {
     try {
       // Create a page
       page = await browser.newPage();
-      await page.setDefaultTimeout(TIMEOUT_BUFFER);
+      await page.setDefaultTimeout(CONFIG.TIMEOUT_BUFFER);
       await page.setCacheEnabled(false);
       await page.reload({ waitUntil: "networkidle2" });
 
@@ -1129,11 +1140,11 @@ async function getMeterData() {
       console.log(
         `Unknown Issue en route to Energy Usage Page, (Attempt ${
           loginErrorCount + 1
-        } of ${maxAttempts}). Retrying...`,
+        } of ${CONFIG.MAX_ATTEMPTS}). Retrying...`,
       );
       loginErrorCount++;
-      if (loginErrorCount === maxAttempts) {
-        console.log(`Re-Checked ${maxAttempts} times, Stopping Webscraper`);
+      if (loginErrorCount === CONFIG.MAX_ATTEMPTS) {
+        console.log(`Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`);
         attemptLoginFlag = false;
         break;
       }
