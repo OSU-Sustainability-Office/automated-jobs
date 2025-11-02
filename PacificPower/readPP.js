@@ -137,11 +137,11 @@ let pp_meters_exclude_not_found = []; // list of (new) meters on PacificPower pa
 // Date-related helper functions
 class DateUtils {
   /* Returns the date for today minus the number of days specified in two formats:
-    * {
-    *   actualDate: '2021-10-07',
-    *   ACTUAL_DATE_UNIX: '1633622399',
-    * }
-  */
+   * {
+   *   actualDate: '2021-10-07',
+   *   ACTUAL_DATE_UNIX: '1633622399',
+   * }
+   */
   static getActualDate(numDays) {
     // get the actual date
     const actualDate = moment
@@ -149,9 +149,7 @@ class DateUtils {
       .format("YYYY-MM-DD");
 
     const endOfDayTime = actualDate + "T23:59:59"; // always set to 11:59:59 PM (PST)
-    const unixTime = moment
-      .tz(endOfDayTime, "America/Los_Angeles")
-      .unix(); // END_TIME in seconds (PST)
+    const unixTime = moment.tz(endOfDayTime, "America/Los_Angeles").unix(); // END_TIME in seconds (PST)
 
     return {
       ACTUAL_DATE: actualDate,
@@ -205,7 +203,9 @@ class ValidationUtils {
         String(o.time_seconds) === String(END_TIME_SECONDS),
     );
     if (meterInDatabase) {
-      console.log("Data for this day already exists in SQL database. Skipping...");
+      console.log(
+        "Data for this day already exists in SQL database. Skipping...",
+      );
     }
     return meterInDatabase;
   }
@@ -220,7 +220,9 @@ class ValidationUtils {
         String(o.time_seconds) === String(END_TIME_SECONDS),
     );
     if (meterInQueue) {
-      console.log("Data for this day already exists in upload queue. Skipping...");
+      console.log(
+        "Data for this day already exists in upload queue. Skipping...",
+      );
     }
     return meterInQueue;
   }
@@ -519,7 +521,9 @@ async function getMeterSelectorNumberFromFirstMeter() {
 
   await page.click(SELECTORS.METER_MENU);
   console.log("Meter Menu Closed");
-  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, { hidden: true });
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
+    hidden: true,
+  });
 }
 
 // -------------------------------- Misc page navigation functions ---------------------------- //
@@ -530,7 +534,10 @@ async function getMeterSelectorNumberFromFirstMeter() {
  * to try to force the data to load
  */
 async function waitForTopRowDataAndConfirmItsMonthly() {
-  while (!monthlyDataTopRowErrorFlag && monthlyDataTopRowError < CONFIG.MAX_ATTEMPTS) {
+  while (
+    !monthlyDataTopRowErrorFlag &&
+    monthlyDataTopRowError < CONFIG.MAX_ATTEMPTS
+  ) {
     try {
       await page.waitForSelector(SELECTORS.GRAPH_SELECTOR);
 
@@ -690,7 +697,9 @@ function compareMeterAgainstExclusionList(PPTable) {
  * Select a meter from the dropdown menu.
  */
 async function selectMeterFromDropdownMenu() {
-  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, { hidden: true });
+  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
+    hidden: true,
+  });
 
   await page.click(SELECTORS.METER_MENU);
   console.log("Meter Menu Opened");
@@ -711,7 +720,9 @@ async function selectMeterFromDropdownMenu() {
 async function handleMeterLoadingScreen() {
   while (!continueLoadingFlag && loadingScreenErrorCount === 0) {
     try {
-      await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, { timeout: 25000 });
+      await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
+        timeout: 25000,
+      });
       console.log("Loading Screen Found");
       break;
     } catch (error) {
@@ -734,7 +745,9 @@ async function handleMeterLoadingScreen() {
 
   // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
   if (loadingScreenErrorCount === 0) {
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, { hidden: true });
+    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
+      hidden: true,
+    });
   }
 }
 
@@ -799,7 +812,7 @@ async function getRowData(monthly_top_text, positionUsage, positionEst) {
   let positionPeriod = "Period";
   let positionAve = "Average";
   const date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
-  const {END_TIME, END_TIME_SECONDS} = DateUtils.formatDateAndTime(date)
+  const { END_TIME, END_TIME_SECONDS } = DateUtils.formatDateAndTime(date);
 
   return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
 }
@@ -887,7 +900,6 @@ function saveOutputToFile() {
   });
 }
 
-
 // -------------------------------- Top Level functions ---------------------------- //
 
 /**
@@ -938,7 +950,9 @@ async function getMeterData() {
         );
         monthlyDataTopRowError++;
         if (monthlyDataTopRowError === CONFIG.MAX_ATTEMPTS) {
-          console.log(`Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`);
+          console.log(
+            `Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`,
+          );
           meterErrorsFlag = true;
           break;
         }
@@ -948,7 +962,10 @@ async function getMeterData() {
 
       // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
       let row_days = CONFIG.STARTING_TABLE_ROW;
-      monthly_top_text = await getRowText(SELECTORS.MONTHLY_TABLE_ROW_SELECTOR, row_days);
+      monthly_top_text = await getRowText(
+        SELECTORS.MONTHLY_TABLE_ROW_SELECTOR,
+        row_days,
+      );
 
       // TODO in future PR: Fix this variable name to be just "top row" or something,
       // rename "monthly" var names to be more clear on time interval vs total time frame
@@ -1057,9 +1074,11 @@ async function getMeterData() {
           };
 
           // Upload date if data is valid and not redundant
-          if (DateUtils.isMatchingDate(date, actualDate) 
-            && !ValidationUtils.isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) 
-            && !ValidationUtils.isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS)) {
+          if (
+            DateUtils.isMatchingDate(date, actualDate) &&
+            !ValidationUtils.isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) &&
+            !ValidationUtils.isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS)
+          ) {
             // if exclusion list was fetched, compare the meter against it to exclude meters
             // otherwise we will add all meter data to db
             if (pp_meters_exclusion_list) {
@@ -1085,7 +1104,8 @@ async function getMeterData() {
               "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
             );
             actual_days += 1;
-            let ACTUAL_DATE_UNIX = DateUtils.getActualDate(actual_days).ACTUAL_DATE_UNIX;
+            let ACTUAL_DATE_UNIX =
+              DateUtils.getActualDate(actual_days).ACTUAL_DATE_UNIX;
             if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
               console.log(
                 "Synced actual date and date from Pacific Power site, go to equalled if loop",
@@ -1122,7 +1142,8 @@ async function getMeterData() {
 (async () => {
   const apiClient = new APIClient(CONFIG.DASHBOARD_API);
   pp_recent_data = await apiClient.getPacificPowerRecentData();
-  pp_meters_exclusion_list = await apiClient.getPacificPowerMeterExclusionList();
+  pp_meters_exclusion_list =
+    await apiClient.getPacificPowerMeterExclusionList();
 
   // Launch the browser
   const browser = await puppeteer.launch({
@@ -1161,7 +1182,9 @@ async function getMeterData() {
       );
       loginErrorCount++;
       if (loginErrorCount === CONFIG.MAX_ATTEMPTS) {
-        console.log(`Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`);
+        console.log(
+          `Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`,
+        );
         attemptLoginFlag = false;
         break;
       }
