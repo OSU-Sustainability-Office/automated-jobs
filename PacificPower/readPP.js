@@ -83,46 +83,8 @@ const TIMEFRAME_CHOICES = {
   ],
 };
 
-// timeframe related variables
-let prevDayFlag = false; // true = continue to check previous days' data, false = stop checking previous days' data (for current meter id)
-let weekCheck = false; // true = "One Week" text detected in timeframe dropdown menu for current meter
-let timeframeCheck = false; // generic boolean for any type of timeframe (similar logic as yearCheck, weekCheck, etc)
-let timeframeChoices = []; // list of valid timeframes per meter ("1 year", "1 month", etc). NOTE: Can be different for yearly vs monthly meter type
-let timeframeIterator = 0; // increment this every time invalid top row meter data is detected, and we need to try another timeframe
-
-// control flow flags (booleans)
-let meterErrorsFlag = false; // true = generic error detected, see otherErrorArray (highest level flag for meter checking)
-let continueLoadingFlag = false; // true = loading screen not yet detected for the current meter (highest level flag for meter checking)
-let monthlyDataTopRowErrorFlag = false; // true = errors detected when reading meter data top row ("monthly_top"). (second highest level flag)
-
-// control flow iterators (counters)
-let meterErrorCount = 0; // increment this every time there is a generic error detected, see otherErrorArray (highest level flag for meter checking)
-let loadingScreenErrorCount = 0; // increment this every time loading screen not yet detected for the current meter (highest level flag for meter checking)
-let monthlyDataTopRowError = 0; // increment this every time errors are detected when reading meter data top row ("monthly_top"). (second highest level flag)
-
 // Misc Variables (initialization)
 let page = ""; // current browser page being used by Puppeteer (set headless: false for a visual explanation)
-let pp_meter_id = ""; // A meter's PacificPower meter ID (e.g. 78645606)
-let first_selector_num = 0; // keeps track of the "meter_selector_num" value of the first detected meter
-let monthly_top = ""; // NOTE: different variable from MONTHLY_TABLE_ROW_SELECTOR constant, although they should probably be combined (TODO)
-let monthly_top_text = ""; // text string extracted from the top row of meter data (MONTHLY_TABLE_ROW_SELECTOR selector)
-let meter_selector_full = ""; // full text of the current meter from meter dropdown menu, e.g. "34306 NE ELECTRIC RD CORVALLIS OR (Item #224) (Meter #78645606)"
-let meter_selector_num = ""; // inspect element > see div with ID "#mat-option-<meter_selector_num>", e.g. "#mat-option-1"
-let PPTable = {}; // individual meter data object contained within PPArray. TODO: Rename this variable
-let PPArray = []; // Array of Objects (PPTable), with valid data queued to be uploaded (TODO: Rename this variable to something more clear)
-let unAvailableErrorArray = []; // list of meters with "unavailable" in top row text (error)
-let deliveredErrorArray = []; // list of meters with "delivered" in top row text (error)
-let otherErrorArray = []; // list of meters with generic highest level error detected (see meterErrorCount / meterErrorsFlag)
-let yearlyArray = []; // list of yearly type meters (only shows "1 year" and "2 years" in timeframe dropdown menu)
-
-// PP Recent variables (missing data detection)
-let pp_recent_data = null; // list of meters from ppRecent endpoint (SQL database)
-
-// PP Exclusion variables (blacklist excluded meters, detect new meters)
-let pp_meters_exclusion_list = null; // list of meters from ppExclude endpoint
-let pp_meters_exclude = []; // list of meters on PacificPower page we have excluded based on ppExclude endpoint
-let pp_meters_include = []; // list of meters on PacificPower page we have included based on ppExclude endpoint
-let pp_meters_exclude_not_found = []; // list of (new) meters on PacificPower page we have excluded based on ppExclude endpoint
 
 // ================================
 // UTILITY FUNCTIONS
@@ -190,8 +152,8 @@ class ValidationUtils {
   /**
    * Check if the meterId and corresponding time is already in the database.
    */
-  static isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) {
-    const meterInDatabase = pp_recent_data.find(
+  static isMeterInDatabase(pp_meter_id, END_TIME_SECONDS, recentData) {
+    const meterInDatabase = recentData.find(
       (o) =>
         String(o.pacific_power_meter_id) === String(pp_meter_id) &&
         String(o.time_seconds) === String(END_TIME_SECONDS),
@@ -207,8 +169,8 @@ class ValidationUtils {
   /**
    * Check if the meterId and corresponding time is already in the upload queue.
    */
-  static isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS) {
-    const meterInQueue = PPArray.find(
+  static isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS, uploadQueue) {
+    const meterInQueue = uploadQueue.find(
       (o) =>
         String(o.pp_meter_id) === String(pp_meter_id) &&
         String(o.time_seconds) === String(END_TIME_SECONDS),
@@ -366,30 +328,208 @@ class APIClient {
 }
 
 // ================================
+// METER PROCESSOR CLASS
+// ================================
+
+class MeterProcessor {
+  constructor(apiClient) {
+    this.apiClient = apiClient;
+    this.ppArray = [];
+    this.unavailableErrorArray = [];
+    this.deliveredErrorArray = [];
+    this.otherErrorArray = [];
+    this.yearlyArray = [];
+    this.ppMetersExclude = [];
+    this.ppMetersInclude = [];
+    this.ppMetersExcludeNotFound = [];
+  }
+
+  /**
+   * Compares the given meter against the exclusion list to determine if its data
+   * should be uploaded to the database. If the meter is not found in the list,
+   * it is considered a new meter and is added to the exclusion list with "new" status.
+   * New and included meters will have their data uploaded to the database.
+   */
+  compareMeterAgainstExclusionList(meterData, exclusionList) {
+    // Try to find the meter in the exclusion list
+    const meter = exclusionList.find(
+      (meter) => meter.pp_meter_id === meterData.pp_meter_id,
+    );
+
+    if (!meter) {
+      console.log(
+        `Meter ${meterData.pp_meter_id} is not in the exclusion list: NEW METER`,
+      );
+      // Only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+      if (!this.ppMetersExcludeNotFound.includes(meterData.pp_meter_id)) {
+        this.ppMetersExcludeNotFound.push(meterData.pp_meter_id);
+      }
+      return;
+    }
+
+    switch (meter.status) {
+      case "exclude":
+        console.log(`Meter ${meterData.pp_meter_id} is excluded from db`);
+        // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+        if (!this.ppMetersExclude.includes(meterData.pp_meter_id)) {
+          this.ppMetersExclude.push(meterData.pp_meter_id);
+        }
+        break;
+      case "include":
+        console.log(`Meter ${meterData.pp_meter_id} is included in db`);
+        if (!this.ppMetersInclude.includes(meterData.pp_meter_id)) {
+          // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+          this.ppMetersInclude.push(meterData.pp_meter_id);
+        }
+        break;
+      case "new":
+        console.log(
+          `Meter ${meterData.pp_meter_id} status needs updating, include in db for now.`,
+        );
+        // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
+        if (!this.ppMetersInclude.includes(meterData.pp_meter_id)) {
+          this.ppMetersInclude.push(meterData.pp_meter_id);
+        }
+        break;
+      default:
+        console.log(`Meter ${meterData.pp_meter_id} unrecognized status`);
+    }
+
+    // Add meter to upload queue if it's not excluded
+    if (
+      !this.ppMetersExclude.includes(meterData.pp_meter_id) &&
+      (this.ppMetersInclude.includes(meterData.pp_meter_id) ||
+        this.ppMetersExcludeNotFound.includes(meterData.pp_meter_id))
+    ) {
+      console.log("Valid data found for this day found; queuing upload.");
+
+      this.ppArray.push(meterData);
+    }
+  }
+
+  async processMeterData(meterData, exclusionList) {
+    if (exclusionList) {
+      this.compareMeterAgainstExclusionList(meterData, exclusionList);
+    } else {
+      this.ppArray.push(meterData);
+      console.log("Valid data found for this day found; queuing upload.");
+    }
+  }
+
+  printFinalResults() {
+    const arrays = [
+      {
+        name: "Unavailable Meters (Monthly)",
+        data: this.unavailableErrorArray,
+      },
+      {
+        name: "Delivered Error Meters (Monthly)",
+        data: this.deliveredErrorArray,
+      },
+      { name: "Yearly Meters", data: this.yearlyArray },
+      { name: "Other Errors", data: this.otherErrorArray },
+      { name: "Meters Excluded", data: this.ppMetersExclude },
+      { name: "Meters Included in DB", data: this.ppMetersInclude },
+      {
+        name: "Meters Not Found in Exclusion List (new meters)",
+        data: this.ppMetersExcludeNotFound,
+      },
+    ];
+
+    arrays.forEach(({ name, data }) => {
+      if (data.length > 0) {
+        console.log(`\n${name}: `);
+        data.forEach((item) => console.log(item));
+      }
+    });
+  }
+
+  /**
+   * Saves the various arrays to a JSON file.
+   * This includes the unavailable, delivered error, yearly, and
+   * other error meters, as well as the meters excluded/included/not found
+   * in the database.
+   */
+  saveOutputToFile() {
+    const outputData = [
+      "Pacific Power Data to Upload: ",
+      this.ppArray,
+      "Unavailable Meters (Monthly): ",
+      this.unavailableErrorArray,
+      "Delivered Error Meters (Monthly): ",
+      this.deliveredErrorArray,
+      "Yearly Meters: ",
+      this.yearlyArray,
+      "Other Errors: ",
+      this.otherErrorArray,
+      "Meters Excluded from DB: ",
+      this.ppMetersExclude,
+      "Meters Included in DB: ",
+      this.ppMetersInclude,
+      "Meters Not Found in Exclusion List (new meters): ",
+      this.ppMetersExcludeNotFound,
+    ];
+
+    const jsonContent = JSON.stringify(outputData, null, 2);
+    fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
+      if (err) {
+        return console.log(err);
+      }
+      console.log("\nFile Saved: Yes");
+    });
+  }
+}
+
+// ================================
 // MAIN SCRAPER CLASS
 // ================================
 
 class PacificPowerScraper {
   constructor() {
+    this.page = null;
     this.browser = null;
     this.apiClient = new APIClient(CONFIG.DASHBOARD_API);
+    this.meterProcessor = new MeterProcessor(this.apiClient);
 
     // State variables
     this.state = {
       loginSuccessFlag: false, // true = successfully logged in to Pacific Power website and retrieved meter selector number
+      monthlyDataTopRowErrorFlag: false, // true = errors detected when reading meter data top row ("monthly_top"). (second highest level flag)
+      prevDayFlag: false, // true = continue to check previous days' data, false = stop checking previous days' data (for current meter id)
+      continueLoadingFlag: false, // true = loading screen not yet detected for the current meter (highest level flag for meter checking)
+      meterErrorsFlag: false, // true = generic error detected, see otherErrorArray (highest level flag for meter checking)
       yearCheck: false, // true = "One Year" text detected in timeframe dropdown menu for current meter
       monthCheck: false, // true = "One Month" text detected in timeframe dropdown menu for current meter
+      weekCheck: false, // true = "One Week" text detected in timeframe dropdown menu for current meter
+      timeframeCheck: false, // generic boolean for any type of timeframe (similar logic as yearCheck, weekCheck, etc)
+    };
+
+    // Counters
+    this.counters = {
+      meterErrorCount: 0, // # of general errors encountered, see otherErrorArray (highest level flag)
+      loadingScreenErrorCount: 0, // # of times loading screen not yet detected for the current meter (highest level flag for meter checking)
+      monthlyDataTopRowError: 0, // # of errors detected when reading meter data top row ("monthly_top"). (second highest level flag)
+      timeframeIterator: 0, // # of errors detected when invalid top row meter data is detected, and we need to try another timeframe
     };
 
     // Meter navigation
     this.meterNavigation = {
+      meterSelectorNum: 0,
+      firstSelectorNum: 0,
+      meterSelectorFull: "",
+      ppMeterId: "", // A meter's PacificPower meter ID (e.g. 78645606)
       graphButton: "",
     };
+
+    // Data arrays
+    this.timeframeChoices = [];
+    this.ppRecentData = null; // list of meters from ppRecent endpoint (SQL database) for missing data detection
+    this.ppMetersExclusionList = null; // list of meters from ppExclude endpoint
   }
 
   async initialize() {
-    pp_recent_data = await this.apiClient.getPacificPowerRecentData();
-    pp_meters_exclusion_list =
+    this.ppRecentData = await this.apiClient.getPacificPowerRecentData();
+    this.ppMetersExclusionList =
       await this.apiClient.getPacificPowerMeterExclusionList();
 
     this.browser = await puppeteer.launch({
@@ -538,13 +678,19 @@ class PacificPowerScraper {
     await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
     console.log("Meter Menu Opened");
-    meter_selector_full = await page.$eval("mat-option", (el) =>
-      el.getAttribute("id"),
+    this.meterNavigation.meterSelectorFull = await page.$eval(
+      "mat-option",
+      (el) => el.getAttribute("id"),
     );
-    meter_selector_num = parseInt(meter_selector_full.slice(11));
-    first_selector_num = meter_selector_num;
+    this.meterNavigation.meterSelectorNum = parseInt(
+      this.meterNavigation.meterSelectorFull.slice(11),
+    );
+    this.meterNavigation.firstSelectorNum =
+      this.meterNavigation.meterSelectorNum;
     console.log(
-      "First meter selector number found (Meter #" + first_selector_num + ")",
+      "First meter selector number found (Meter #" +
+        this.meterNavigation.firstSelectorNum +
+        ")",
     );
 
     await page.click(SELECTORS.METER_MENU);
@@ -552,6 +698,514 @@ class PacificPowerScraper {
     await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
       hidden: true,
     });
+  }
+
+  /**
+   * Wait for the top row data to load and confirm that it is monthly data.
+   * Throws an error if data is not monthly, which will trigger a switch to a different timeframe
+   * to try to force the data to load
+   */
+  async waitForTopRowDataAndConfirmItsMonthly() {
+    while (
+      !this.state.monthlyDataTopRowErrorFlag &&
+      this.counters.monthlyDataTopRowError < CONFIG.MAX_ATTEMPTS
+    ) {
+      try {
+        await page.waitForSelector(SELECTORS.GRAPH_SELECTOR);
+
+        await page.waitForSelector(
+          SELECTORS.MONTHLY_TABLE_ROW_SELECTOR + "1)",
+          {
+            timeout: 25000,
+          },
+        );
+
+        console.log("Monthly Top Found");
+
+        // Early throw for odd timeframeIterator values (otherwise the meter might try to read yearly etc data
+        // from monthly meters)
+        if (this.counters.timeframeIterator % 2 === 1) {
+          console.log(
+            "throwing for odd timeframeIterator, not reading this value although it is valid",
+          );
+          throw "odd timeframeIterator";
+        }
+
+        //if no errors are thrown, break out of loop
+        return;
+      } catch (error) {
+        // console.error(error);
+        await this.switchTimeFrameOptionToForceDataToLoad();
+      }
+    }
+  }
+
+  /**
+   * Opens the timeframe option, checks if there is a weekly option,
+   * which will indicate if the data is likely monthly or yearly.
+   * Clicks on the appropriate timeframe option so that it can be switched
+   * back to monthly to avoid the "no data" error when there should be data.
+   */
+  async switchTimeFrameOptionToForceDataToLoad() {
+    // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
+    // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
+    console.log(`Monthly Top not found.`);
+
+    // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
+    // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
+    this.state.monthlyDataTopRowErrorFlag = true;
+    await page.locator(SELECTORS.TIME_MENU).click();
+
+    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
+
+    this.state.weekCheck = await page.$(SELECTORS.WEEK_IDENTIFIER, {
+      timeout: 25000,
+    });
+
+    if (this.state.weekCheck) {
+      console.log("One Week Option Found, Data is probably monthly");
+
+      // odd timeframeIterator (0,2,4, etc) = One Month
+      this.timeframeChoices = TIMEFRAME_CHOICES.MONTHLY;
+    } else {
+      console.log("One Week Option Not Found, Data probably yearly");
+
+      // odd timeframeIterator (0,2,4, etc) = One Year
+      this.timeframeChoices = TIMEFRAME_CHOICES.YEARLY;
+    }
+
+    this.state.timeframeCheck = await page.$(
+      this.timeframeChoices[
+        this.counters.timeframeIterator % this.timeframeChoices.length
+      ].id,
+      {
+        timeout: 25000,
+      },
+    );
+    if (this.state.timeframeCheck) {
+      console.log(
+        this.timeframeChoices[
+          this.counters.timeframeIterator % this.timeframeChoices.length
+        ].label + " Found",
+      );
+      await this.state.timeframeCheck.click();
+      console.log(
+        this.timeframeChoices[
+          this.counters.timeframeIterator % this.timeframeChoices.length
+        ].label + " Clicked",
+      );
+    } else {
+      console.log(
+        this.timeframeChoices[
+          this.counters.timeframeIterator % this.timeframeChoices.length
+        ].label + " Not Found",
+      );
+
+      // Monthly meters have 2 year, 1 year, 1 month, 1 week, 1 day
+      // Yearly meters have 2 year, 1 year
+      // So every meter's timeframe options *should* be accounted for, but just in case, we have a break statement here
+      console.log("Some Other Issue");
+    }
+  }
+
+  /**
+   * Select a meter from the dropdown menu.
+   */
+  async selectMeterFromDropdownMenu() {
+    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
+      hidden: true,
+    });
+
+    await page.click(SELECTORS.METER_MENU);
+    console.log("Meter Menu Opened");
+
+    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
+
+    await page
+      .locator(
+        "#" +
+          this.meterNavigation.meterSelectorFull.slice(0, 11) +
+          this.meterNavigation.meterSelectorNum.toString(),
+      )
+      .click();
+    console.log("New Meter Opened");
+  }
+
+  /**
+   * Handle the loading screen that appears when switching between meters.
+   */
+  async handleMeterLoadingScreen() {
+    while (
+      !this.state.continueLoadingFlag &&
+      this.counters.loadingScreenErrorCount === 0
+    ) {
+      try {
+        await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
+          timeout: 25000,
+        });
+        console.log("Loading Screen Found");
+        break;
+      } catch (error) {
+        // console.error(error);
+        console.log(`Loading Screen not found.`);
+        this.state.continueLoadingFlag = true;
+      }
+    }
+
+    if (this.state.continueLoadingFlag) {
+      console.log("Loading Screen not found, trying again");
+      this.state.continueLoadingFlag = false;
+      this.counters.loadingScreenErrorCount++;
+
+      // throwing the error will prompt a retry (in the form of continuing the while loop)
+      throw new Error("Retrying due to loading screen not found");
+    }
+
+    this.state.continueLoadingFlag = false;
+
+    // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
+    if (this.counters.loadingScreenErrorCount === 0) {
+      await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
+        hidden: true,
+      });
+    }
+  }
+
+  /**
+   * Get the meter ID from the meter dropdown menu text, e.g.
+   * "1234 NE ELECTRIC RD CORVALLIS OR (Item #123) (Meter #1234567)"
+   * returns the meter ID 1234567.
+   */
+  async getMeterIdFromMeterMenu() {
+    const pp_meter_element = await page.waitForSelector(SELECTORS.METER_MENU);
+    const pp_meter_full = await pp_meter_element.evaluate(
+      (el) => el.textContent,
+    );
+
+    let pp_meter_full_trim = pp_meter_full.trim();
+    console.log(pp_meter_full_trim);
+
+    let positionMeter = "(Meter #";
+    let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
+    const meter_id = parseInt(
+      pp_meter_full_trim.slice(
+        meterStringIndex + 8,
+        pp_meter_full_trim.length - 2,
+      ),
+    );
+
+    return meter_id;
+  }
+
+  async getRowText(monthly_top_const, row_days) {
+    const monthly_top = await page.waitForSelector(
+      monthly_top_const + row_days + ")",
+    );
+    const monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
+    return monthly_top_text;
+  }
+
+  async getRowData(monthly_top_text, positionUsage, positionEst) {
+    let usage_kwh = parseFloat(
+      monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
+    );
+
+    // get the date for the data
+    let positionPeriod = "Period";
+    let positionAve = "Average";
+    const date = monthly_top_text
+      .split(positionPeriod)[1]
+      .split(positionAve)[0];
+    const { END_TIME, END_TIME_SECONDS } = DateUtils.formatDateAndTime(date);
+
+    return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
+  }
+
+  /**
+   * This function handles the highest level error for a meter
+   */
+  handleUnknownMeterError(error) {
+    console.error(error);
+    this.meterProcessor.otherErrorArray.push({
+      meter_selector_num: this.meterNavigation.meterSelectorNum,
+      pp_meter_id: this.meterNavigation.ppMeterId,
+    });
+    console.log(
+      this.meterNavigation.meterSelectorNum.toString() +
+        " Unknown Issue, Skipping to next meter",
+    );
+
+    // In general, timeframeIterator should be reset on every exit path for the current meter ID
+    // (unlike some other flags that keep track of number of errors, that we may want to persist between different meters)
+    this.counters.timeframeIterator = 0;
+    this.meterNavigation.meterSelectorNum++;
+    this.counters.meterErrorCount++;
+    if (this.counters.meterErrorCount === CONFIG.MAX_ATTEMPTS) {
+      console.log(
+        `Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`,
+      );
+    }
+  }
+
+  /**
+   * Main function to get meter data from the Pacific Power website. Loops through all
+   * meters in the meter dropdown menu that have data available.
+   */
+  async getMeterData() {
+    // DEBUG: testing at specific meter ID, e.g. to see if termination behavior works
+    // this.meterNavigation.meterSelectorNum = 110;
+
+    while (
+      !this.state.meterErrorsFlag &&
+      this.counters.meterErrorCount < CONFIG.MAX_ATTEMPTS
+    ) {
+      try {
+        console.log("\n" + this.meterNavigation.meterSelectorNum.toString());
+
+        // After the first time a loading screen is detected, don't need to open meter menu again (for current meter ID)
+        if (this.counters.loadingScreenErrorCount === 0) {
+          await this.selectMeterFromDropdownMenu();
+        }
+
+        // if we're past the first meter, we need to wait for the loading screen to disappear
+        if (
+          this.meterNavigation.firstSelectorNum !==
+          this.meterNavigation.meterSelectorNum
+        ) {
+          try {
+            await this.handleMeterLoadingScreen();
+          } catch (err) {
+            // an error occurred with the loading screen, try again
+            continue;
+          }
+        }
+
+        // Get Pacific Power Meter ID
+        this.meterNavigation.ppMeterId = await this.getMeterIdFromMeterMenu();
+        console.log(
+          "PP Meter ID: " + this.meterNavigation.ppMeterId.toString(),
+        );
+
+        // Check if top row monthly data is available
+        await this.waitForTopRowDataAndConfirmItsMonthly();
+
+        // This increases in value every time we try to read a given meter's data (assuming scraper got past loading screen check)
+        this.counters.timeframeIterator++;
+        if (this.state.monthlyDataTopRowErrorFlag) {
+          // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
+          // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
+          console.log("Monthly Top not found, try again");
+          console.log(
+            "Attempt " +
+              (this.counters.monthlyDataTopRowError + 1).toString() +
+              " of " +
+              CONFIG.MAX_ATTEMPTS,
+          );
+          this.counters.monthlyDataTopRowError++;
+          if (this.counters.monthlyDataTopRowError === CONFIG.MAX_ATTEMPTS) {
+            console.log(
+              `Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`,
+            );
+            this.state.meterErrorsFlag = true;
+            break;
+          }
+          this.state.monthlyDataTopRowErrorFlag = false;
+          continue;
+        }
+
+        // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
+        let row_days = CONFIG.STARTING_TABLE_ROW;
+        let monthly_top_text = await this.getRowText(
+          SELECTORS.MONTHLY_TABLE_ROW_SELECTOR,
+          row_days,
+        );
+
+        // TODO in future PR: Fix this variable name to be just "top row" or something,
+        // rename "monthly" var names to be more clear on time interval vs total time frame
+        console.log("Monthly Data Top Row Found, getting table top row value");
+        let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
+        let positionEst = "Est. Rounded";
+
+        // Custom breakpoint for testing
+        /*
+        if (this.meterNavigation.meterSelectorNum === 10) {
+          this.state.meterErrorsFlag = true;
+          break;
+        }
+        */
+
+        if (monthly_top_text.includes(positionEst)) {
+          console.log("Data is not yearly. Data is probably monthly.");
+          console.log("===");
+          console.log(monthly_top_text);
+        } else {
+          console.log("Year Check Found, skipping to next meter");
+          console.log("===");
+          console.log(monthly_top_text);
+
+          // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
+          // so, log an error?
+          // "'Yearly Meter type' Valid Data detected scenario" exit path here, reset flags
+          this.meterProcessor.yearlyArray.push({
+            meterSelectorNum: this.meterNavigation.meterSelectorNum,
+            pp_meter_id: this.meterNavigation.ppMeterId,
+          });
+          this.meterNavigation.meterSelectorNum++;
+          this.counters.loadingScreenErrorCount = 0;
+          this.counters.timeframeIterator = 0;
+          continue;
+        }
+
+        // The point of this.counters.monthlyDataTopRowError is to keep track of number of retries
+        // needed before valid data is detected, so this variable is reset as long as valid data was detected, regardless
+        // of if the meter was monthly or yearly type
+        this.state.monthlyDataTopRowErrorFlag = false;
+        this.counters.monthlyDataTopRowError = 0;
+
+        // Always reset actual_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
+        let actual_days = CONFIG.STARTING_DAYS_BACK;
+
+        while (
+          !this.state.prevDayFlag &&
+          actual_days <= CONFIG.MAX_PREV_DAY_COUNT
+        ) {
+          try {
+            try {
+              monthly_top_text = await this.getRowText(
+                SELECTORS.MONTHLY_TABLE_ROW_SELECTOR,
+                row_days,
+              );
+            } catch (error) {
+              console.log(
+                `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
+              );
+              console.error(error);
+              this.state.prevDayFlag = true;
+            }
+
+            if (actual_days > CONFIG.STARTING_DAYS_BACK) {
+              console.log(
+                "Monthly Data Top Row Found, getting table top row value",
+              );
+              console.log("===");
+              console.log(monthly_top_text);
+            }
+
+            if (monthly_top_text.includes("Unavailable")) {
+              console.log(
+                "'Unavailable' error detected for monthly time range, skipping to next day",
+              );
+              row_days += 1;
+              actual_days += 1;
+              this.meterProcessor.unavailableErrorArray.push({
+                meterSelectorNum: this.meterNavigation.meterSelectorNum,
+                pp_meter_id: this.meterNavigation.ppMeterId,
+              });
+              continue;
+            }
+
+            if (
+              monthly_top_text.includes("delivered to you") ||
+              monthly_top_text.includes("received from you")
+            ) {
+              console.log(
+                "'delivered / received' error detected for monthly time range, skipping to next day",
+              );
+              row_days += 1;
+              actual_days += 1;
+              this.meterProcessor.deliveredErrorArray.push({
+                meterSelectorNum: this.meterNavigation.meterSelectorNum,
+                pp_meter_id: this.meterNavigation.ppMeterId,
+              });
+              continue;
+            }
+
+            let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
+              await this.getRowData(
+                monthly_top_text,
+                positionUsage,
+                positionEst,
+              );
+            let actualDate = DateUtils.getActualDate(actual_days).ACTUAL_DATE;
+
+            const PPTable = {
+              meterSelectorNum: this.meterNavigation.meterSelectorNum,
+              pp_meter_id: this.meterNavigation.ppMeterId,
+              usage_kwh,
+              time: END_TIME,
+              time_seconds: END_TIME_SECONDS,
+            };
+
+            // Upload date if data is valid and not redundant
+            if (
+              DateUtils.isMatchingDate(date, actualDate) &&
+              !ValidationUtils.isMeterInDatabase(
+                this.meterNavigation.ppMeterId,
+                END_TIME_SECONDS,
+                this.ppRecentData,
+              ) &&
+              !ValidationUtils.isMeterInUploadQueue(
+                this.meterNavigation.ppMeterId,
+                END_TIME_SECONDS,
+                this.meterProcessor.ppArray,
+              )
+            ) {
+              // if exclusion list was fetched, compare the meter against it to exclude meters
+              // otherwise we will add all meter data to db
+              this.meterProcessor.processMeterData(
+                PPTable,
+                this.ppMetersExclusionList,
+              );
+            }
+
+            if (actual_days === CONFIG.MAX_PREV_DAY_COUNT) {
+              console.log(
+                `Reached max day count of ${CONFIG.MAX_PREV_DAY_COUNT} days, exiting`,
+              );
+              this.state.prevDayFlag = true;
+              break;
+            }
+            if (date && date !== actualDate) {
+              console.log(
+                "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
+              );
+              actual_days += 1;
+              let ACTUAL_DATE_UNIX =
+                DateUtils.getActualDate(actual_days).ACTUAL_DATE_UNIX;
+              if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
+                console.log(
+                  "Synced actual date and date from Pacific Power site, go to equalled if loop",
+                );
+                continue;
+              }
+            } else if (date && date === actualDate) {
+              row_days += 1;
+              actual_days += 1;
+            }
+          } catch (error) {
+            console.log("Some other error occurred, skipping to next meter");
+            console.error(error);
+            this.meterProcessor.otherErrorArray.push({
+              meterSelectorNum: this.meterNavigation.meterSelectorNum,
+              pp_meter_id: this.meterNavigation.ppMeterId,
+            });
+            this.state.prevDayFlag = true;
+          }
+        }
+        this.state.prevDayFlag = false;
+
+        // If "Est. Rounded" is found, then the data is monthly.
+        // "Best Case Scenario" (valid data from 'Monthly' meter type) exit path here, reset flags
+        if (monthly_top_text.includes(positionEst)) {
+          this.meterNavigation.meterSelectorNum++;
+          this.counters.loadingScreenErrorCount = 0;
+          this.counters.timeframeIterator = 0;
+        }
+      } catch (error) {
+        // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
+        this.handleUnknownMeterError(error);
+      }
+    }
   }
 
   async run() {
@@ -592,11 +1246,11 @@ class PacificPowerScraper {
       }
 
       if (this.state.loginSuccessFlag) {
-        await getMeterData();
+        await this.getMeterData();
       }
 
       // Log all data to be uploaded
-      if (PPArray.length > 0) {
+      if (this.meterProcessor.ppArray.length > 0) {
         console.log("\nData to be uploaded: ");
       } else {
         console.log(
@@ -605,7 +1259,7 @@ class PacificPowerScraper {
       }
 
       // Process data for each meter
-      for (const meterData of PPArray) {
+      for (const meterData of this.meterProcessor.ppArray) {
         console.log(meterData);
 
         if (!process.argv.includes("--no-upload")) {
@@ -630,12 +1284,12 @@ class PacificPowerScraper {
           " PST",
       );
       // Print final results of arrays (meters with errors, meters excluded, etc)
-      printFinalArraysResults();
+      this.meterProcessor.printFinalResults();
 
       // Add new meters found to database
       if (!process.argv.includes("--no-upload")) {
         await this.apiClient.addNewMetersToDatabase(
-          pp_meters_exclude_not_found,
+          this.meterProcessor.ppMetersExcludeNotFound,
         );
       }
 
@@ -643,7 +1297,7 @@ class PacificPowerScraper {
         process.argv.includes("--save-output") ||
         process.env.SAVE_OUTPUT === "true"
       ) {
-        saveOutputToFile();
+        this.meterProcessor.saveOutputToFile();
       }
     } finally {
       await this.cleanup();
@@ -659,616 +1313,3 @@ class PacificPowerScraper {
   const scraper = new PacificPowerScraper();
   await scraper.run();
 })();
-
-// -------------------------------- Misc page navigation functions ---------------------------- //
-
-/**
- * Wait for the top row data to load and confirm that it is monthly data.
- * Throws an error if data is not monthly, which will trigger a switch to a different timeframe
- * to try to force the data to load
- */
-async function waitForTopRowDataAndConfirmItsMonthly() {
-  while (
-    !monthlyDataTopRowErrorFlag &&
-    monthlyDataTopRowError < CONFIG.MAX_ATTEMPTS
-  ) {
-    try {
-      await page.waitForSelector(SELECTORS.GRAPH_SELECTOR);
-
-      await page.waitForSelector(SELECTORS.MONTHLY_TABLE_ROW_SELECTOR + "1)", {
-        timeout: 25000,
-      });
-
-      console.log("Monthly Top Found");
-
-      // Early throw for odd timeframeIterator values (otherwise the meter might try to read yearly etc data
-      // from monthly meters)
-      if (timeframeIterator % 2 === 1) {
-        console.log(
-          "throwing for odd timeframeIterator, not reading this value although it is valid",
-        );
-        throw "odd timeframeIterator";
-      }
-
-      //if no errors are thrown, break out of loop
-      return;
-    } catch (error) {
-      // console.error(error);
-      await switchTimeFrameOptionToForceDataToLoad();
-    }
-  }
-}
-
-/**
- * Opens the timeframe option, checks if there is a weekly option,
- * which will indicate if the data is likely monthly or yearly.
- * Clicks on the appropriate timeframe option so that it can be switched
- * back to monthly to avoid the "no data" error when there should be data.
- */
-async function switchTimeFrameOptionToForceDataToLoad() {
-  // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
-  // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
-  console.log(`Monthly Top not found.`);
-
-  // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
-  // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
-  monthlyDataTopRowErrorFlag = true;
-  await page.locator(SELECTORS.TIME_MENU).click();
-
-  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
-
-  weekCheck = await page.$(SELECTORS.WEEK_IDENTIFIER, {
-    timeout: 25000,
-  });
-
-  if (weekCheck) {
-    console.log("One Week Option Found, Data is probably monthly");
-
-    // odd timeframeIterator (0,2,4, etc) = One Month
-    timeframeChoices = TIMEFRAME_CHOICES.MONTHLY;
-  } else {
-    console.log("One Week Option Not Found, Data probably yearly");
-
-    // odd timeframeIterator (0,2,4, etc) = One Year
-    timeframeChoices = TIMEFRAME_CHOICES.YEARLY;
-  }
-
-  timeframeCheck = await page.$(
-    timeframeChoices[timeframeIterator % timeframeChoices.length].id,
-    {
-      timeout: 25000,
-    },
-  );
-  if (timeframeCheck) {
-    console.log(
-      timeframeChoices[timeframeIterator % timeframeChoices.length].label +
-        " Found",
-    );
-    await timeframeCheck.click();
-    console.log(
-      timeframeChoices[timeframeIterator % timeframeChoices.length].label +
-        " Clicked",
-    );
-  } else {
-    console.log(
-      timeframeChoices[timeframeIterator % timeframeChoices.length].label +
-        " Not Found",
-    );
-
-    // Monthly meters have 2 year, 1 year, 1 month, 1 week, 1 day
-    // Yearly meters have 2 year, 1 year
-    // So every meter's timeframe options *should* be accounted for, but just in case, we have a break statement here
-    console.log("Some Other Issue");
-  }
-}
-
-// -------------------------------- Meter processing functions ---------------------------- //
-
-/**
- * Compares the given meter against the exclusion list to determine if its data
- * should be uploaded to the database. If the meter is not found in the list,
- * it is considered a new meter and is added to the exclusion list with "new" status.
- * New and included meters will have their data uploaded to the database.
- *
- */
-function compareMeterAgainstExclusionList(PPTable) {
-  const meter = pp_meters_exclusion_list.find(
-    (meter) => meter.pp_meter_id === PPTable.pp_meter_id,
-  );
-
-  if (!meter) {
-    console.log(
-      `Meter ${PPTable.pp_meter_id} is not in the exclusion list: NEW METER`,
-    );
-    // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
-    if (!pp_meters_exclude_not_found.includes(PPTable.pp_meter_id)) {
-      pp_meters_exclude_not_found.push(PPTable.pp_meter_id);
-    }
-    return;
-  } else
-    switch (meter.status) {
-      case "exclude":
-        console.log(`Meter ${PPTable.pp_meter_id} is excluded from db`);
-        // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
-        if (!pp_meters_exclude.includes(PPTable.pp_meter_id)) {
-          pp_meters_exclude.push(PPTable.pp_meter_id);
-        }
-        break;
-      case "include":
-        console.log(`Meter ${PPTable.pp_meter_id} is included in db`);
-        pp_meters_include.push(PPTable.pp_meter_id);
-        // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
-        if (!pp_meters_include.includes(PPTable.pp_meter_id)) {
-          pp_meters_include.push(PPTable.pp_meter_id);
-        }
-        break;
-      case "new":
-        console.log(
-          `Meter ${PPTable.pp_meter_id} status needs updating, include in db for now.`,
-        );
-        // only push unique meter IDs to exclusion / inclusion lists (to avoid duplicate logs)
-        if (!pp_meters_include.includes(PPTable.pp_meter_id)) {
-          pp_meters_include.push(PPTable.pp_meter_id);
-        }
-        break;
-      default:
-        console.log(`Meter ${PPTable.pp_meter_id} unrecognized status`);
-    }
-
-  // add meter to upload queue if it's not excluded
-  if (
-    !pp_meters_exclude.includes(PPTable.pp_meter_id) &&
-    (pp_meters_include.includes(PPTable.pp_meter_id) ||
-      pp_meters_exclude_not_found.includes(PPTable.pp_meter_id))
-  ) {
-    // should only be logged for valid, unique data objects not in exclusion list
-    console.log("Valid data found for this day found; queuing upload.");
-    PPArray.push(PPTable);
-  }
-}
-
-/**
- * Select a meter from the dropdown menu.
- */
-async function selectMeterFromDropdownMenu() {
-  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
-    hidden: true,
-  });
-
-  await page.click(SELECTORS.METER_MENU);
-  console.log("Meter Menu Opened");
-
-  await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
-
-  await page
-    .locator(
-      "#" + meter_selector_full.slice(0, 11) + meter_selector_num.toString(),
-    )
-    .click();
-  console.log("New Meter Opened");
-}
-
-/**
- * Handle the loading screen that appears when switching between meters.
- */
-async function handleMeterLoadingScreen() {
-  while (!continueLoadingFlag && loadingScreenErrorCount === 0) {
-    try {
-      await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
-        timeout: 25000,
-      });
-      console.log("Loading Screen Found");
-      break;
-    } catch (error) {
-      // console.error(error);
-      console.log(`Loading Screen not found.`);
-      continueLoadingFlag = true;
-    }
-  }
-
-  if (continueLoadingFlag) {
-    console.log("Loading Screen not found, trying again");
-    continueLoadingFlag = false;
-    loadingScreenErrorCount++;
-
-    // throwing the error will prompt a retry (in the form of continuing the while loop)
-    throw new Error("Retrying due to loading screen not found");
-  }
-
-  continueLoadingFlag = false;
-
-  // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
-  if (loadingScreenErrorCount === 0) {
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
-      hidden: true,
-    });
-  }
-}
-
-/**
- * Get the meter ID from the meter dropdown menu text, e.g.
- * "1234 NE ELECTRIC RD CORVALLIS OR (Item #123) (Meter #1234567)"
- * returns the meter ID 1234567.
- */
-async function getMeterIdFromMeterMenu() {
-  const pp_meter_element = await page.waitForSelector(SELECTORS.METER_MENU);
-  const pp_meter_full = await pp_meter_element.evaluate((el) => el.textContent);
-
-  let pp_meter_full_trim = pp_meter_full.trim();
-  console.log(pp_meter_full_trim);
-
-  let positionMeter = "(Meter #";
-  let meterStringIndex = pp_meter_full_trim.indexOf(positionMeter);
-  meter_id = parseInt(
-    pp_meter_full_trim.slice(
-      meterStringIndex + 8,
-      pp_meter_full_trim.length - 2,
-    ),
-  );
-
-  return meter_id;
-}
-
-/**
- * This function handles the highest level error for a meter
- */
-function handleUnkownMeterError(error) {
-  console.error(error);
-  otherErrorArray.push({ meter_selector_num, pp_meter_id });
-  console.log(
-    meter_selector_num.toString() + " Unknown Issue, Skipping to next meter",
-  );
-
-  // In general, timeframeIterator should be reset on every exit path for the current meter ID
-  // (unlike some other flags that keep track of number of errors, that we may want to persist between different meters)
-  timeframeIterator = 0;
-  meter_selector_num++;
-  meterErrorCount++;
-  if (meterErrorCount === CONFIG.MAX_ATTEMPTS) {
-    console.log(`Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`);
-  }
-}
-
-// -------------------------------- Misc helper functions ---------------------------- //
-
-async function getRowText(monthly_top_const, row_days) {
-  monthly_top = await page.waitForSelector(monthly_top_const + row_days + ")");
-  monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
-  return monthly_top_text;
-}
-
-async function getRowData(monthly_top_text, positionUsage, positionEst) {
-  let usage_kwh = parseFloat(
-    monthly_top_text.split(positionUsage)[1].split(positionEst)[0],
-  );
-
-  // get the date for the data
-  let positionPeriod = "Period";
-  let positionAve = "Average";
-  const date = monthly_top_text.split(positionPeriod)[1].split(positionAve)[0];
-  const { END_TIME, END_TIME_SECONDS } = DateUtils.formatDateAndTime(date);
-
-  return { usage_kwh, date, END_TIME, END_TIME_SECONDS };
-}
-
-/**
- * Prints out the final results of the meter data processing.
- * This includes the unavailable, delivered error, yearly, and
- * other error meters.
- */
-function printFinalArraysResults() {
-  if (unAvailableErrorArray.length > 0) {
-    console.log("\nUnavailable Meters (Monthly): ");
-    for (let i = 0; i < unAvailableErrorArray.length; i++) {
-      console.log(unAvailableErrorArray[i]);
-    }
-  }
-  if (deliveredErrorArray.length > 0) {
-    console.log("\nDelivered Error Meters (Monthly): ");
-    for (let i = 0; i < deliveredErrorArray.length; i++) {
-      console.log(deliveredErrorArray[i]);
-    }
-  }
-  if (yearlyArray.length > 0) {
-    console.log("\nYearly Meters: ");
-    for (let i = 0; i < yearlyArray.length; i++) {
-      console.log(yearlyArray[i]);
-    }
-  }
-  if (otherErrorArray.length > 0) {
-    console.log("\nOther Errors: ");
-    for (let i = 0; i < otherErrorArray.length; i++) {
-      console.log(otherErrorArray[i]);
-    }
-  }
-
-  if (pp_meters_exclude.length > 0) {
-    console.log("\nMeters Excluded: ");
-    for (let i = 0; i < pp_meters_exclude.length; i++) {
-      console.log(pp_meters_exclude[i]);
-    }
-  }
-
-  if (pp_meters_include.length > 0) {
-    console.log("\nMeters Included in DB: ");
-    for (let i = 0; i < pp_meters_include.length; i++) {
-      console.log(pp_meters_include[i]);
-    }
-  }
-
-  if (pp_meters_exclude_not_found.length > 0) {
-    console.log("\nMeters Not Found in Exclusion List (new meters): ");
-    for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
-      console.log(pp_meters_exclude_not_found[i]);
-    }
-  }
-}
-
-/**
- * Saves the various arrays to a JSON file.
- * This includes the unavailable, delivered error, yearly, and
- * other error meters, as well as the meters excluded/included/not found
- * in the database.
- */
-function saveOutputToFile() {
-  PPArray.push("Unavailable Meters (Monthly): ");
-  PPArray.push(unAvailableErrorArray);
-  PPArray.push("Delivered Error Meters (Monthly): ");
-  PPArray.push(deliveredErrorArray);
-  PPArray.push("Yearly Meters: ");
-  PPArray.push(yearlyArray);
-  PPArray.push("Other Errors: ");
-  PPArray.push(otherErrorArray);
-  PPArray.push("Meters Excluded from DB: ");
-  PPArray.push(pp_meters_exclude);
-  PPArray.push("Meters Included in DB: ");
-  PPArray.push(pp_meters_include);
-  PPArray.push("Meters Not Found in Exclusion List (new meters): ");
-  PPArray.push(pp_meters_exclude_not_found);
-  const jsonContent = JSON.stringify(PPArray, null, 2);
-  fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
-    if (err) {
-      return console.log(err);
-    }
-    console.log("\nFile Saved: Yes");
-  });
-}
-
-// -------------------------------- Top Level functions ---------------------------- //
-
-/**
- * Main function to get meter data from the Pacific Power website. Loops through all
- * meters in the meter dropdown menu that have data available.
- */
-async function getMeterData() {
-  // DEBUG: testing at specific meter ID, e.g. to see if termination behavior works
-  // meter_selector_num = 110;
-
-  while (!meterErrorsFlag && meterErrorCount < CONFIG.MAX_ATTEMPTS) {
-    try {
-      console.log("\n" + meter_selector_num.toString());
-
-      // After the first time a loading screen is detected, don't need to open meter menu again (for current meter ID)
-      if (loadingScreenErrorCount === 0) {
-        await selectMeterFromDropdownMenu();
-      }
-
-      // if we're past the first meter, we need to wait for the loading screen to disappear
-      if (first_selector_num !== meter_selector_num) {
-        try {
-          await handleMeterLoadingScreen();
-        } catch (err) {
-          // an error occurred with the loading screen, try again
-          continue;
-        }
-      }
-
-      // Get Pacific Power Meter ID
-      pp_meter_id = await getMeterIdFromMeterMenu();
-      console.log("PP Meter ID: " + pp_meter_id.toString());
-
-      // Check if top row monthly data is available
-      await waitForTopRowDataAndConfirmItsMonthly();
-
-      // This increases in value every time we try to read a given meter's data (assuming scraper got past loading screen check)
-      timeframeIterator++;
-      if (monthlyDataTopRowErrorFlag) {
-        // TODO: Should the "Monthly Top Not Found" messages be tweaked / hidden in case of an intentional throw
-        // ("throwing for odd timeframeIterator, not reading this value although it is valid")?
-        console.log("Monthly Top not found, try again");
-        console.log(
-          "Attempt " +
-            (monthlyDataTopRowError + 1).toString() +
-            " of " +
-            CONFIG.MAX_ATTEMPTS,
-        );
-        monthlyDataTopRowError++;
-        if (monthlyDataTopRowError === CONFIG.MAX_ATTEMPTS) {
-          console.log(
-            `Re-Checked ${CONFIG.MAX_ATTEMPTS} times, Stopping Webscraper`,
-          );
-          meterErrorsFlag = true;
-          break;
-        }
-        monthlyDataTopRowErrorFlag = false;
-        continue;
-      }
-
-      // Always reset row_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
-      let row_days = CONFIG.STARTING_TABLE_ROW;
-      monthly_top_text = await getRowText(
-        SELECTORS.MONTHLY_TABLE_ROW_SELECTOR,
-        row_days,
-      );
-
-      // TODO in future PR: Fix this variable name to be just "top row" or something,
-      // rename "monthly" var names to be more clear on time interval vs total time frame
-      console.log("Monthly Data Top Row Found, getting table top row value");
-      let positionUsage = "Usage(kwh)"; // You can edit this value to something like "Usage(kwhdfdfd)" to test the catch block at the end
-      let positionEst = "Est. Rounded";
-
-      // Custom breakpoint for testing
-      /*
-      if (meter_selector_num === 10) {
-        meterErrorsFlag = true;
-        break;
-      }
-      */
-
-      if (monthly_top_text.includes(positionEst)) {
-        console.log("Data is not yearly. Data is probably monthly.");
-        console.log("===");
-        console.log(monthly_top_text);
-      } else {
-        console.log("Year Check Found, skipping to next meter");
-        console.log("===");
-        console.log(monthly_top_text);
-
-        // TODO (future PR with Cloudwatch): Some kind of check here if the yearly meter is in inclusion list, and if
-        // so, log an error?
-        // "'Yearly Meter type' Valid Data detected scenario" exit path here, reset flags
-        yearlyArray.push({ meter_selector_num, pp_meter_id });
-        meter_selector_num++;
-        loadingScreenErrorCount = 0;
-        timeframeIterator = 0;
-        continue;
-      }
-
-      // The point of monthlyDataTopRowError is to keep track of number of retries
-      // needed before valid data is detected, so this variable is reset as long as valid data was detected, regardless
-      // of if the meter was monthly or yearly type
-      monthlyDataTopRowErrorFlag = false;
-      monthlyDataTopRowError = 0;
-
-      // Always reset actual_days (for each meter ID) to 1 (or whatever is default value) before checking past week's data
-      let actual_days = CONFIG.STARTING_DAYS_BACK;
-
-      while (!prevDayFlag && actual_days <= CONFIG.MAX_PREV_DAY_COUNT) {
-        try {
-          try {
-            monthly_top_text = await getRowText(
-              SELECTORS.MONTHLY_TABLE_ROW_SELECTOR,
-              row_days,
-            );
-          } catch (error) {
-            console.log(
-              `Meter data for ${actual_days} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
-            );
-            console.error(error);
-            prevDayFlag = true;
-          }
-
-          if (actual_days > CONFIG.STARTING_DAYS_BACK) {
-            console.log(
-              "Monthly Data Top Row Found, getting table top row value",
-            );
-            console.log("===");
-            console.log(monthly_top_text);
-          }
-
-          if (monthly_top_text.includes("Unavailable")) {
-            console.log(
-              "'Unavailable' error detected for monthly time range, skipping to next day",
-            );
-            row_days += 1;
-            actual_days += 1;
-            unAvailableErrorArray.push({
-              meter_selector_num,
-              pp_meter_id,
-            });
-            continue;
-          }
-
-          if (
-            monthly_top_text.includes("delivered to you") ||
-            monthly_top_text.includes("received from you")
-          ) {
-            console.log(
-              "'delivered / received' error detected for monthly time range, skipping to next day",
-            );
-            row_days += 1;
-            actual_days += 1;
-            deliveredErrorArray.push({
-              meter_selector_num,
-              pp_meter_id,
-            });
-            continue;
-          }
-
-          let { usage_kwh, date, END_TIME, END_TIME_SECONDS } =
-            await getRowData(monthly_top_text, positionUsage, positionEst);
-          let actualDate = DateUtils.getActualDate(actual_days).ACTUAL_DATE;
-
-          PPTable = {
-            meter_selector_num,
-            pp_meter_id,
-            usage_kwh,
-            time: END_TIME,
-            time_seconds: END_TIME_SECONDS,
-          };
-
-          // Upload date if data is valid and not redundant
-          if (
-            DateUtils.isMatchingDate(date, actualDate) &&
-            !ValidationUtils.isMeterInDatabase(pp_meter_id, END_TIME_SECONDS) &&
-            !ValidationUtils.isMeterInUploadQueue(pp_meter_id, END_TIME_SECONDS)
-          ) {
-            // if exclusion list was fetched, compare the meter against it to exclude meters
-            // otherwise we will add all meter data to db
-            if (pp_meters_exclusion_list) {
-              compareMeterAgainstExclusionList(PPTable);
-            } else {
-              PPArray.push(PPTable);
-              // should only be logged for valid, unique data objects not in exclusion list
-              console.log(
-                "Valid data found for this day found; queuing upload.",
-              );
-            }
-          }
-
-          if (actual_days === CONFIG.MAX_PREV_DAY_COUNT) {
-            console.log(
-              `Reached max day count of ${CONFIG.MAX_PREV_DAY_COUNT} days, exiting`,
-            );
-            prevDayFlag = true;
-            break;
-          }
-          if (date && date !== actualDate) {
-            console.log(
-              "Now going back 1 more day (actual date), let's see if that syncs us up with date from Pacific Power site",
-            );
-            actual_days += 1;
-            let ACTUAL_DATE_UNIX =
-              DateUtils.getActualDate(actual_days).ACTUAL_DATE_UNIX;
-            if (ACTUAL_DATE_UNIX === END_TIME_SECONDS) {
-              console.log(
-                "Synced actual date and date from Pacific Power site, go to equalled if loop",
-              );
-              continue;
-            }
-          } else if (date && date === actualDate) {
-            row_days += 1;
-            actual_days += 1;
-          }
-        } catch (error) {
-          console.log("Some other error occurred, skipping to next meter");
-          console.error(error);
-          otherErrorArray.push({ meter_selector_num, pp_meter_id });
-          prevDayFlag = true;
-        }
-      }
-      prevDayFlag = false;
-
-      // If "Est. Rounded" is found, then the data is monthly.
-      // "Best Case Scenario" (valid data from 'Monthly' meter type) exit path here, reset flags
-      if (monthly_top_text.includes(positionEst)) {
-        meter_selector_num++;
-        loadingScreenErrorCount = 0;
-        timeframeIterator = 0;
-      }
-    } catch (error) {
-      // This catch ensures that if one meter errors out, we can keep going to next meter instead of whole webscraper crashing
-      handleUnkownMeterError(error);
-    }
-  }
-}
