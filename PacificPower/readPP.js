@@ -226,6 +226,149 @@ class ValidationUtils {
   }
 }
 
+// ================================
+// ENERGY DASHBOARD API CLIENT CLASS
+// ================================
+
+class APIClient {
+  constructor(dashboardApi) {
+    this.dashboardApi = dashboardApi;
+  }
+
+  /**
+   * Retrieve the most recent data from the Pacific Power Recent Data List.
+   * Used to avoid uploading redundant data to the database and for uploading
+   * missing data. /pprecent API currently returns the last 7 days of data.
+   */
+  async getPacificPowerRecentData() {
+    try {
+      const response = await axios({
+        method: "get",
+        url: `${this.dashboardApi}/pprecent`,
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error("Failed to fetch PP Recent Data List");
+      }
+
+      if (response.data) {
+        const uniqueIds = new Set();
+        response.data.forEach((item) => {
+          uniqueIds.add(item.pacific_power_meter_id);
+        });
+        console.log(
+          `${response.data.length} datapoints fetched from PP Recent Data List (${uniqueIds.size} unique meter IDs)`,
+        );
+      }
+
+      return response.data;
+    } catch (error) {
+      console.log(error);
+      console.log(
+        "Could not get PP Recent Data List. Redundant data might be uploaded to SQL database.",
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Retrieve the Pacific Power Meter Exclusion List from the database.
+   * Meters will have status of 'exclude', 'include', or 'new'.
+   * 'exclude' meters will not have their data uploaded to the database,
+   * 'include' and 'new' meters will.
+   */
+  async getPacificPowerMeterExclusionList() {
+    try {
+      const response = await axios({
+        method: "get",
+        url: `${this.dashboardApi}/ppexclude`,
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error("Failed to fetch PP Meter Exclusion List");
+      }
+
+      if (response.data) {
+        console.log(
+          `${response.data.length} meters fetched from PP Meter Exclusion List`,
+        );
+      } else {
+        console.log(
+          "Could not get PP Meter Exclusion List. All meter data will be uploaded.",
+        );
+      }
+
+      return response.data;
+    } catch (error) {
+      console.log(error);
+      return null;
+    }
+  }
+
+  /**
+   * Uploads the meter data to the database, logs response.
+   */
+  async uploadDataToDatabase(meterData) {
+    const pacificPowerMeters = "pacific_power_data";
+
+    try {
+      const response = await axios({
+        method: "post",
+        url: `${this.dashboardApi}/upload`,
+        data: {
+          id: pacificPowerMeters,
+          body: meterData,
+          pwd: process.env.API_PWD,
+          type: "pacific_power",
+        },
+      });
+
+      console.log(`RESPONSE: ${response.status}, TEXT: ${response.statusText}`);
+      if (response.status === 200) {
+        console.log(`${meterData.pp_meter_id} uploaded to database.`);
+      }
+    } catch (error) {
+      if (
+        error.response?.status === 400 &&
+        error.response?.data === "redundant upload detected, skipping"
+      ) {
+        console.log(
+          `RESPONSE: ${error.response.status}, TEXT: ${error.response.statusText}, ERROR: ${error.response.data}`,
+        );
+      } else {
+        console.log(error);
+      }
+    }
+  }
+
+  /**
+   * Uploads any new meters to the database.
+   */
+  async addNewMetersToDatabase(newMeters) {
+    for (const meterId of newMeters) {
+      try {
+        const response = await axios({
+          method: "post",
+          url: `${this.dashboardApi}/ppupload`,
+          data: {
+            id: meterId,
+            pwd: process.env.API_PWD,
+          },
+        });
+
+        console.log(
+          `\nRESPONSE: ${response.status}, TEXT: ${response.statusText}`,
+        );
+        if (response.status === 200) {
+          console.log(`${meterId} uploaded to database.`);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
+}
+
 // -------------------------------- Sign-in functions ---------------------------- //
 
 /**
@@ -744,149 +887,6 @@ function saveOutputToFile() {
   });
 }
 
-// -------------------------------- Energy Dashboard API functions ---------------------------- //
-
-/**
- * Uploads any new meters to the database.
- */
-async function addNewMetersToDatabase() {
-  for (let i = 0; i < pp_meters_exclude_not_found.length; i++) {
-    await axios({
-      method: "post",
-      url: `${CONFIG.DASHBOARD_API}/ppupload`,
-      data: {
-        id: pp_meters_exclude_not_found[i],
-        pwd: process.env.API_PWD,
-      },
-    })
-      .then((res) => {
-        console.log(`\nRESPONSE: ${res.status}, TEXT: ${res.statusText}`);
-        if (res.status === 200) {
-          console.log(
-            `${pp_meters_exclude_not_found[i]} uploaded to database.`,
-          );
-        }
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  }
-}
-
-/**
- * Retrieve the most recent data from the Pacific Power Recent Data List.
- * Used to avoid uploading redundant data to the database and for uploading
- * missing data. /pprecent API currently returns the last 7 days of data.
- */
-async function getPacificPowerRecentData() {
-  let recent_data = await axios({
-    method: "get",
-    url: `${CONFIG.DASHBOARD_API}/pprecent`,
-  })
-    .then((res) => {
-      // DEBUG: change to test specific status codes from API
-      if (res.status < 200 || res.status >= 300) {
-        throw new Error("Failed to fetch PP Recent Data List");
-      }
-
-      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
-      return res.data;
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-
-  if (recent_data) {
-    console.log(
-      `${recent_data.length} total datapoints in PP Recent Data List (no duplicates)`,
-    );
-    const uniqueIds = new Set();
-    recent_data.forEach((item) => {
-      uniqueIds.add(item.pacific_power_meter_id);
-    });
-    const numberOfUniqueIds = uniqueIds.size;
-    console.log(
-      `${numberOfUniqueIds} unique meter ID's in PP Recent Data List`,
-    );
-  } else {
-    console.log(
-      "Could not get PP Recent Data List. Redundant data (same meter ID and timestamp as an existing value) might be uploaded to SQL database.",
-    );
-  }
-
-  return recent_data;
-}
-
-/**
- * Retrieve the Pacific Power Meter Exclusion List from the database.
- * Meters will have status of 'exclude', 'include', or 'new'.
- * 'exclude' meters will not have their data uploaded to the database,
- * 'include' and 'new' meters will.
- */
-async function getPacificPowerMeterExclusionList() {
-  let exclusion_list = await axios({
-    method: "get",
-    url: `${CONFIG.DASHBOARD_API}/ppexclude`,
-  })
-    .then((res) => {
-      // DEBUG: change to test specific status codes from API
-      if (res.status < 200 || res.status >= 300) {
-        throw new Error("Failed to fetch PP Meter Exclusion List");
-      }
-
-      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
-      return res.data;
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-
-  if (exclusion_list) {
-    console.log(`${exclusion_list.length} meters in PP Meter Exclusion List`);
-  } else {
-    console.log(
-      "Could not get PP Meter Exclusion List. All meter data will be uploaded.",
-    );
-  }
-
-  return exclusion_list;
-}
-
-/**
- * Uploads the meter data to the database, logs response.
- */
-async function uploadDatatoDatabase(meterData) {
-  const pacificPowerMeters = "pacific_power_data";
-
-  await axios({
-    method: "post",
-    url: `${CONFIG.DASHBOARD_API}/upload`,
-    data: {
-      id: pacificPowerMeters,
-      body: meterData,
-      pwd: process.env.API_PWD,
-      type: "pacific_power",
-    },
-  })
-    .then((res) => {
-      console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
-      if (res.status === 200) {
-        console.log(`${meterData.pp_meter_id} uploaded to database.`);
-      }
-    })
-    .catch((err) => {
-      if (
-        err.response.status === 400 &&
-        err.response.data === "redundant upload detected, skipping"
-      ) {
-        console.log(
-          `RESPONSE: ${err.response.status}, TEXT: ${err.response.statusText}, ERROR: ${err.response.data}`,
-        );
-      } else {
-        console.log(err);
-      }
-    });
-}
 
 // -------------------------------- Top Level functions ---------------------------- //
 
@@ -1120,8 +1120,9 @@ async function getMeterData() {
 }
 
 (async () => {
-  pp_recent_data = await getPacificPowerRecentData();
-  pp_meters_exclusion_list = await getPacificPowerMeterExclusionList();
+  const apiClient = new APIClient(CONFIG.DASHBOARD_API);
+  pp_recent_data = await apiClient.getPacificPowerRecentData();
+  pp_meters_exclusion_list = await apiClient.getPacificPowerMeterExclusionList();
 
   // Launch the browser
   const browser = await puppeteer.launch({
@@ -1184,7 +1185,7 @@ async function getMeterData() {
 
     // to prevent uploading data to API: node readPP.js --no-upload
     if (!process.argv.includes("--no-upload")) {
-      await uploadDatatoDatabase(PPArray[i]);
+      await apiClient.uploadDataToDatabase(PPArray[i]);
     }
   }
 
@@ -1202,7 +1203,7 @@ async function getMeterData() {
 
   // add new meters to exclusion table in database if uploading
   if (!process.argv.includes("--no-upload")) {
-    await addNewMetersToDatabase();
+    await apiClient.addNewMetersToDatabase(pp_meters_exclude_not_found);
   }
 
   // node readPP.js --save-output
