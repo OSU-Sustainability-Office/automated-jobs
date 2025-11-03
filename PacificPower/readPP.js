@@ -83,9 +83,6 @@ const TIMEFRAME_CHOICES = {
   ],
 };
 
-// Misc Variables (initialization)
-let page = ""; // current browser page being used by Puppeteer (set headless: false for a visual explanation)
-
 // ================================
 // UTILITY FUNCTIONS
 // ================================
@@ -548,39 +545,39 @@ class PacificPowerScraper {
   async signInToPacificPower(loginAttempts) {
     console.log("Accessing Pacific Power Web Page...");
 
-    await page.goto(process.env.PP_LOGINPAGE, {
+    await this.page.goto(process.env.PP_LOGINPAGE, {
       waitUntil: "networkidle0",
       timeout: 25000,
     });
 
-    await page.setExtraHTTPHeaders({
+    await this.page.setExtraHTTPHeaders({
       "Accept-Language": "en-US,en;q=0.9",
     });
-    await page.setUserAgent({
+    await this.page.setUserAgent({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
     });
-    console.log(`Current Page: ${await page.title()}`);
+    console.log(`Current Page: ${await this.page.title()}`);
 
     if (loginAttempts === 0) {
-      await page.locator(SELECTORS.ACCEPT_COOKIES).click();
+      await this.page.locator(SELECTORS.ACCEPT_COOKIES).click();
       console.log("Cookies Button clicked");
 
-      await page.click(SELECTORS.LOCATION_BUTTON);
+      await this.page.click(SELECTORS.LOCATION_BUTTON);
       console.log("Location Button clicked");
 
-      await page.click(SELECTORS.SIGN_IN_PAGE_BUTTON);
+      await this.page.click(SELECTORS.SIGN_IN_PAGE_BUTTON);
       console.log("Sign-In Page Button clicked");
 
-      await page.waitForNavigation({
+      await this.page.waitForNavigation({
         waitUntil: "networkidle0",
         timeout: 60000,
       });
-      console.log(`Current Page: ${await page.title()}`);
+      console.log(`Current Page: ${await this.page.title()}`);
       console.log("Waiting for Sign-In iframe form to be ready...");
-      await page.waitForSelector("iframe", { timeout: 60000 });
+      await this.page.waitForSelector("iframe", { timeout: 60000 });
       console.log("Sign-In Iframe is ready. Loading iframe content...");
-      const signinIframe = await page.$(SELECTORS.SIGN_IN_IFRAME);
+      const signinIframe = await this.page.$(SELECTORS.SIGN_IN_IFRAME);
       const frame = await signinIframe.contentFrame();
 
       console.log("Filling username...");
@@ -593,11 +590,11 @@ class PacificPowerScraper {
 
       await frame.click(SELECTORS.LOGIN_BUTTON);
       console.log("Login Button clicked");
-      await page.waitForNavigation({
+      await this.page.waitForNavigation({
         waitUntil: "networkidle0",
         timeout: 60000,
       });
-      console.log(`Current Page: ${await page.title()}`);
+      console.log(`Current Page: ${await this.page.title()}`);
       console.log(
         "First time logged in. Continuing to Account > Energy Usage Page...",
       );
@@ -612,25 +609,25 @@ class PacificPowerScraper {
    * Navigate to the first meter's page and wait for it to finish loading.
    */
   async navigateToFirstMeterPage() {
-    await page.goto(process.env.PP_ACCOUNTPAGE, {
+    await this.page.goto(process.env.PP_ACCOUNTPAGE, {
       waitUntil: "networkidle0",
       timeout: 120000,
     });
-    console.log(`Current Page: ${await page.title()}`);
+    console.log(`Current Page: ${await this.page.title()}`);
 
-    await page.waitForSelector("#loader-temp-secure", {
+    await this.page.waitForSelector("#loader-temp-secure", {
       hidden: true,
       timeout: 25000,
     });
 
-    await page.waitForFunction(
+    await this.page.waitForFunction(
       () =>
         !document.querySelector(
           "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(2) > wcss-payment-card > div > wcss-loading",
         ),
     );
 
-    await page.waitForFunction(
+    await this.page.waitForFunction(
       () =>
         !document.querySelector(
           "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
@@ -645,14 +642,14 @@ class PacificPowerScraper {
    */
   async getMeterSelectorNumberFromFirstMeter() {
     // it's theoretically possible to get yearly result for first meter, so check just in case
-    await page.waitForFunction(
+    await this.page.waitForFunction(
       () => !document.querySelector("#loading-component > mat-spinner"),
     );
 
-    this.state.yearCheck = await page.$(SELECTORS.YEAR_IDENTIFIER, {
+    this.state.yearCheck = await this.page.$(SELECTORS.YEAR_IDENTIFIER, {
       timeout: 25000,
     });
-    this.state.monthCheck = await page.$(SELECTORS.MONTH_IDENTIFIER, {
+    this.state.monthCheck = await this.page.$(SELECTORS.MONTH_IDENTIFIER, {
       timeout: 25000,
     });
 
@@ -671,14 +668,14 @@ class PacificPowerScraper {
         SELECTORS.GRAPH_TO_TABLE_BUTTON_MONTHLY;
     }
 
-    await page.locator(this.meterNavigation.graphButton).click();
+    await this.page.locator(this.meterNavigation.graphButton).click();
     console.log("Graph to Table Button clicked");
 
-    await page.locator(SELECTORS.METER_MENU).click();
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
+    await this.page.locator(SELECTORS.METER_MENU).click();
+    await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
     console.log("Meter Menu Opened");
-    this.meterNavigation.meterSelectorFull = await page.$eval(
+    this.meterNavigation.meterSelectorFull = await this.page.$eval(
       "mat-option",
       (el) => el.getAttribute("id"),
     );
@@ -693,9 +690,9 @@ class PacificPowerScraper {
         ")",
     );
 
-    await page.click(SELECTORS.METER_MENU);
+    await this.page.click(SELECTORS.METER_MENU);
     console.log("Meter Menu Closed");
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
+    await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
       hidden: true,
     });
   }
@@ -711,9 +708,9 @@ class PacificPowerScraper {
       this.counters.monthlyDataTopRowError < CONFIG.MAX_ATTEMPTS
     ) {
       try {
-        await page.waitForSelector(SELECTORS.GRAPH_SELECTOR);
+        await this.page.waitForSelector(SELECTORS.GRAPH_SELECTOR);
 
-        await page.waitForSelector(
+        await this.page.waitForSelector(
           SELECTORS.MONTHLY_TABLE_ROW_SELECTOR + "1)",
           {
             timeout: 25000,
@@ -754,11 +751,11 @@ class PacificPowerScraper {
     // open up time menu and switch timeframes (month vs year etc) to avoid the "no data" (when there actually is data) glitch
     // trying to reload the page is a possibility but it's risky due to this messing with the mat-option ID's
     this.state.monthlyDataTopRowErrorFlag = true;
-    await page.locator(SELECTORS.TIME_MENU).click();
+    await this.page.locator(SELECTORS.TIME_MENU).click();
 
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
+    await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
-    this.state.weekCheck = await page.$(SELECTORS.WEEK_IDENTIFIER, {
+    this.state.weekCheck = await this.page.$(SELECTORS.WEEK_IDENTIFIER, {
       timeout: 25000,
     });
 
@@ -774,7 +771,7 @@ class PacificPowerScraper {
       this.timeframeChoices = TIMEFRAME_CHOICES.YEARLY;
     }
 
-    this.state.timeframeCheck = await page.$(
+    this.state.timeframeCheck = await this.page.$(
       this.timeframeChoices[
         this.counters.timeframeIterator % this.timeframeChoices.length
       ].id,
@@ -812,16 +809,16 @@ class PacificPowerScraper {
    * Select a meter from the dropdown menu.
    */
   async selectMeterFromDropdownMenu() {
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
+    await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT, {
       hidden: true,
     });
 
-    await page.click(SELECTORS.METER_MENU);
+    await this.page.click(SELECTORS.METER_MENU);
     console.log("Meter Menu Opened");
 
-    await page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
+    await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_TRANSPARENT);
 
-    await page
+    await this.page
       .locator(
         "#" +
           this.meterNavigation.meterSelectorFull.slice(0, 11) +
@@ -840,7 +837,7 @@ class PacificPowerScraper {
       this.counters.loadingScreenErrorCount === 0
     ) {
       try {
-        await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
+        await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
           timeout: 25000,
         });
         console.log("Loading Screen Found");
@@ -865,7 +862,7 @@ class PacificPowerScraper {
 
     // https://stackoverflow.com/questions/58833640/puppeteer-wait-for-element-disappear-or-remove-from-dom
     if (this.counters.loadingScreenErrorCount === 0) {
-      await page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
+      await this.page.waitForSelector(SELECTORS.LOADING_BACKDROP_DARK, {
         hidden: true,
       });
     }
@@ -877,7 +874,7 @@ class PacificPowerScraper {
    * returns the meter ID 1234567.
    */
   async getMeterIdFromMeterMenu() {
-    const pp_meter_element = await page.waitForSelector(SELECTORS.METER_MENU);
+    const pp_meter_element = await this.page.waitForSelector(SELECTORS.METER_MENU);
     const pp_meter_full = await pp_meter_element.evaluate(
       (el) => el.textContent,
     );
@@ -898,7 +895,7 @@ class PacificPowerScraper {
   }
 
   async getRowText(monthly_top_const, row_days) {
-    const monthly_top = await page.waitForSelector(
+    const monthly_top = await this.page.waitForSelector(
       monthly_top_const + row_days + ")",
     );
     const monthly_top_text = await monthly_top.evaluate((el) => el.textContent);
@@ -1216,10 +1213,10 @@ class PacificPowerScraper {
       for (let i = 0; i < CONFIG.MAX_ATTEMPTS; i++) {
         try {
           // Create page
-          page = await this.browser.newPage();
-          page.setDefaultTimeout(CONFIG.TIMEOUT_BUFFER);
-          await page.setCacheEnabled(false);
-          await page.reload({ waitUntil: "networkidle2" });
+          this.page = await this.browser.newPage();
+          this.page.setDefaultTimeout(CONFIG.TIMEOUT_BUFFER);
+          await this.page.setCacheEnabled(false);
+          await this.page.reload({ waitUntil: "networkidle2" });
 
           // Sign in and get meter selector number for meter navigation
           await this.signInToPacificPower(i);
