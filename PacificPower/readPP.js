@@ -1219,6 +1219,13 @@ class PacificPowerScraper {
         await this.getMeterData();
       }
 
+      // Add new meters found to database
+      if (!process.argv.includes("--no-upload")) {
+        await this.apiClient.addNewMetersToDatabase(
+          this.meterProcessor.ppMetersExcludeNotFound,
+        );
+      }
+
       // Log all data to be uploaded
       if (this.meterProcessor.ppArray.length > 0) {
         console.log("\nData to be uploaded: ");
@@ -1255,14 +1262,6 @@ class PacificPowerScraper {
       );
       // Print final results of arrays (meters with errors, meters excluded, etc)
       this.meterProcessor.printFinalResults();
-
-      // Add new meters found to database
-      if (!process.argv.includes("--no-upload")) {
-        await this.apiClient.addNewMetersToDatabase(
-          this.meterProcessor.ppMetersExcludeNotFound,
-        );
-      }
-
       if (
         process.argv.includes("--save-output") ||
         process.env.SAVE_OUTPUT === "true"
