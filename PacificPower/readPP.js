@@ -349,7 +349,7 @@ class MeterProcessor {
   compareMeterAgainstExclusionList(meterData, exclusionList) {
     // Try to find the meter in the exclusion list
     const meter = exclusionList.find(
-      (meter) => meter.pp_meter_id === meterData.pp_meter_id,
+      (meter) => meter.pacific_power_meter_id === meterData.pp_meter_id,
     );
 
     if (!meter) {
