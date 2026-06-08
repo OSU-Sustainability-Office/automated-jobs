@@ -1,0 +1,25 @@
+{
+  "name": "solaredge-webscraper",
+  "version": "1.0.0",
+  "description": "Automated solar data scraper for SolarEdge monitoring portal",
+  "main": "readSolarEdge.js",
+  "scripts": {
+    "format": "prettier --write ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OSU-Sustainability-Office/automated-jobs.git"
+  },
+  "author": "Oregon State Sustainability Office",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/OSU-Sustainability-Office/automated-jobs/issues"
+  },
+  "homepage": "https://github.com/OSU-Sustainability-Office/automated-jobs#readme",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "dotenv": "^10.0.0",
+    "prettier": "^3.0.1",
+    "puppeteer": "^23.6.1"
+  }
+}
