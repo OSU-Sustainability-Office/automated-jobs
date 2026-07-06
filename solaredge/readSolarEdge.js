@@ -22,14 +22,6 @@ let page = "";
 let browser = "";
 
 /**
- * This is a replacement for Puppeteer's deprecated waitForTimeout function.
- * It's not best practice to use this, so try to favor waitForSelector/Locator/etc.
- */
-async function waitForTimeout(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * Logs into the SolarEdge monitoring portal
  */
 async function loginToSolarEdge() {
@@ -59,6 +51,7 @@ async function loginToSolarEdge() {
 
   const maxAttempts = 5;
   let attempt = 0;
+  let loggedIn = false;
 
   while (attempt < maxAttempts) {
     try {
@@ -68,6 +61,7 @@ async function loginToSolarEdge() {
         timeout: TIMEOUT_BUFFER,
       });
       console.log("Login Button Clicked!");
+      loggedIn = true;
       break;
     } catch (error) {
       console.log(
@@ -75,6 +69,12 @@ async function loginToSolarEdge() {
       );
       attempt++;
     }
+  }
+
+  // Don't proceed as if authenticated when every attempt failed — otherwise the
+  // downstream site-list wait just hangs until timeout with a misleading error.
+  if (!loggedIn) {
+    throw new Error(`Failed to log into SolarEdge after ${maxAttempts} attempts`);
   }
 
   console.log("Logged in!");
@@ -85,9 +85,23 @@ async function loginToSolarEdge() {
  * (e.g. "10/07/2021")
  */
 function getYesterdayInPST() {
-  const now = new Date();
-  now.setDate(now.getDate() - 1);
-  return now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
+  // Resolve today's calendar date in PST first, then subtract a day in
+  // calendar space. A flat -24h shift (setDate on the raw instant) lands on
+  // the wrong date across DST transitions, when a day isn't 24h long.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = +parts.find((p) => p.type === "year").value;
+  const month = +parts.find((p) => p.type === "month").value;
+  const day = +parts.find((p) => p.type === "day").value;
+
+  const yesterday = new Date(Date.UTC(year, month - 1, day));
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+  return `${yesterday.getUTCMonth() + 1}/${yesterday.getUTCDate()}/${yesterday.getUTCFullYear()}`;
 }
 
 /**
@@ -126,36 +140,56 @@ async function getMeterData(meter) {
     new Date(getYesterdayInPST()),
   );
 
-  const rowSelector = `[data-id="${meter.siteId}"]`;
-  await page.waitForSelector(rowSelector);
+  try {
+    const rowSelector = `[data-id="${meter.siteId}"]`;
+    await page.waitForSelector(rowSelector);
 
-  // Read site name from the table (for logging and verification)
-  const PVSystem = await page.$eval(
-    `${rowSelector} [data-field="name"]`,
-    (el) => el.innerText.trim(),
-  );
+    // Read site name from the table (for logging and verification)
+    const PVSystem = await page.$eval(
+      `${rowSelector} [data-field="name"]`,
+      (el) => el.innerText.trim(),
+    );
 
-  // Read yesterday's finalized energy yield in kWh
-  const energyYesterdayText = await page.$eval(
-    `${rowSelector} [data-field="energyYesterday"]`,
-    (el) => el.innerText.trim(),
-  );
+    // Read yesterday's finalized energy yield in kWh
+    const energyYesterdayText = await page.$eval(
+      `${rowSelector} [data-field="energyYesterday"]`,
+      (el) => el.innerText.trim(),
+    );
 
-  // Remove commas so parseFloat handles values over 1,000
-  const totalYield = parseFloat(energyYesterdayText.replace(/,/g, ""));
-  console.log(`${PVSystem} | Energy Yesterday: ${totalYield} kWh`);
+    // Remove commas so parseFloat handles values over 1,000
+    const totalYield = parseFloat(energyYesterdayText.replace(/,/g, ""));
 
-  const PVTable = {
-    meterName: meter.meterName,
-    meterID: meter.meterID,
-    time: DATE_TIME,
-    time_seconds: UNIX_TIME,
-    PVSystem,
-    totalYield,
-  };
+    // Guard against empty or non-numeric cells (e.g. "—", "N/A"). An unvalidated
+    // NaN serializes to null over the wire and silently corrupts downstream data.
+    if (!Number.isFinite(totalYield)) {
+      console.warn(
+        `SKIPPING ${PVSystem} (${meter.meterName}): non-numeric energyYesterday value "${energyYesterdayText}"`,
+      );
+      return null;
+    }
 
-  PV_tableData.push(PVTable);
-  return PVTable;
+    console.log(`${PVSystem} | Energy Yesterday: ${totalYield} kWh`);
+
+    const PVTable = {
+      meterName: meter.meterName,
+      meterID: meter.meterID,
+      time: DATE_TIME,
+      time_seconds: UNIX_TIME,
+      PVSystem,
+      totalYield,
+    };
+
+    PV_tableData.push(PVTable);
+    return PVTable;
+  } catch (error) {
+    // A missing row / failed read shouldn't sink the batch. Log and move on so
+    // the remaining meters still upload (matches the sibling scrapers).
+    console.log(
+      `Data for meter ${meter.meterName} (siteId ${meter.siteId}) not found.`,
+    );
+    console.log("Moving on to next meter (if applicable)");
+    return null;
+  }
 }
 
 /**
@@ -177,12 +211,20 @@ async function uploadMeterData(meterData) {
       console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
     })
     .catch((err) => {
-      if (err.response.data.includes("redundant")) {
-        console.log(`DUPLICATE DATA: ${err.response.data}`);
-      } else {
+      // Axios only sets err.response when the server responded. Network/DNS/
+      // timeout errors have no response, so guard against reading .data on
+      // undefined and coerce non-string bodies before calling .includes().
+      const data = err.response?.data;
+      const dataStr = typeof data === "string" ? data : JSON.stringify(data ?? "");
+
+      if (dataStr.includes("redundant")) {
+        console.log(`DUPLICATE DATA: ${dataStr}`);
+      } else if (err.response) {
         console.log(
-          `ERROR: ${err.response.status}, TEXT: ${err.response.statusText}, DATA: ${err.response.data}`,
+          `ERROR: ${err.response.status}, TEXT: ${err.response.statusText}, DATA: ${dataStr}`,
         );
+      } else {
+        console.log(`REQUEST FAILED: ${err.code ?? ""} ${err.message}`);
       }
     });
 }
@@ -196,34 +238,43 @@ async function uploadMeterData(meterData) {
     args: ["--no-sandbox"],
   });
 
-  page = await browser.newPage();
-  await page.setDefaultTimeout(TIMEOUT_BUFFER);
+  try {
+    page = await browser.newPage();
+    await page.setDefaultTimeout(TIMEOUT_BUFFER);
 
-  await loginToSolarEdge();
+    await loginToSolarEdge();
 
-  // Navigate to site list — both meters are visible in one table
-  await page.goto(SITE_LIST_URL, { waitUntil: "networkidle0" });
-  console.log("Navigated to site list");
+    // Navigate to site list — both meters are visible in one table
+    await page.goto(SITE_LIST_URL, { waitUntil: "networkidle0" });
+    console.log("Navigated to site list");
 
-  // Wait for DataGrid rows to load
-  await page.waitForSelector("[data-id]");
-  console.log("Site list loaded");
+    // Wait for DataGrid rows to load
+    await page.waitForSelector("[data-id]");
+    console.log("Site list loaded");
 
-  // Get data for each meter
-  for (let j = 0; j < meterlist.length; j++) {
-    await getMeterData(meterlist[j]);
-  }
-
-  // Log and upload data for each meter
-  for (let i = 0; i < PV_tableData.length; i++) {
-    console.log("\n", PV_tableData[i]);
-
-    // Use --no-upload flag to prevent uploading to the API for local testing
-    // node readSolarEdge.js --no-upload
-    if (!process.argv.includes("--no-upload")) {
-      await uploadMeterData(PV_tableData[i]);
+    // Get data for each meter
+    for (let j = 0; j < meterlist.length; j++) {
+      await getMeterData(meterlist[j]);
     }
-  }
 
-  await browser.close();
-})();
+    // Log and upload data for each meter
+    for (let i = 0; i < PV_tableData.length; i++) {
+      console.log("\n", PV_tableData[i]);
+
+      // Use --no-upload flag to prevent uploading to the API for local testing
+      // node readSolarEdge.js --no-upload
+      if (!process.argv.includes("--no-upload")) {
+        await uploadMeterData(PV_tableData[i]);
+      }
+    }
+  } finally {
+    // Always close the browser so a mid-run failure doesn't leak a Chromium
+    // process on the host (this job runs on a schedule).
+    await browser.close();
+  }
+})().catch((err) => {
+  // Surface fatal errors (e.g. login failure) with a non-zero exit code so the
+  // scheduler flags the run instead of treating a hard failure as success.
+  console.error(`FATAL: ${err.message}`);
+  process.exitCode = 1;
+});
