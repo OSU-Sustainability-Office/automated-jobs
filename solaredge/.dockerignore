@@ -1,0 +1,25 @@
+# NOTE: .env is intentionally NOT ignored — this project bakes credentials into
+# the image (ECS injects no env vars). See the sibling jobs (ennex-os, SEC).
+
+# Dependencies — rebuilt inside the image via `npm install`
+node_modules
+
+# Version control
+.git
+.gitignore
+
+# Docker
+dockerfile
+Dockerfile
+.dockerignore
+
+# Logs & debug output
+logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode
+.idea

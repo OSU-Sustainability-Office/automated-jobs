@@ -4,6 +4,21 @@ const axios = require("axios");
 require("dotenv").config();
 const meterlist = require("./meterlist.json");
 
+// Fail fast with a clear message if credentials are missing (e.g. the .env was
+// not baked into the image), instead of a cryptic "Page.navigate" protocol
+// error later when page.goto() receives an undefined URL.
+const REQUIRED_ENV = [
+  "SOLAREDGE_LOGINPAGE",
+  "SOLAREDGE_USERNAME",
+  "SOLAREDGE_PWD",
+  "DASHBOARD_API",
+  "API_PWD",
+];
+const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missing.length > 0) {
+  throw new Error(`Missing required environment variable(s): ${missing.join(", ")}`);
+}
+
 // Constants
 const DASHBOARD_API = process.argv.includes("--local-api")
   ? process.env.LOCAL_API
