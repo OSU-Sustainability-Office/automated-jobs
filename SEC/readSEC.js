@@ -291,6 +291,10 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
   let dayCheck = parseInt(SEC_DAY); // day to check in the table
   let totalDailyYield = "0";
 
+  // Declared outside the try so the catch below can still name the day it
+  // failed on — a const inside the try isn't in scope there.
+  const debugSECDate = formatDebugDate(SEC_DATE) + "/" + SEC_YEAR;
+
   // no point in checking multiple attempts, if the frontend state didn't load it's already too late
   // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
   // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
@@ -311,11 +315,10 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       const dateRowSelector = `${DATA_TABLE}
       tr:nth-child(${dayCheck + 1}) 
       td:nth-child(1)`;
-      actualDate = await page.$eval(dateRowSelector, (el) =>
+      const actualDate = await page.$eval(dateRowSelector, (el) =>
         el.textContent.trim(),
       );
       const debugActualDate = formatDebugDate(actualDate) + "/" + SEC_YEAR;
-      const debugSECDate = formatDebugDate(SEC_DATE) + "/" + SEC_YEAR;
 
       // create the PVTable object (ensure that the keys match the API)
       const PVTable = {
