@@ -13,6 +13,10 @@ const DASHBOARD_API = process.argv.includes("--local-api")
 const TIMEOUT_BUFFER = 60000; //DEBUG: lower to 10000 for faster testing
 const PV_tableData = [];
 
+// Furthest back a run will backfill when a meter has fallen behind.
+// Matches PacificPower/readPP.js MAX_PREV_DAY_COUNT.
+const MAX_RECOVERY_DAYS = 7;
+
 // Selectors
 const USERNAME_SELECTOR = "input[name='username']";
 const PASSWORD_SELECTOR = "input[name='password']";
@@ -92,18 +96,37 @@ async function loginToSEC(page) {
 }
 
 /**
- * Returns yesterday's date in PST as a string in the format "MM/DD/YYYY"
- * (e.g. "10/07/2021")
+ * Returns the date `days` days before today in PST, as a string in the
+ * format "MM/DD/YYYY" (e.g. "10/07/2021"). getDaysAgoInPST(1) is yesterday.
  */
-function getYesterdayInPST() {
+function getDaysAgoInPST(days) {
   // get current time in UTC
   const now = new Date();
 
-  // subtract one day
-  now.setDate(now.getDate() - 1);
+  // subtract the requested number of days
+  now.setDate(now.getDate() - days);
 
   // return the resulting date in PST
   return now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
+}
+
+/**
+ * Converts a Unix timestamp (seconds) to its PST calendar date, "MM/DD/YYYY".
+ */
+function unixToPSTDate(timeSeconds) {
+  return new Date(Number(timeSeconds) * 1000).toLocaleDateString("en-US", {
+    timeZone: "America/Los_Angeles",
+  });
+}
+
+/**
+ * Returns the date `days` days after the given "MM/DD/YYYY" string, in the
+ * same format. Operates on the calendar date only, so no timezone conversion.
+ */
+function addDays(dateString, days) {
+  const date = new Date(dateString);
+  date.setDate(date.getDate() + days);
+  return date.toLocaleDateString("en-US");
 }
 
 /**
@@ -268,6 +291,10 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
   let dayCheck = parseInt(SEC_DAY); // day to check in the table
   let totalDailyYield = "0";
 
+  // Declared outside the try so the catch below can still name the day it
+  // failed on — a const inside the try isn't in scope there.
+  const debugSECDate = formatDebugDate(SEC_DATE) + "/" + SEC_YEAR;
+
   // no point in checking multiple attempts, if the frontend state didn't load it's already too late
   // for now just add a big timeout after clicking each of the "Details" / "Monthly" tabs
   // potential TODO: identify loading animations and wait for those to disappear, or some other monthly indicator
@@ -288,11 +315,10 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
       const dateRowSelector = `${DATA_TABLE}
       tr:nth-child(${dayCheck + 1}) 
       td:nth-child(1)`;
-      actualDate = await page.$eval(dateRowSelector, (el) =>
+      const actualDate = await page.$eval(dateRowSelector, (el) =>
         el.textContent.trim(),
       );
       const debugActualDate = formatDebugDate(actualDate) + "/" + SEC_YEAR;
-      const debugSECDate = formatDebugDate(SEC_DATE) + "/" + SEC_YEAR;
 
       // create the PVTable object (ensure that the keys match the API)
       const PVTable = {
@@ -332,11 +358,21 @@ async function getDailyData(date, meterName, meterID, PVSystem) {
 /**
  * Gets the meter data for a given meter and adds it to the PV_tableData array
  */
-async function getMeterData(meter) {
+async function getMeterData(meter, recentData) {
   const meterName = meter.meterName;
   const meterID = meter.meterID;
-  const yesterdayDate = getYesterdayInPST();
-  const mostRecentDate = await getLastLoggedDate();
+  const yesterdayDate = getDaysAgoInPST(1);
+  const mostRecentDate = getRecoveryStartDate(meterID, recentData);
+
+  // skip before navigating, there is nothing to scrape
+  if (!mostRecentDate) {
+    console.log(`${meterName} is already up to date. Skipping.`);
+    return [];
+  }
+
+  console.log(
+    `Scraping ${meterName} from ${mostRecentDate} to ${yesterdayDate}`,
+  );
 
   // navigate to the meter page
   const PVSystemElement = await page.waitForSelector(
@@ -407,22 +443,85 @@ async function uploadMeterData(meterData) {
       console.log(`RESPONSE: ${res.status}, TEXT: ${res.statusText}`);
     })
     .catch((err) => {
-      if (err.response.data.includes("redundant")) {
-        console.log(`DUPLICATE DATA: ${err.response.data}`);
-      } else
+      // Axios only sets err.response when the server responded. Network/DNS/
+      // timeout errors have no response, so guard against reading .data on
+      // undefined and coerce non-string bodies before calling .includes().
+      const data = err.response?.data;
+      const dataStr =
+        typeof data === "string" ? data : JSON.stringify(data ?? "");
+
+      if (dataStr.includes("redundant")) {
+        console.log(`DUPLICATE DATA: ${dataStr}`);
+      } else if (err.response) {
         console.log(
-          `ERROR: ${err.response.status}, TEXT: ${err.response.statusText}, DATA: ${err.response.data}`,
+          `ERROR: ${err.response.status}, TEXT: ${err.response.statusText}, DATA: ${dataStr}`,
         );
+      } else {
+        console.log(`REQUEST FAILED: ${err.code ?? ""} ${err.message}`);
+      }
     });
 }
 
 /**
+ * Retrieves the last logged reading for every solar meter from the dashboard.
+ * Used to resume scraping from where the last successful run left off, so that
+ * a failed run is backfilled automatically on the next one.
  *
- * Returns the last date that data was logged to the dashboard
-* Date Format: MM/DD/YYYY (e.g. "10/07/2021")
+ * Returns null on failure, in which case callers fall back to scraping only
+ * yesterday (the behavior before recovery was added).
  */
-async function getLastLoggedDate() {
-  return getYesterdayInPST(); // TODO: implement a GET request to the API to get the last logged date. For now, just return yesterday's date.
+async function getSolarRecentData() {
+  try {
+    const response = await axios.get(`${DASHBOARD_API}/solarrecent`);
+
+    // a malformed body would otherwise throw later, mid-scrape
+    if (!Array.isArray(response.data)) {
+      throw new Error(`expected an array, got ${typeof response.data}`);
+    }
+
+    console.log(
+      `${response.data.length} meters fetched from Solar Recent Data List`,
+    );
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    console.log(
+      "Could not get Solar Recent Data List. Falling back to yesterday only.",
+    );
+    return null;
+  }
+}
+
+/**
+ * Returns the first date a meter should be scraped for, as "MM/DD/YYYY",
+ * or null if the meter is already up to date and should be skipped.
+ *
+ * Resumes from the day after the meter's last logged reading, clamped so that
+ * a long outage never backfills more than MAX_RECOVERY_DAYS.
+ */
+function getRecoveryStartDate(meterID, recentData) {
+  const yesterday = getDaysAgoInPST(1);
+  const windowStart = getDaysAgoInPST(MAX_RECOVERY_DAYS);
+
+  // API unavailable: preserve the original yesterday-only behavior
+  if (!recentData) return yesterday;
+
+  const meterRow = recentData.find(
+    (o) => String(o.MeterID) === String(meterID),
+  );
+
+  // meter has never logged data: backfill the full recovery window
+  if (!meterRow) return windowStart;
+
+  const resumeFrom = addDays(unixToPSTDate(meterRow.time_seconds), 1);
+
+  // already current, nothing to scrape
+  if (new Date(resumeFrom) > new Date(yesterday)) return null;
+
+  // fell behind further than we are willing to backfill
+  if (new Date(resumeFrom) < new Date(windowStart)) return windowStart;
+
+  return resumeFrom;
 }
 
 (async () => {
@@ -443,9 +542,12 @@ async function getLastLoggedDate() {
 
   await loginToSEC(page);
 
+  // fetch once for all meters, rather than per-meter
+  const recentData = await getSolarRecentData();
+
   // get data for each meter, which is added to the PV_tableData array
   for (let j = 0; j < meterlist.length; j++) {
-    await getMeterData(meterlist[j]);
+    await getMeterData(meterlist[j], recentData);
   }
 
   // log and upload data for each meter
