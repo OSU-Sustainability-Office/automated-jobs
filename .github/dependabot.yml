@@ -1,0 +1,46 @@
+version: 2
+
+updates:
+  # npm dependencies - one PR stream per job directory
+  - package-ecosystem: "npm"
+    directories:
+      - "/check-acq"
+      - "/ennex-os"
+      - "/PacificPower"
+      - "/refresh-osm"
+      - "/SEC"
+      - "/solaredge"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      # Bundle minor/patch bumps into a single PR per job.
+      # Majors stay ungrouped so puppeteer/axios breaks get reviewed alone.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Base images in each job's dockerfile
+  - package-ecosystem: "docker"
+    directories:
+      - "/check-acq"
+      - "/ennex-os"
+      - "/PacificPower"
+      - "/refresh-osm"
+      - "/SEC"
+      - "/solaredge"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
