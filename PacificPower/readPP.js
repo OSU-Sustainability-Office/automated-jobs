@@ -19,8 +19,13 @@ require("dotenv").config();
 const CONFIG = {
   // Timeouts and retry settings
   TIMEOUT_BUFFER: 1200000, // 20 minutes
+  // Per-row lookup timeout when walking the usage table. Must stay small: the table is
+  // already rendered by the time rows are read, so a missing row means we've run off the
+  // end of the meter's data, not that it's still loading. Without this, the lookup would
+  // inherit TIMEOUT_BUFFER and stall 20 minutes per meter (see getRowText).
+  ROW_READ_TIMEOUT: 5000, // 5 seconds
   MAX_ATTEMPTS: 8, // needs to be at least 8 because we check 8 timeframes (monthly): [2 year, 1 month, 1 year, 1 month, 1 day, 1 month, 1 week, 1 month]
-  MAX_PREV_DAY_COUNT: 7, // Maximum number of days back to check data for each meter
+  MAX_PREV_DAY_COUNT: 30, // Maximum number of days back to check data for each meter (matches the ~30-row "One Month" table and the /pprecent window)
 
   // Date settings
   STARTING_DAYS_BACK: 1, // How many days back from today to start checking data
@@ -192,7 +197,10 @@ class APIClient {
   /**
    * Retrieve the most recent data from the Pacific Power Recent Data List.
    * Used to avoid uploading redundant data to the database and for uploading
-   * missing data. /pprecent API currently returns the last 7 days of data.
+   * missing data. /pprecent API currently returns the last 30 days of data,
+   * which must stay in sync with CONFIG.MAX_PREV_DAY_COUNT — if this window is
+   * narrower, the scraper cannot tell what is already stored for the older days
+   * and will re-POST them every night.
    */
   async getPacificPowerRecentData() {
     try {
@@ -418,7 +426,7 @@ class MeterProcessor {
         data: this.unavailableErrorArray,
       },
       {
-        name: "Delivered Error Meters (Monthly)",
+        name: "Delivered / Received Meters (Monthly)",
         data: this.deliveredErrorArray,
       },
       { name: "Yearly Meters", data: this.yearlyArray },
@@ -451,7 +459,7 @@ class MeterProcessor {
       this.ppArray,
       "Unavailable Meters (Monthly): ",
       this.unavailableErrorArray,
-      "Delivered Error Meters (Monthly): ",
+      "Delivered / Received Meters (Monthly): ",
       this.deliveredErrorArray,
       "Yearly Meters: ",
       this.yearlyArray,
@@ -885,6 +893,7 @@ class PacificPowerScraper {
   async getRowText(monthlyTopConst, rowDays) {
     const monthlyTop = await this.page.waitForSelector(
       monthlyTopConst + rowDays + ")",
+      { timeout: CONFIG.ROW_READ_TIMEOUT },
     );
     const monthlyTopText = await monthlyTop.evaluate((el) => el.textContent);
     return monthlyTopText;
@@ -1049,10 +1058,20 @@ class PacificPowerScraper {
                 rowDays,
               );
             } catch (error) {
-              console.log(
-                `Meter data for ${actualDays} days ago not found on pacific power site, likely due to this being a new meter. Exiting early.`,
-              );
-              console.error(error);
+              // Running out of rows is the normal stop condition now that we look back
+              // MAX_PREV_DAY_COUNT days: most meters expose fewer rows than that, so this
+              // fires nightly and must not read as a failure. Anything that isn't the
+              // row-lookup timeout is still surfaced as a genuine problem.
+              if (error?.name === "TimeoutError") {
+                console.log(
+                  `No table row for ${actualDays} days ago; reached the end of this meter's available data. Moving on.`,
+                );
+              } else {
+                console.log(
+                  "Unexpected failure reading table row for this meter",
+                );
+                console.error(error);
+              }
               this.state.prevDayFlag = true;
             }
 
@@ -1066,7 +1085,7 @@ class PacificPowerScraper {
 
             if (monthlyTopText.includes("Unavailable")) {
               console.log(
-                "'Unavailable' error detected for monthly time range, skipping to next day",
+                "'Unavailable' usage value detected for monthly time range, skipping to next day",
               );
               rowDays += 1;
               actualDays += 1;
@@ -1082,7 +1101,7 @@ class PacificPowerScraper {
               monthlyTopText.includes("received from you")
             ) {
               console.log(
-                "'delivered / received' error detected for monthly time range, skipping to next day",
+                "'delivered / received' row detected for monthly time range, skipping to next day",
               );
               rowDays += 1;
               actualDays += 1;
