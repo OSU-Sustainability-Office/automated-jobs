@@ -120,6 +120,7 @@ check-acq/mergedFinalDataOutputNoChange.json
 check-acq/mergedFinalDataOutputNoChange.txt
 check-acq/allMeters.json
 
-# PacificPower output
+# PacificPower output (one file per --account)
 pacificpower/output.json
+PacificPower/output*.json
 pacificpower/logs/log-file*.txt
