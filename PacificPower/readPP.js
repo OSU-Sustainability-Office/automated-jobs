@@ -37,6 +37,32 @@ const CONFIG = {
     : process.env.DASHBOARD_API,
 };
 
+// OSU bills Pacific Power under more than one login (Corvallis, and OSU-Cascades in
+// Bend), and the meter dropdown only ever lists the meters belonging to the account
+// that is signed in. So the account is chosen per run:
+//
+//   node readPP.js                      -> the original PP_* credentials
+//   node readPP.js --account=CASCADES   -> PP_CASCADES_* credentials
+//
+// Everything downstream is keyed on the Pacific Power meter number, which is unique
+// across accounts, so a second run needs no other changes.
+const ACCOUNT = (
+  process.argv.find((arg) => arg.startsWith("--account=")) || ""
+).split("=")[1];
+
+/**
+ * Reads a Pacific Power credential, preferring the account-scoped variable
+ * (PP_CASCADES_USERNAME) and falling back to the bare one (PP_USERNAME). The
+ * fallback is what keeps the existing .env and the existing scheduled task
+ * working without being touched.
+ */
+const ppEnv = (key) => {
+  const scoped = ACCOUNT
+    ? process.env[`PP_${ACCOUNT.toUpperCase()}_${key}`]
+    : undefined;
+  return scoped ?? process.env[`PP_${key}`];
+};
+
 // Pacific Power Selectors
 const SELECTORS = {
   ACCEPT_COOKIES: "button.cookie-accept-button",
@@ -68,6 +94,16 @@ const SELECTORS = {
   MONTHLY_TABLE_ROW_SELECTOR:
     "#main > wcss-full-width-content-block > div > wcss-myaccount-energy-usage > div:nth-child(5) > div.usage-graph-area > div:nth-child(2) > div > div > div > div > table > tbody > tr:nth-child(",
 };
+
+// Pacific Power renders the meter string differently depending on the account and
+// the viewport: "(Item #55)  (Meter #75456010 )" on the Corvallis account, but
+// "(Item#6) (Meter#74265082 )" on OSU-Cascades. Match the number rather than
+// counting characters from a fixed offset, which only worked for the first form.
+const METER_ID_PATTERN = /\(\s*Meter\s*#\s*(\d+)\s*\)/i;
+
+// A timeframe dropdown value, e.g. "One Month" or "Two Year". Used to tell the two
+// dropdowns apart in resolveMenuSelectors().
+const TIMEFRAME_VALUE_PATTERN = /^(One|Two)\s+(Day|Week|Month|Year)$/i;
 
 // Map of timeframe choices for monthly and yearly data
 const TIMEFRAME_CHOICES = {
@@ -154,6 +190,11 @@ class ValidationUtils {
    * Check if the meterId and corresponding time is already in the database.
    */
   static isMeterInDatabase(meterId, timeSeconds, recentData) {
+    // getPacificPowerRecentData() returns null when /pprecent is unreachable and
+    // logs that redundant data may be uploaded. Honour that contract instead of
+    // throwing: without the list we simply cannot tell, so assume not present.
+    if (!recentData) return false;
+
     const meterInDatabase = recentData.find(
       (o) =>
         String(o.pacific_power_meter_id) === String(meterId) &&
@@ -171,6 +212,8 @@ class ValidationUtils {
    * Check if the meterId and corresponding time is already in the upload queue.
    */
   static isMeterInUploadQueue(meterId, timeSeconds, uploadQueue) {
+    if (!uploadQueue) return false;
+
     const meterInQueue = uploadQueue.find(
       (o) =>
         String(o.pp_meter_id) === String(meterId) &&
@@ -474,11 +517,15 @@ class MeterProcessor {
     ];
 
     const jsonContent = JSON.stringify(outputData, null, 2);
-    fs.writeFile("./output.json", jsonContent, "utf8", function (err) {
+    // Suffixed by account so two runs on the same machine don't overwrite each other.
+    const outputFile = ACCOUNT
+      ? `./output-${ACCOUNT.toLowerCase()}.json`
+      : "./output.json";
+    fs.writeFile(outputFile, jsonContent, "utf8", function (err) {
       if (err) {
         return console.log(err);
       }
-      console.log("\nFile Saved: Yes");
+      console.log(`\nFile Saved: Yes (${outputFile})`);
     });
   }
 }
@@ -551,7 +598,7 @@ class PacificPowerScraper {
   async signInToPacificPower(loginAttempts) {
     console.log("Accessing Pacific Power Web Page...");
 
-    await this.page.goto(process.env.PP_LOGINPAGE, {
+    await this.page.goto(ppEnv("LOGINPAGE"), {
       waitUntil: "networkidle0",
       timeout: 25000,
     });
@@ -586,12 +633,10 @@ class PacificPowerScraper {
       const frame = await signinIframe.contentFrame();
 
       console.log("Filling username...");
-      await frame
-        .locator(SELECTORS.SIGN_IN_INPUT)
-        .fill(process.env.PP_USERNAME);
+      await frame.locator(SELECTORS.SIGN_IN_INPUT).fill(ppEnv("USERNAME"));
 
       console.log("Filling password...");
-      await frame.locator(SELECTORS.SIGN_IN_PASSWORD).fill(process.env.PP_PWD);
+      await frame.locator(SELECTORS.SIGN_IN_PASSWORD).fill(ppEnv("PWD"));
 
       await frame.click(SELECTORS.LOGIN_BUTTON);
       console.log("Login Button clicked");
@@ -614,7 +659,7 @@ class PacificPowerScraper {
    * Navigate to the first meter's page and wait for it to finish loading.
    */
   async navigateToFirstMeterPage() {
-    await this.page.goto(process.env.PP_ACCOUNTPAGE, {
+    await this.page.goto(ppEnv("ACCOUNTPAGE"), {
       waitUntil: "networkidle0",
       timeout: 120000,
     });
@@ -637,6 +682,70 @@ class PacificPowerScraper {
         !document.querySelector(
           "#main > wcss-full-width-content-block > div > wcss-myaccount-dashboard > div:nth-child(4) > div:nth-child(1) > wcss-ma-usage-graph > div > div > wcss-loading > div",
         ),
+    );
+  }
+
+  /**
+   * Work out which "#mat-select-N" is the meter dropdown and which is the timeframe
+   * dropdown, by looking at what each one currently displays.
+   *
+   * Angular Material numbers these by instantiation order, which is NOT stable across
+   * accounts or sessions. The hardcoded #mat-select-1 / #mat-select-2 happen to be
+   * right for the Corvallis account, but on OSU-Cascades they are reversed: the
+   * scraper read "One Month" where it expected a meter string (so every meter id
+   * parsed as NaN) and selectMeterFromDropdownMenu quietly changed the timeframe
+   * instead of the meter, re-reading one meter 25 times.
+   *
+   * Falls back to the historical indices if neither dropdown can be identified, so a
+   * markup change can only leave things as bad as they already were, never worse.
+   */
+  async resolveMenuSelectors() {
+    try {
+      await this.page.waitForFunction(
+        () =>
+          [...document.querySelectorAll("[id^='mat-select-']")].some((el) =>
+            /\(\s*Meter\s*#/i.test(
+              el.querySelector(".mat-select-value span")?.textContent || "",
+            ),
+          ),
+        { timeout: 30000 },
+      );
+    } catch (error) {
+      console.log(
+        "Could not identify the meter dropdown by its contents; keeping the default selectors.",
+      );
+      return;
+    }
+
+    const ids = await this.page.evaluate(
+      (meterPattern, timePattern) => {
+        const meterRe = new RegExp(meterPattern, "i");
+        const timeRe = new RegExp(timePattern, "i");
+        const result = { meter: null, time: null };
+
+        for (const el of document.querySelectorAll("[id^='mat-select-']")) {
+          const text = (
+            el.querySelector(".mat-select-value span")?.textContent || ""
+          ).trim();
+          if (meterRe.test(text)) result.meter = el.id;
+          else if (timeRe.test(text)) result.time = el.id;
+        }
+        return result;
+      },
+      METER_ID_PATTERN.source,
+      TIMEFRAME_VALUE_PATTERN.source,
+    );
+
+    if (ids.meter) {
+      SELECTORS.METER_MENU = `#${ids.meter} > div > div.mat-select-value > span`;
+    }
+    if (ids.time) {
+      SELECTORS.TIME_MENU = `#${ids.time} > div > div.mat-select-value > span`;
+    }
+
+    console.log(
+      `Meter dropdown: ${ids.meter ?? "not identified (keeping default)"}, ` +
+        `timeframe dropdown: ${ids.time ?? "not identified (keeping default)"}`,
     );
   }
 
@@ -881,13 +990,17 @@ class PacificPowerScraper {
     const ppMeterFullTrim = ppMeterFull.trim();
     console.log("PP Full Meter: " + ppMeterFullTrim);
 
-    const positionMeter = "(Meter #";
-    const meterStringIndex = ppMeterFullTrim.indexOf(positionMeter);
-    const meterId = parseInt(
-      ppMeterFullTrim.slice(meterStringIndex + 8, ppMeterFullTrim.length - 2),
-    );
+    const match = ppMeterFullTrim.match(METER_ID_PATTERN);
+    if (!match) {
+      // Previously this produced NaN silently, which then sailed through as a
+      // "new meter" and could be POSTed to /ppupload. Fail the meter instead so
+      // handleUnknownMeterError counts it and the run stops if it keeps happening.
+      throw new Error(
+        `No meter number found in meter menu text: "${ppMeterFullTrim}"`,
+      );
+    }
 
-    return meterId;
+    return parseInt(match[1], 10);
   }
 
   async getRowText(monthlyTopConst, rowDays) {
@@ -1198,6 +1311,20 @@ class PacificPowerScraper {
   async run() {
     const startDate = moment().unix();
 
+    // Named up front so a CloudWatch log can be traced back to an account.
+    console.log(`Pacific Power account: ${ACCOUNT || "(default)"}`);
+    for (const key of ["LOGINPAGE", "ACCOUNTPAGE", "USERNAME", "PWD"]) {
+      if (!ppEnv(key)) {
+        const scoped = ACCOUNT ? `PP_${ACCOUNT.toUpperCase()}_${key}` : null;
+        throw new Error(
+          `Missing credential ${scoped ?? `PP_${key}`}. Set it in .env ` +
+            `(or the ECS task definition)` +
+            (scoped ? `, or fall back to PP_${key}` : "") +
+            ` before running this job.`,
+        );
+      }
+    }
+
     try {
       await this.initialize();
 
@@ -1213,6 +1340,7 @@ class PacificPowerScraper {
           // Sign in and get meter selector number for meter navigation
           await this.signInToPacificPower(i);
           await this.navigateToFirstMeterPage();
+          await this.resolveMenuSelectors();
           await this.getMeterSelectorNumberFromFirstMeter();
 
           console.log("\n========== ENTERING RECURRING LOG SECTION ==========");
